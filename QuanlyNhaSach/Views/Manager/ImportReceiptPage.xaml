@@ -1,0 +1,330 @@
+<Page x:Class="QuanlyNhaSach.Views.Manager.ImportReceiptPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      mc:Ignorable="d"
+      Title="Lập phiếu nhập hàng — Cổng Quản Trị"
+      Background="{StaticResource SubtleSurfaceBrush}">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="32,26">
+
+            <!-- ==================== 1. PAGE HEADER ==================== -->
+            <Grid Margin="0,0,0,20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Lập phiếu nhập hàng"
+                               Style="{StaticResource PageTitleStyle}"/>
+                    <TextBlock Text="Chọn nhà cung cấp, thêm sách vào phiếu nháp, cập nhật số lượng &amp; đơn giá nhập. Tồn kho chỉ tăng sau khi xác nhận phiếu."
+                               FontSize="13.5"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <Button Grid.Column="1"
+                        Content="Xem Lịch sử nhập →"
+                        Command="{Binding GoToImportHistoryCommand}"
+                        Style="{StaticResource SecondaryOutlineButtonStyle}"
+                        VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- Validation Alert Banner -->
+            <Border Background="{StaticResource ErrorSoftBgBrush}"
+                    BorderBrush="#FECACA"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="14,10"
+                    Margin="0,0,0,18"
+                    Visibility="{Binding HasValidationError, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock Text="{Binding ValidationErrorMessage}"
+                           Foreground="{StaticResource ErrorRedBrush}"
+                           FontWeight="SemiBold"
+                           FontSize="13"
+                           TextWrapping="Wrap"/>
+            </Border>
+
+            <!-- ==================== 2. RECEIPT HEADER CARD ==================== -->
+            <Border Style="{StaticResource CardPanelStyle}" Padding="22,18" Margin="0,0,0,20">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1*"/>
+                        <ColumnDefinition Width="1*"/>
+                        <ColumnDefinition Width="1.8*"/>
+                        <ColumnDefinition Width="1.4*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Draft Receipt Code -->
+                    <StackPanel Grid.Column="0" Margin="0,0,14,0">
+                        <TextBlock Text="Mã phiếu nhập" Style="{StaticResource FormFieldLabelStyle}"/>
+                        <Border Background="#F1F5F9" CornerRadius="8" Padding="12,9">
+                            <TextBlock Text="{Binding DraftReceiptCode}"
+                                       FontWeight="Bold"
+                                       Foreground="{StaticResource BrandDarkBlueBrush}"/>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Creation Date -->
+                    <StackPanel Grid.Column="1" Margin="0,0,14,0">
+                        <TextBlock Text="Ngày lập phiếu" Style="{StaticResource FormFieldLabelStyle}"/>
+                        <Border Background="#F1F5F9" CornerRadius="8" Padding="12,9">
+                            <TextBlock Text="{Binding DraftDateDisplay}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource CharcoalTextBrush}"/>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Supplier ComboBox -->
+                    <StackPanel Grid.Column="2" Margin="0,0,14,0">
+                        <TextBlock Text="Nhà cung cấp (Đang hoạt động) *" Style="{StaticResource FormFieldLabelStyle}"/>
+                        <ComboBox ItemsSource="{Binding ActiveSuppliers}"
+                                  SelectedItem="{Binding SelectedSupplier}"
+                                  DisplayMemberPath="DisplayName"
+                                  Style="{StaticResource FormComboBoxStyle}"/>
+                    </StackPanel>
+
+                    <!-- Notes -->
+                    <StackPanel Grid.Column="3">
+                        <TextBlock Text="Ghi chú phiếu nhập" Style="{StaticResource FormFieldLabelStyle}"/>
+                        <TextBox Text="{Binding DraftGhiChu, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource FormTextBoxStyle}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ==================== 3. TWO-COLUMN WORKSPACE: BOOK SEARCH & DRAFT DETAILS ==================== -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <!-- Left: Book Search & Picker -->
+                    <ColumnDefinition Width="1.05*"/>
+                    <!-- Right: Import Draft Details & Summary -->
+                    <ColumnDefinition Width="1.65*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- A. LEFT: BOOK SEARCH PANEL -->
+                <Border Grid.Column="0" Style="{StaticResource CardPanelStyle}" Padding="20,18" Margin="0,0,12,0">
+                    <StackPanel>
+                        <TextBlock Text="1. Tìm và chọn sách cần nhập"
+                                   Style="{StaticResource SectionHeadingStyle}"
+                                   Margin="0,0,0,6"/>
+                        <TextBlock Text="Tìm theo Mã sách, Tên sách hoặc Tác giả rồi nhấn '+ Thêm' để đưa vào phiếu nháp."
+                                   FontSize="12"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,12"/>
+
+                        <TextBox Text="{Binding BookSearchKeyword, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource FormTextBoxStyle}"
+                                 Margin="0,0,0,12"/>
+
+                        <DataGrid ItemsSource="{Binding MatchedBooks}"
+                                  SelectedItem="{Binding SelectedSearchBook}"
+                                  Style="{StaticResource AdminDataGridStyle}"
+                                  Height="390">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Mã" Binding="{Binding BookCode}" Width="62"/>
+                                <DataGridTemplateColumn Header="Đầu sách &amp; Tác giả" Width="*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding TenSach}"
+                                                           FontWeight="Bold"
+                                                           FontSize="12.5"
+                                                           Foreground="{StaticResource CharcoalTextBrush}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding TacGia}"
+                                                           FontSize="11"
+                                                           Foreground="{StaticResource MutedTextBrush}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Tồn" Binding="{Binding SoLuongTon}" Width="58"/>
+                                <DataGridTemplateColumn Header="Chọn" Width="82">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="+ Thêm"
+                                                    Command="{Binding DataContext.AddBookToDraftCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource PrimaryCtaButtonStyle}"
+                                                    FontSize="11.5"
+                                                    Padding="8,4"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </Border>
+
+                <!-- B. RIGHT: IMPORT DRAFT DETAILS DATAGRID & SUMMARY -->
+                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+
+                    <!-- Draft Detail Table Card -->
+                    <Border Style="{StaticResource CardPanelStyle}" Padding="20,18" Margin="0,0,0,18">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="2. Chi tiết sách trong phiếu nhập nháp"
+                                               Style="{StaticResource SectionHeadingStyle}"/>
+                                    <TextBlock Text="Chỉnh sửa trực tiếp Số lượng nhập (&gt;= 1) và Đơn giá nhập (&gt; 0). Thành tiền tự động tính theo thời gian thực."
+                                               FontSize="12"
+                                               Foreground="{StaticResource MutedTextBrush}"
+                                               Margin="0,2,0,0"/>
+                                </StackPanel>
+
+                                <Button Content="Làm mới phiếu nháp"
+                                        Command="{Binding ClearDraftCommand}"
+                                        Style="{StaticResource SecondaryOutlineButtonStyle}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Padding="12,6"/>
+                            </Grid>
+
+                            <DataGrid ItemsSource="{Binding DraftDetails}"
+                                      Style="{StaticResource AdminDataGridStyle}"
+                                      MinHeight="250"
+                                      MaxHeight="310">
+                                <DataGrid.Columns>
+                                    <!-- 1. Book ID -->
+                                    <DataGridTextColumn Header="Mã sách" Binding="{Binding BookCode}" Width="75"/>
+
+                                    <!-- 2. Book Title -->
+                                    <DataGridTemplateColumn Header="Tên đầu sách" Width="1.6*">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding TenSach}"
+                                                               FontWeight="Bold"
+                                                               FontSize="13"
+                                                               Foreground="{StaticResource CharcoalTextBrush}"
+                                                               TextWrapping="Wrap"/>
+                                                    <TextBlock Text="{Binding TacGia}"
+                                                               FontSize="11"
+                                                               Foreground="{StaticResource MutedTextBrush}"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
+                                    <!-- 3. Current Stock -->
+                                    <DataGridTextColumn Header="Tồn hiện tại" Binding="{Binding CurrentStock}" Width="95"/>
+
+                                    <!-- 4. Editable Import Quantity -->
+                                    <DataGridTemplateColumn Header="SL Nhập *" Width="105">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Text="{Binding SoLuongNhap, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         Style="{StaticResource FormTextBoxStyle}"
+                                                         Padding="8,5"
+                                                         FontSize="13"
+                                                         FontWeight="Bold"
+                                                         HorizontalContentAlignment="Center"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
+                                    <!-- 5. Editable Import Unit Price -->
+                                    <DataGridTemplateColumn Header="Đơn giá nhập (₫) *" Width="140">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Text="{Binding DonGiaNhap, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         Style="{StaticResource FormTextBoxStyle}"
+                                                         Padding="8,5"
+                                                         FontSize="13"
+                                                         FontWeight="SemiBold"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
+                                    <!-- 6. Calculated Line Total (Read-Only) -->
+                                    <DataGridTemplateColumn Header="Thành tiền" Width="130">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding FormattedThanhTien}"
+                                                           FontWeight="Bold"
+                                                           Foreground="{StaticResource BrandOrangeBrush}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
+                                    <!-- 7. Remove Action -->
+                                    <DataGridTemplateColumn Header="Xóa" Width="80">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Content="Xóa"
+                                                        Command="{Binding DataContext.RemoveDraftLineCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                                        CommandParameter="{Binding}"
+                                                        Style="{StaticResource RemoveItemButtonStyle}"
+                                                        Padding="8,4"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Receipt Summary & Confirm CTA Card -->
+                    <Border Style="{StaticResource CardPanelStyle}" Padding="22,18">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Summary Info -->
+                            <StackPanel Grid.Column="0" Margin="0,0,20,0">
+                                <TextBlock Text="TÓM TẮT PHIẾU NHẬP HÀNG"
+                                           FontSize="11.5"
+                                           FontWeight="Bold"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           Margin="0,0,0,8"/>
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Nhà cung cấp:" Foreground="{StaticResource MutedTextBrush}" FontSize="13"/>
+                                    <TextBlock Text="{Binding SelectedSupplierDisplay}" FontWeight="Bold" Foreground="{StaticResource CharcoalTextBrush}" FontSize="13" HorizontalAlignment="Right"/>
+                                </Grid>
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Số đầu sách / Tổng số lượng nhập:" Foreground="{StaticResource MutedTextBrush}" FontSize="13"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <TextBlock Text="{Binding DistinctBooksCount, StringFormat='{}{0} đầu sách'}" FontWeight="Bold" Foreground="{StaticResource BrandDarkBlueBrush}" FontSize="13"/>
+                                        <TextBlock Text=" • " Foreground="{StaticResource MutedTextBrush}"/>
+                                        <TextBlock Text="{Binding TotalDraftQuantity, StringFormat='{}{0} cuốn'}" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}" FontSize="13"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <Grid Margin="0,6,0,0">
+                                    <TextBlock Text="Tổng tiền phiếu nhập (TongTien):" FontWeight="Bold" Foreground="{StaticResource CharcoalTextBrush}" FontSize="14" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding FormattedGrandTotal}"
+                                               FontSize="22"
+                                               FontWeight="Bold"
+                                               Foreground="{StaticResource BrandOrangeBrush}"
+                                               HorizontalAlignment="Right"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- Primary Confirm Import Button (#E85D22) -->
+                            <Button Grid.Column="1"
+                                    Content="Xác nhận nhập hàng"
+                                    Command="{Binding ConfirmImportCommand}"
+                                    Style="{StaticResource PrimaryCtaButtonStyle}"
+                                    FontSize="15"
+                                    Padding="24,14"
+                                    VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                </StackPanel>
+            </Grid>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

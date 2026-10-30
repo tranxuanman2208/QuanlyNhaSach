@@ -1,0 +1,454 @@
+<Page x:Class="QuanlyNhaSach.Views.Customer.CartCheckoutPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      mc:Ignorable="d"
+      d:DesignHeight="820" d:DesignWidth="1180"
+      Title="CartCheckoutPage"
+      Background="{StaticResource MainBackgroundBrush}">
+
+    <Grid>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="36,28,36,40">
+
+                <!-- Page Header & Actions -->
+                <Grid Margin="0,0,0,22">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Giỏ Hàng &amp; Thanh Toán Đơn Hàng" Style="{StaticResource PageTitleStyle}"/>
+                        <TextBlock Text="Kiểm tra danh sách sách đã chọn và nhập thông tin nhận hàng để hoàn tất đặt hàng."
+                                   FontSize="14"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="← Tiếp tục mua sắm"
+                                Command="{Binding ContinueShoppingCommand}"
+                                Style="{StaticResource SecondaryOutlineButtonStyle}"
+                                Margin="0,0,10,0"/>
+
+                        <Button Content="Xóa toàn bộ giỏ"
+                                Command="{Binding ClearCartCommand}"
+                                Style="{StaticResource RemoveItemButtonStyle}"
+                                Padding="14,8"
+                                Visibility="{Binding HasCartItems, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- POST-CHECKOUT ORDER SUCCESS BANNER (Visible after successful mock checkout) -->
+                <Border Background="{StaticResource SuccessSoftBgBrush}"
+                        BorderBrush="#6EE7B7"
+                        BorderThickness="1.5"
+                        CornerRadius="12"
+                        Padding="24,20"
+                        Margin="0,0,0,24"
+                        Visibility="{Binding HasLastCreatedOrder, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Width="48" Height="48" CornerRadius="24" Background="#10B981" Margin="0,0,18,0" VerticalAlignment="Center">
+                            <TextBlock Text="✓" Foreground="White" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding LastCreatedOrder.MaDH, StringFormat='Đặt hàng thành công! Mã đơn hàng: #{0}'}"
+                                       FontSize="17"
+                                       FontWeight="Bold"
+                                       Foreground="#065F46"/>
+                            <WrapPanel Orientation="Horizontal" Margin="0,4,0,4">
+                                <TextBlock Text="{Binding LastCreatedOrder.HoTenKhachHang, StringFormat='Khách hàng: {0}  |  '}" FontSize="13.5" Foreground="#047857" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding LastCreatedOrder.PhuongThucThanhToan, StringFormat='Thanh toán: {0}  |  '}" FontSize="13.5" Foreground="#047857" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding LastCreatedOrder.FormattedTongTien, StringFormat='Tổng tiền: {0}  |  '}" FontSize="13.5" Foreground="#065F46" FontWeight="Bold"/>
+                                <TextBlock Text="{Binding LastCreatedOrder.TrangThai, StringFormat='Trạng thái: {0}'}" FontSize="13.5" Foreground="#047857" FontWeight="SemiBold"/>
+                            </WrapPanel>
+                            <TextBlock Text="Lưu ý: Đây là đơn hàng mô phỏng (In-Memory Mock Order). Dữ liệu tồn kho đã được cập nhật trong phiên làm việc hiện tại và đồng bộ với Cổng Nhân viên."
+                                       FontSize="12"
+                                       Foreground="#047857"/>
+                        </StackPanel>
+
+                        <Button Grid.Column="2"
+                                Content="Mua thêm sách mới"
+                                Command="{Binding ContinueShoppingCommand}"
+                                Style="{StaticResource PrimaryCtaButtonStyle}"
+                                VerticalAlignment="Center"
+                                Margin="16,0,0,0"/>
+                    </Grid>
+                </Border>
+
+                <!-- TWO-COLUMN CART & CHECKOUT LAYOUT -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.35*"/>
+                        <ColumnDefinition Width="1*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- LEFT COLUMN: A. SHOPPING CART PANEL -->
+                    <StackPanel Grid.Column="0" Margin="0,0,24,0">
+
+                        <!-- Active Cart Items Card -->
+                        <Border Style="{StaticResource CardPanelStyle}"
+                                Padding="24"
+                                Visibility="{Binding HasCartItems, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,16">
+                                    <TextBlock Text="Danh Sách Sản Phẩm Trong Giỏ" Style="{StaticResource SectionHeadingStyle}"/>
+                                    <Border Background="{StaticResource BrandDarkBlueLightBrush}" CornerRadius="10" Padding="10,3" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding TotalQuantity, StringFormat='{}{0} cuốn sách'}"
+                                                   Foreground="{StaticResource BrandDarkBlueBrush}"
+                                                   FontWeight="Bold"
+                                                   FontSize="12.5"/>
+                                    </Border>
+                                </Grid>
+
+                                <!-- Table Column Headers -->
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="56"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="105"/>
+                                        <ColumnDefinition Width="118"/>
+                                        <ColumnDefinition Width="115"/>
+                                        <ColumnDefinition Width="64"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Grid.Column="0" Text="Bìa" FontSize="12" FontWeight="Bold" Foreground="{StaticResource MutedTextBrush}"/>
+                                    <TextBlock Grid.Column="1" Text="Thông tin sách" FontSize="12" FontWeight="Bold" Foreground="{StaticResource MutedTextBrush}" Margin="10,0,0,0"/>
+                                    <TextBlock Grid.Column="2" Text="Đơn giá" FontSize="12" FontWeight="Bold" Foreground="{StaticResource MutedTextBrush}" TextAlignment="Right"/>
+                                    <TextBlock Grid.Column="3" Text="Số lượng" FontSize="12" FontWeight="Bold" Foreground="{StaticResource MutedTextBrush}" TextAlignment="Center"/>
+                                    <TextBlock Grid.Column="4" Text="Thành tiền" FontSize="12" FontWeight="Bold" Foreground="{StaticResource MutedTextBrush}" TextAlignment="Right"/>
+                                    <TextBlock Grid.Column="5" Text="Thao tác" FontSize="12" FontWeight="Bold" Foreground="{StaticResource MutedTextBrush}" TextAlignment="Right"/>
+                                </Grid>
+
+                                <Separator Background="{StaticResource BorderSubtleBrush}" Margin="0,0,0,8"/>
+
+                                <!-- Cart Items List -->
+                                <ItemsControl ItemsSource="{Binding CartItems}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="{StaticResource BorderSubtleBrush}"
+                                                    BorderThickness="0,0,0,1"
+                                                    Padding="0,14">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="56"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="105"/>
+                                                        <ColumnDefinition Width="118"/>
+                                                        <ColumnDefinition Width="115"/>
+                                                        <ColumnDefinition Width="64"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- Small Cover Placeholder -->
+                                                    <Border Grid.Column="0"
+                                                            Width="48"
+                                                            Height="64"
+                                                            CornerRadius="6"
+                                                            Background="{Binding Book.MauBia, Converter={StaticResource StringToBrushConverter}}">
+                                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                            <Path Data="{StaticResource IconBookGeometry}"
+                                                                  Fill="White"
+                                                                  Width="16" Height="16"
+                                                                  Stretch="Uniform"
+                                                                  HorizontalAlignment="Center"
+                                                                  Margin="0,0,0,2"/>
+                                                            <TextBlock Text="{Binding Book.MaSach, StringFormat='#{0}'}"
+                                                                       Foreground="White"
+                                                                       FontSize="9.5"
+                                                                       FontWeight="Bold"
+                                                                       HorizontalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <!-- Book Title, Author & Stock Indicator -->
+                                                    <StackPanel Grid.Column="1" Margin="10,0,10,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Book.TenSach}"
+                                                                   FontWeight="Bold"
+                                                                   FontSize="14"
+                                                                   Foreground="{StaticResource CharcoalTextBrush}"
+                                                                   TextWrapping="Wrap"/>
+                                                        <TextBlock Text="{Binding Book.TacGia, StringFormat='Tác giả: {0}'}"
+                                                                   FontSize="12"
+                                                                   Foreground="{StaticResource MutedTextBrush}"
+                                                                   Margin="0,2,0,4"/>
+                                                        <Border HorizontalAlignment="Left"
+                                                                CornerRadius="4"
+                                                                Padding="6,2"
+                                                                Background="{Binding Book.SoLuongTon, Converter={StaticResource StockBadgeBackgroundConverter}}">
+                                                            <TextBlock Text="{Binding Book.StockStatusText}"
+                                                                       FontSize="11"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="{Binding Book.SoLuongTon, Converter={StaticResource StockBadgeForegroundConverter}}"/>
+                                                        </Border>
+                                                    </StackPanel>
+
+                                                    <!-- Unit Price -->
+                                                    <TextBlock Grid.Column="2"
+                                                               Text="{Binding Book.FormattedPrice}"
+                                                               VerticalAlignment="Center"
+                                                               TextAlignment="Right"
+                                                               FontWeight="SemiBold"
+                                                               FontSize="13.5"/>
+
+                                                    <!-- Quantity Controls (- / Quantity / +) -->
+                                                    <Border Grid.Column="3"
+                                                            HorizontalAlignment="Center"
+                                                            VerticalAlignment="Center"
+                                                            BorderBrush="{StaticResource BorderSubtleBrush}"
+                                                            BorderThickness="1"
+                                                            CornerRadius="6"
+                                                            Padding="2"
+                                                            Background="White">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <Button Content="−"
+                                                                    Style="{StaticResource QuantityStepperButtonStyle}"
+                                                                    Width="26" Height="26"
+                                                                    Command="{Binding DataContext.DecreaseQuantityCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                                                    CommandParameter="{Binding}"/>
+
+                                                            <TextBlock Text="{Binding SoLuongMua}"
+                                                                       Width="34"
+                                                                       TextAlignment="Center"
+                                                                       VerticalAlignment="Center"
+                                                                       FontWeight="Bold"
+                                                                       FontSize="13.5"/>
+
+                                                            <Button Content="+"
+                                                                    Style="{StaticResource QuantityStepperButtonStyle}"
+                                                                    Width="26" Height="26"
+                                                                    Command="{Binding DataContext.IncreaseQuantityCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                                                    CommandParameter="{Binding}"/>
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <!-- Line Total (ThanhTien) -->
+                                                    <TextBlock Grid.Column="4"
+                                                               Text="{Binding FormattedThanhTien}"
+                                                               VerticalAlignment="Center"
+                                                               TextAlignment="Right"
+                                                               FontWeight="Bold"
+                                                               FontSize="14"
+                                                               Foreground="{StaticResource BrandOrangeBrush}"/>
+
+                                                    <!-- Explicit Remove Button -->
+                                                    <Button Grid.Column="5"
+                                                            Content="Xóa"
+                                                            Style="{StaticResource RemoveItemButtonStyle}"
+                                                            HorizontalAlignment="Right"
+                                                            VerticalAlignment="Center"
+                                                            Command="{Binding DataContext.RemoveItemCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                                            CommandParameter="{Binding}"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- Cart Bottom Grand Total Bar -->
+                                <Border Background="{StaticResource SubtleSurfaceBrush}"
+                                        CornerRadius="10"
+                                        Padding="18,14"
+                                        Margin="0,16,0,0">
+                                    <Grid>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="Tổng số lượng trong giỏ: " FontSize="14" Foreground="{StaticResource MutedTextBrush}"/>
+                                            <TextBlock Text="{Binding TotalQuantity, StringFormat='{}{0} cuốn'}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource BrandDarkBlueBrush}"/>
+                                        </StackPanel>
+
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <TextBlock Text="Tổng cộng giỏ hàng: " FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBlock Text="{Binding FormattedTotalAmount}"
+                                                       FontSize="22"
+                                                       FontWeight="Bold"
+                                                       Foreground="{StaticResource BrandOrangeBrush}"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Friendly Empty Cart State -->
+                        <Border Style="{StaticResource CardPanelStyle}"
+                                Padding="48,44"
+                                Visibility="{Binding IsCartEmpty, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <StackPanel HorizontalAlignment="Center" MaxWidth="420">
+                                <TextBlock Text="Giỏ hàng của bạn đang trống"
+                                           FontSize="20"
+                                           FontWeight="Bold"
+                                           Foreground="{StaticResource BrandDarkBlueBrush}"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,0,0,8"/>
+                                <TextBlock Text="Hãy quay lại trang chủ để khám phá các đầu sách hấp dẫn và thêm vào giỏ hàng trước khi thanh toán."
+                                           FontSize="14"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,22"/>
+                                <Button Content="Khám phá danh mục sách ngay"
+                                        Command="{Binding ContinueShoppingCommand}"
+                                        Style="{StaticResource PrimaryCtaButtonStyle}"
+                                        HorizontalAlignment="Center"
+                                        Padding="22,11"/>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+
+                    <!-- RIGHT COLUMN: B. CUSTOMER FORM, C. ORDER SUMMARY & D. CONFIRM BUTTON -->
+                    <StackPanel Grid.Column="1">
+
+                        <!-- Customer Information Form Card -->
+                        <Border Style="{StaticResource CardPanelStyle}" Padding="24" Margin="0,0,0,20">
+                            <StackPanel>
+                                <TextBlock Text="Thông Tin Khách Hàng Nhận Sách" Style="{StaticResource SectionHeadingStyle}" Margin="0,0,0,6"/>
+                                <TextBlock Text="Vui lòng điền đầy đủ các trường bắt buộc (*) bên dưới."
+                                           FontSize="12.5"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           Margin="0,0,0,18"/>
+
+                                <!-- 1. Full Name -->
+                                <TextBlock Text="Họ và tên người nhận *" Style="{StaticResource FormFieldLabelStyle}"/>
+                                <TextBox Text="{Binding HoTen, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource FormTextBoxStyle}"/>
+                                <TextBlock Text="{Binding HoTenError}"
+                                           Style="{StaticResource ValidationErrorTextStyle}"
+                                           Visibility="{Binding HasHoTenError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                                <!-- 2. Phone Number (Exactly 10 digits) -->
+                                <TextBlock Text="Số điện thoại (10 chữ số) *" Style="{StaticResource FormFieldLabelStyle}" Margin="0,14,0,6"/>
+                                <TextBox Text="{Binding SDT, UpdateSourceTrigger=PropertyChanged}"
+                                         MaxLength="10"
+                                         Style="{StaticResource FormTextBoxStyle}"/>
+                                <TextBlock Text="{Binding SdtError}"
+                                           Style="{StaticResource ValidationErrorTextStyle}"
+                                           Visibility="{Binding HasSDTError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                                <!-- 3. Delivery Address -->
+                                <TextBlock Text="Địa chỉ nhận hàng *" Style="{StaticResource FormFieldLabelStyle}" Margin="0,14,0,6"/>
+                                <TextBox Text="{Binding DiaChi, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource FormTextBoxStyle}"
+                                         Height="68"
+                                         TextWrapping="Wrap"
+                                         AcceptsReturn="True"
+                                         VerticalContentAlignment="Top"/>
+                                <TextBlock Text="{Binding DiaChiError}"
+                                           Style="{StaticResource ValidationErrorTextStyle}"
+                                           Visibility="{Binding HasDiaChiError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                                <!-- 4. Payment Method -->
+                                <TextBlock Text="Phương thức thanh toán *" Style="{StaticResource FormFieldLabelStyle}" Margin="0,14,0,6"/>
+                                <ComboBox ItemsSource="{Binding PaymentMethods}"
+                                          SelectedItem="{Binding SelectedPaymentMethod, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                          Style="{StaticResource FormComboBoxStyle}"/>
+                                <TextBlock Text="{Binding PaymentMethodError}"
+                                           Style="{StaticResource ValidationErrorTextStyle}"
+                                           Visibility="{Binding HasPaymentMethodError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- C. Order Summary & D. Confirm Order Button Card -->
+                        <Border Style="{StaticResource CardPanelStyle}" Padding="24">
+                            <StackPanel>
+                                <TextBlock Text="Tóm Tắt Đơn Hàng" Style="{StaticResource SectionHeadingStyle}" Margin="0,0,0,16"/>
+
+                                <Grid Margin="0,0,0,10">
+                                    <TextBlock Text="Tổng số lượng sách:" Foreground="{StaticResource MutedTextBrush}" FontSize="13.5"/>
+                                    <TextBlock Text="{Binding TotalQuantity, StringFormat='{}{0} cuốn'}"
+                                               HorizontalAlignment="Right"
+                                               FontWeight="SemiBold"
+                                               FontSize="13.5"/>
+                                </Grid>
+
+                                <Grid Margin="0,0,0,10">
+                                    <TextBlock Text="Tạm tính:" Foreground="{StaticResource MutedTextBrush}" FontSize="13.5"/>
+                                    <TextBlock Text="{Binding FormattedTotalAmount}"
+                                               HorizontalAlignment="Right"
+                                               FontWeight="SemiBold"
+                                               FontSize="13.5"/>
+                                </Grid>
+
+                                <Grid Margin="0,0,0,14">
+                                    <TextBlock Text="Phương thức thanh toán:" Foreground="{StaticResource MutedTextBrush}" FontSize="13.5"/>
+                                    <TextBlock Text="{Binding NormalizedSelectedPayment}"
+                                               HorizontalAlignment="Right"
+                                               FontWeight="Bold"
+                                               Foreground="{StaticResource BrandDarkBlueBrush}"
+                                               FontSize="13.5"/>
+                                </Grid>
+
+                                <Separator Background="{StaticResource BorderSubtleBrush}" Margin="0,0,0,14"/>
+
+                                <Grid Margin="0,0,0,18">
+                                    <TextBlock Text="Tổng thanh toán:" FontWeight="Bold" FontSize="16" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding FormattedTotalAmount}"
+                                               HorizontalAlignment="Right"
+                                               FontWeight="Bold"
+                                               FontSize="24"
+                                               Foreground="{StaticResource BrandOrangeBrush}"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+
+                                <!-- General Validation / Checkout Error Alert -->
+                                <Border Background="{StaticResource ErrorSoftBgBrush}"
+                                        BorderBrush="#FECACA"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="12,10"
+                                        Margin="0,0,0,14"
+                                        Visibility="{Binding HasGeneralError, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Text="{Binding GeneralErrorMessage}"
+                                               Foreground="{StaticResource ErrorRedBrush}"
+                                               FontSize="12.5"
+                                               FontWeight="SemiBold"
+                                               TextWrapping="Wrap"/>
+                                </Border>
+
+                                <!-- Loading Indicator while checkout is processing -->
+                                <Border Background="{StaticResource BrandDarkBlueLightBrush}"
+                                        CornerRadius="8"
+                                        Padding="12,10"
+                                        Margin="0,0,0,14"
+                                        Visibility="{Binding IsProcessingCheckout, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <StackPanel>
+                                        <TextBlock Text="Đang kiểm tra tồn kho và khởi tạo đơn hàng..."
+                                                   Foreground="{StaticResource BrandDarkBlueBrush}"
+                                                   FontWeight="SemiBold"
+                                                   FontSize="12.5"
+                                                   Margin="0,0,0,6"/>
+                                        <ProgressBar IsIndeterminate="True" Height="5" Foreground="{StaticResource BrandOrangeBrush}"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- D. Confirm Order Call-to-Action Button (#E85D22) -->
+                                <Button Content="✓ Xác Nhận Đặt Hàng"
+                                        Command="{Binding ConfirmCheckoutCommand}"
+                                        Style="{StaticResource PrimaryCtaButtonStyle}"
+                                        FontSize="15.5"
+                                        Padding="0,13"
+                                        HorizontalAlignment="Stretch"/>
+
+                                <TextBlock Text="* Nút Xác nhận đặt hàng chỉ bật khi giỏ hàng có sách và thông tin họ tên, SĐT (đúng 10 số), địa chỉ đã hợp lệ."
+                                           FontSize="11.5"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,10,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </Grid>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>

@@ -1,0 +1,322 @@
+<Page x:Class="QuanlyNhaSach.Views.Manager.ImportHistoryPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      mc:Ignorable="d"
+      Title="Lịch sử nhập — Cổng Quản Trị"
+      Background="{StaticResource SubtleSurfaceBrush}">
+
+    <Grid>
+        <!-- ==================== 1. MAIN PAGE CONTENT ==================== -->
+        <Grid Margin="32,26">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- A. Header -->
+            <Grid Grid.Row="0" Margin="0,0,0,20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Lịch sử nhập"
+                               Style="{StaticResource PageTitleStyle}"/>
+                    <TextBlock Text="Tra cứu danh sách các phiếu nhập hàng đã xác nhận và xem chi tiết bản chụp (snapshot) giá nhập ban đầu."
+                               FontSize="13.5"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <Button Grid.Column="1"
+                        Content="+ Lập phiếu nhập mới"
+                        Command="{Binding GoToCreateImportReceiptCommand}"
+                        Style="{StaticResource PrimaryCtaButtonStyle}"
+                        Padding="18,11"
+                        VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- B. Search & Summary Toolbar -->
+            <Border Grid.Row="1"
+                    Style="{StaticResource CardPanelStyle}"
+                    Padding="18,14"
+                    Margin="0,0,0,18">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Margin="0,0,14,0">
+                        <TextBlock Text="Tìm kiếm phiếu nhập (Mã phiếu nhập PN..., Tên nhà cung cấp, Tên sách)"
+                                   Style="{StaticResource FormFieldLabelStyle}"/>
+                        <TextBox Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource FormTextBoxStyle}"/>
+                    </StackPanel>
+
+                    <Button Grid.Column="1"
+                            Content="Xóa tìm kiếm"
+                            Command="{Binding ClearSearchCommand}"
+                            Style="{StaticResource SecondaryOutlineButtonStyle}"
+                            VerticalAlignment="Bottom"
+                            Margin="0,0,14,0"
+                            Padding="14,9"/>
+
+                    <Border Grid.Column="2"
+                            Background="{StaticResource BrandOrangeLightBrush}"
+                            BorderBrush="#FED7AA"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="14,8"
+                            VerticalAlignment="Bottom">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Tổng giá trị nhập hiển thị: "
+                                       FontSize="12.5"
+                                       Foreground="{StaticResource CharcoalTextBrush}"/>
+                            <TextBlock Text="{Binding TotalHistoricalImportAmountText}"
+                                       FontSize="13"
+                                       FontWeight="Bold"
+                                       Foreground="{StaticResource BrandOrangeBrush}"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- C. Confirmed Import Receipts DataGrid -->
+            <Border Grid.Row="2" Style="{StaticResource CardPanelStyle}" Padding="16">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0"
+                               Text="{Binding TotalReceiptsCount, StringFormat='Danh sách phiếu nhập đã xác nhận: {0} phiếu'}"
+                               FontSize="13"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource CharcoalTextBrush}"
+                               Margin="4,0,0,10"/>
+
+                    <DataGrid Grid.Row="1"
+                              ItemsSource="{Binding DisplayedReceipts}"
+                              Style="{StaticResource AdminDataGridStyle}">
+                        <DataGrid.Columns>
+                            <!-- 1. Receipt ID -->
+                            <DataGridTextColumn Header="Mã phiếu" Binding="{Binding ReceiptCode}" Width="105"/>
+
+                            <!-- 2. Supplier -->
+                            <DataGridTemplateColumn Header="Nhà cung cấp" Width="1.8*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding TenNCC}"
+                                                       FontWeight="Bold"
+                                                       Foreground="{StaticResource CharcoalTextBrush}"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBlock Text="{Binding BooksSummary}"
+                                                       FontSize="11.5"
+                                                       Foreground="{StaticResource MutedTextBrush}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- 3. Creation Date -->
+                            <DataGridTextColumn Header="Ngày lập" Binding="{Binding FormattedNgayLap}" Width="140"/>
+
+                            <!-- 4. Total Imported Quantity -->
+                            <DataGridTemplateColumn Header="Tổng SL nhập" Width="125">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding TotalImportedQuantity, StringFormat='{}{0} cuốn'}"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource BrandDarkBlueBrush}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- 5. Total Amount -->
+                            <DataGridTemplateColumn Header="Tổng tiền" Width="145">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding FormattedTongTien}"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource BrandOrangeBrush}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- 6. Status -->
+                            <DataGridTemplateColumn Header="Trạng thái" Width="130">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border CornerRadius="6"
+                                                Padding="10,4"
+                                                HorizontalAlignment="Left"
+                                                Background="{StaticResource SuccessSoftBgBrush}">
+                                            <TextBlock Text="{Binding TrangThaiLabel}"
+                                                       FontSize="12"
+                                                       FontWeight="Bold"
+                                                       Foreground="{StaticResource SuccessGreenBrush}"/>
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- 7. Actions (Xem chi tiết) -->
+                            <DataGridTemplateColumn Header="Thao tác" Width="145">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="Xem chi tiết"
+                                                Command="{Binding DataContext.ViewReceiptDetailsCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource SecondaryOutlineButtonStyle}"
+                                                Padding="12,5"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ==================== 2. RECEIPT DETAILS SNAPSHOT MODAL DIALOG ==================== -->
+        <Grid Background="#7F0F172A"
+              Visibility="{Binding IsDetailModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Width="760"
+                    MaxHeight="640"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Style="{StaticResource CardPanelStyle}"
+                    Padding="28,24">
+                <Grid DataContext="{Binding SelectedReceiptForDetail}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Modal Header -->
+                    <Grid Grid.Row="0" Margin="0,0,0,14">
+                        <StackPanel>
+                            <TextBlock Text="{Binding ReceiptCode, StringFormat='CHI TIẾT PHIẾU NHẬP HÀNG #{0}'}"
+                                       Style="{StaticResource SectionHeadingStyle}"
+                                       Foreground="{StaticResource BrandDarkBlueBrush}"/>
+                            <TextBlock Text="Bản chụp lịch sử bất biến (Historical Snapshot) — Không bị thay đổi khi chỉnh sửa giá bán sách hiện tại."
+                                       FontSize="12"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       Margin="0,3,0,0"/>
+                        </StackPanel>
+
+                        <Border Background="{StaticResource SuccessSoftBgBrush}"
+                                CornerRadius="6"
+                                Padding="12,5"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center">
+                            <TextBlock Text="{Binding TrangThaiLabel}"
+                                       FontWeight="Bold"
+                                       FontSize="12.5"
+                                       Foreground="{StaticResource SuccessGreenBrush}"/>
+                        </Border>
+                    </Grid>
+
+                    <!-- Metadata Info Grid -->
+                    <Border Grid.Row="1"
+                            Background="#F8FAFC"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Padding="16,12"
+                            Margin="0,0,0,16">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.3*"/>
+                                <ColumnDefinition Width="1*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                <TextBlock Text="{Binding TenNCC, StringFormat='Nhà cung cấp: {0}'}"
+                                           FontWeight="Bold"
+                                           FontSize="13.5"
+                                           Foreground="{StaticResource CharcoalTextBrush}"/>
+                                <TextBlock Text="{Binding SdtNCC, StringFormat='SĐT NCC: {0}'}"
+                                           FontSize="12.5"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           Margin="0,3,0,0"/>
+                                <TextBlock Text="{Binding DiaChiNCC, StringFormat='Địa chỉ: {0}'}"
+                                           FontSize="12.5"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,3,0,0"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="{Binding FormattedNgayLap, StringFormat='Ngày lập phiếu: {0}'}"
+                                           FontWeight="SemiBold"
+                                           FontSize="12.5"
+                                           Foreground="{StaticResource CharcoalTextBrush}"/>
+                                <TextBlock Text="{Binding NguoiLapHoTen, StringFormat='Người lập (Quản lý): {0}'}"
+                                           FontSize="12.5"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           Margin="0,3,0,0"/>
+                                <TextBlock Text="{Binding GhiChu, StringFormat='Ghi chú: {0}'}"
+                                           FontSize="12.5"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,3,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Details Snapshot DataGrid -->
+                    <DataGrid Grid.Row="2"
+                              ItemsSource="{Binding Details}"
+                              Style="{StaticResource AdminDataGridStyle}"
+                              MaxHeight="300">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Mã sách" Binding="{Binding BookCode}" Width="85"/>
+                            <DataGridTextColumn Header="Tên đầu sách (Snapshot)" Binding="{Binding TenSach}" Width="2*"/>
+                            <DataGridTextColumn Header="Tác giả" Binding="{Binding TacGia}" Width="1.2*"/>
+                            <DataGridTextColumn Header="SL Nhập" Binding="{Binding SoLuongNhap}" Width="90"/>
+                            <DataGridTextColumn Header="Đơn giá nhập gốc" Binding="{Binding FormattedDonGiaNhap}" Width="135"/>
+                            <DataGridTemplateColumn Header="Thành tiền" Width="135">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding FormattedThanhTien}"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource BrandOrangeBrush}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- Modal Footer: Total & Close Button -->
+                    <Grid Grid.Row="3" Margin="0,18,0,0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Tổng số lượng: " FontSize="13.5" Foreground="{StaticResource MutedTextBrush}"/>
+                            <TextBlock Text="{Binding TotalImportedQuantity, StringFormat='{}{0} cuốn'}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource BrandDarkBlueBrush}" Margin="0,0,20,0"/>
+                            <TextBlock Text="Tổng cộng tiền nhập: " FontSize="14" FontWeight="Bold" Foreground="{StaticResource CharcoalTextBrush}"/>
+                            <TextBlock Text="{Binding FormattedTongTien}" FontSize="18" FontWeight="Bold" Foreground="{StaticResource BrandOrangeBrush}"/>
+                        </StackPanel>
+
+                        <Button Content="Đóng chi tiết"
+                                Command="{Binding DataContext.CloseReceiptDetailsCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                Style="{StaticResource PrimaryCtaButtonStyle}"
+                                HorizontalAlignment="Right"
+                                Padding="20,9"/>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Page>

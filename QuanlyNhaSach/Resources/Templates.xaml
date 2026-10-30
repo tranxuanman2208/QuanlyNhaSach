@@ -1,0 +1,149 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:models="clr-namespace:QuanlyNhaSach.Models">
+
+    <!-- Reusable Book Catalog Card DataTemplate (Used in HomePage) -->
+    <DataTemplate x:Key="BookCatalogCardTemplate" DataType="{x:Type models:Book}">
+        <Border Width="264" Height="396" Margin="0,0,22,24" Style="{StaticResource BookCardBorderStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="175"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Mock Book Cover Area -->
+                <Border Grid.Row="0"
+                        Background="{Binding MauBia, Converter={StaticResource StringToBrushConverter}}"
+                        CornerRadius="11,11,0,0"
+                        ClipToBounds="True"
+                        Cursor="Hand">
+                    <Border.InputBindings>
+                        <MouseBinding Gesture="LeftClick"
+                                      Command="{Binding DataContext.ViewBookDetailCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                      CommandParameter="{Binding}"/>
+                    </Border.InputBindings>
+
+                    <Grid Margin="16,14">
+                        <!-- Spine Decorative Accent -->
+                        <Border Width="4" HorizontalAlignment="Left" Background="#35FFFFFF" CornerRadius="2" Margin="-8,-6,0,-6"/>
+
+                        <!-- Top Book ID Badge -->
+                        <Border Background="#33000000" CornerRadius="6" Padding="8,3" HorizontalAlignment="Right" VerticalAlignment="Top">
+                            <TextBlock Text="{Binding MaSach, StringFormat='Mã #{0}'}" FontSize="11" FontWeight="SemiBold" Foreground="White"/>
+                        </Border>
+
+                        <!-- Out of Stock Overlay Ribbon -->
+                        <Border Background="#DC2626" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                Visibility="{Binding IsOutOfStock, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock Text="HẾT HÀNG" FontSize="10" FontWeight="Bold" Foreground="White"/>
+                        </Border>
+
+                        <!-- Placeholder Cover Art & Title -->
+                        <StackPanel VerticalAlignment="Bottom" Margin="4,0,0,0">
+                            <TextBlock Text="📘" FontSize="26" Margin="0,0,0,6"/>
+                            <TextBlock Text="{Binding TenSach}"
+                                       Foreground="White"
+                                       FontWeight="Bold"
+                                       FontSize="15"
+                                       MaxHeight="42"
+                                       TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding TacGia}"
+                                       Foreground="#E2E8F0"
+                                       FontSize="12"
+                                       Margin="0,3,0,0"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Book Body Info -->
+                <StackPanel Grid.Row="1" Margin="16,14,16,8">
+                    <!-- Clickable Title -->
+                    <TextBlock Text="{Binding TenSach}"
+                               FontSize="15"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource CharcoalTextBrush}"
+                               MaxHeight="42"
+                               TextWrapping="Wrap"
+                               TextTrimming="CharacterEllipsis"
+                               Cursor="Hand"
+                               ToolTip="{Binding TenSach}">
+                        <TextBlock.InputBindings>
+                            <MouseBinding Gesture="LeftClick"
+                                          Command="{Binding DataContext.ViewBookDetailCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                          CommandParameter="{Binding}"/>
+                        </TextBlock.InputBindings>
+                    </TextBlock>
+
+                    <!-- Author -->
+                    <TextBlock Text="{Binding TacGia, StringFormat='Tác giả: {0}'}"
+                               FontSize="12.5"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               Margin="0,5,0,10"
+                               TextTrimming="CharacterEllipsis"/>
+
+                    <!-- Stock Indicator Pill -->
+                    <Border HorizontalAlignment="Left"
+                            CornerRadius="6"
+                            Padding="8,4"
+                            Background="{Binding SoLuongTon, Converter={StaticResource StockBadgeBackgroundConverter}}">
+                        <TextBlock Text="{Binding StockStatusText}"
+                                   FontSize="11.5"
+                                   FontWeight="SemiBold"
+                                   Foreground="{Binding SoLuongTon, Converter={StaticResource StockBadgeForegroundConverter}}"/>
+                    </Border>
+                </StackPanel>
+
+                <!-- Footer: Price & Action Buttons -->
+                <Border Grid.Row="2"
+                        BorderBrush="{StaticResource BorderSubtleBrush}"
+                        BorderThickness="0,1,0,0"
+                        Padding="16,12">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Selling Price -->
+                        <Grid Grid.Row="0" Margin="0,0,0,10">
+                            <TextBlock Text="Giá bán:" FontSize="12" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding FormattedPrice}"
+                                       Style="{StaticResource PriceLabelStyle}"
+                                       HorizontalAlignment="Right"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <!-- Buttons Row -->
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Button Grid.Column="0"
+                                    Content="Chi tiết"
+                                    Style="{StaticResource SecondaryOutlineButtonStyle}"
+                                    Padding="12,7"
+                                    Margin="0,0,8,0"
+                                    Command="{Binding DataContext.ViewBookDetailCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                    CommandParameter="{Binding}"/>
+
+                            <Button Grid.Column="1"
+                                    Content="🛒 Thêm vào giỏ"
+                                    Style="{StaticResource PrimaryCtaButtonStyle}"
+                                    Padding="12,7"
+                                    FontSize="13"
+                                    IsEnabled="{Binding IsInStock}"
+                                    Command="{Binding DataContext.AddToCartCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                    CommandParameter="{Binding}"/>
+                        </Grid>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+    </DataTemplate>
+
+</ResourceDictionary>

@@ -1,0 +1,319 @@
+<Page x:Class="QuanlyNhaSach.Views.Customer.BookDetailPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      mc:Ignorable="d"
+      d:DesignHeight="760" d:DesignWidth="1180"
+      Title="BookDetailPage"
+      Background="{StaticResource MainBackgroundBrush}">
+
+    <Grid>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="36,28,36,40">
+
+                <!-- Top Navigation Breadcrumb / Back to Home Button -->
+                <Grid Margin="0,0,0,22">
+                    <Button Command="{Binding BackToHomeCommand}"
+                            Style="{StaticResource SecondaryOutlineButtonStyle}"
+                            HorizontalAlignment="Left"
+                            Padding="16,9">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="←" FontWeight="Bold" Foreground="{StaticResource BrandDarkBlueBrush}" Margin="0,0,8,0"/>
+                            <TextBlock Text="Quay lại danh mục sách" Foreground="{StaticResource BrandDarkBlueBrush}" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding GoToCartCommand}"
+                            Style="{StaticResource ViewCartCtaButtonStyle}"
+                            HorizontalAlignment="Right"
+                            Padding="15,8"
+                            FontWeight="Bold"
+                            Foreground="#FFFFFF"
+                            Cursor="Hand">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Xem giỏ hàng &amp; Thanh toán"
+                                       Foreground="#FFFFFF"
+                                       FontWeight="Bold"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+
+                <!-- 1. BOOK FOUND: TWO-COLUMN DETAIL CARD -->
+                <Border Style="{StaticResource CardPanelStyle}"
+                        Padding="36"
+                        Visibility="{Binding IsBookFound, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="320"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Left Column: Large Stylized Book Cover Placeholder -->
+                        <Border Grid.Column="0"
+                                Height="430"
+                                CornerRadius="14"
+                                ClipToBounds="True"
+                                Background="{Binding SelectedBook.MauBia, Converter={StaticResource StringToBrushConverter}}"
+                                Effect="{StaticResource ElevatedShadowEffect}">
+                            <Grid Margin="24">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Spine Highlight -->
+                                <Border Grid.RowSpan="3" Width="6" HorizontalAlignment="Left" Background="#35FFFFFF" CornerRadius="3" Margin="-12,-10,0,-10"/>
+
+                                <!-- Top Badge -->
+                                <Grid Grid.Row="0">
+                                    <Border Background="#38000000" CornerRadius="8" Padding="10,4" HorizontalAlignment="Left">
+                                        <TextBlock Text="{Binding SelectedBook.MaSach, StringFormat='Mã sách: #{0}'}"
+                                                   Foreground="White"
+                                                   FontWeight="SemiBold"
+                                                   FontSize="12"/>
+                                    </Border>
+
+                                    <Border Background="#DC2626" CornerRadius="8" Padding="10,4" HorizontalAlignment="Right"
+                                            Visibility="{Binding SelectedBook.IsOutOfStock, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <TextBlock Text="HẾT HÀNG" Foreground="White" FontWeight="Bold" FontSize="11"/>
+                                    </Border>
+                                </Grid>
+
+                                <!-- Center Book Illustration & Title -->
+                                <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10,0">
+                                    <Path Data="{StaticResource IconBookGeometry}"
+                                          Fill="White"
+                                          Width="52" Height="52"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,16"/>
+                                    <TextBlock Text="{Binding SelectedBook.TenSach}"
+                                               Foreground="White"
+                                               FontWeight="Bold"
+                                               FontSize="20"
+                                               TextAlignment="Center"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+
+                                <!-- Bottom Author Bar -->
+                                <Border Grid.Row="2" Background="#38000000" CornerRadius="8" Padding="12,10">
+                                    <TextBlock Text="{Binding SelectedBook.TacGia, StringFormat='Tác giả: {0}'}"
+                                               Foreground="#F1F5F9"
+                                               FontSize="13.5"
+                                               FontWeight="SemiBold"
+                                               TextAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                        <!-- Right Column: Book Information & Purchase Controls -->
+                        <StackPanel Grid.Column="1" Margin="38,0,0,0">
+
+                            <!-- Heading Badge -->
+                            <Border Background="{StaticResource BrandDarkBlueLightBrush}"
+                                    CornerRadius="6"
+                                    Padding="10,4"
+                                    HorizontalAlignment="Left"
+                                    Margin="0,0,0,10">
+                                <TextBlock Text="THÔNG TIN CHI TIẾT SÁCH"
+                                           Foreground="{StaticResource BrandDarkBlueBrush}"
+                                           FontWeight="Bold"
+                                           FontSize="11.5"/>
+                            </Border>
+
+                            <!-- Book Title -->
+                            <TextBlock Text="{Binding SelectedBook.TenSach}"
+                                       FontSize="28"
+                                       FontWeight="Bold"
+                                       Foreground="{StaticResource BrandDarkBlueBrush}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,12"/>
+
+                            <!-- Author & Stock Row -->
+                            <WrapPanel Orientation="Horizontal" Margin="0,0,0,20">
+                                <Border Background="{StaticResource SubtleSurfaceBrush}"
+                                        BorderBrush="{StaticResource BorderSubtleBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="14,8"
+                                        Margin="0,0,12,8">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Tác giả: " Foreground="{StaticResource MutedTextBrush}" FontSize="13.5"/>
+                                        <TextBlock Text="{Binding SelectedBook.TacGia}" FontWeight="Bold" FontSize="13.5" Foreground="{StaticResource CharcoalTextBrush}"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border CornerRadius="8"
+                                        Padding="14,8"
+                                        Margin="0,0,12,8"
+                                        Background="{Binding SelectedBook.SoLuongTon, Converter={StaticResource StockBadgeBackgroundConverter}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Tồn kho: "
+                                                   FontSize="13.5"
+                                                   Foreground="{Binding SelectedBook.SoLuongTon, Converter={StaticResource StockBadgeForegroundConverter}}"/>
+                                        <TextBlock Text="{Binding SelectedBook.StockStatusText}"
+                                                   FontWeight="Bold"
+                                                   FontSize="13.5"
+                                                   Foreground="{Binding SelectedBook.SoLuongTon, Converter={StaticResource StockBadgeForegroundConverter}}"/>
+                                    </StackPanel>
+                                </Border>
+                            </WrapPanel>
+
+                            <!-- Prominent Price Box -->
+                            <Border Background="{StaticResource SubtleSurfaceBrush}"
+                                    BorderBrush="{StaticResource BorderSubtleBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="12"
+                                    Padding="22,18"
+                                    Margin="0,0,0,24">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Giá bán niêm yết" FontSize="13" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,4"/>
+                                        <TextBlock Text="{Binding SelectedBook.FormattedPrice}"
+                                                   FontSize="30"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource BrandOrangeBrush}"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                        <TextBlock Text="Tạm tính theo số lượng chọn:" FontSize="12" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right"/>
+                                        <TextBlock Text="{Binding FormattedEstimatedSubTotal}"
+                                                   FontSize="17"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource BrandDarkBlueBrush}"
+                                                   HorizontalAlignment="Right"
+                                                   Margin="0,3,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <!-- Description / Overview -->
+                            <TextBlock Text="Giới thiệu nội dung"
+                                       FontSize="15.5"
+                                       FontWeight="Bold"
+                                       Foreground="{StaticResource BrandDarkBlueBrush}"
+                                       Margin="0,0,0,6"/>
+                            <TextBlock Text="{Binding SelectedBook.MoTa}"
+                                       FontSize="14"
+                                       Foreground="{StaticResource BodyTextBrush}"
+                                       TextWrapping="Wrap"
+                                       LineHeight="22"
+                                       Margin="0,0,0,26"/>
+
+                            <Separator Background="{StaticResource BorderSubtleBrush}" Margin="0,0,0,22"/>
+
+                            <!-- Purchase Quantity & Add to Cart Controls -->
+                            <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,24,10"
+                                            IsEnabled="{Binding CanPurchase}">
+                                    <TextBlock Text="Số lượng mua:"
+                                               FontWeight="SemiBold"
+                                               FontSize="14"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,12,0"/>
+
+                                    <Border BorderBrush="{StaticResource BorderSubtleBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="8"
+                                            Padding="4"
+                                            Background="White">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="−"
+                                                    Command="{Binding DecreaseQuantityCommand}"
+                                                    Style="{StaticResource QuantityStepperButtonStyle}"/>
+
+                                            <TextBox Text="{Binding SelectedQuantity, UpdateSourceTrigger=LostFocus}"
+                                                     Width="48"
+                                                     TextAlignment="Center"
+                                                     VerticalContentAlignment="Center"
+                                                     FontWeight="Bold"
+                                                     FontSize="14"
+                                                     BorderThickness="0"
+                                                     Background="Transparent"/>
+
+                                            <Button Content="+"
+                                                    Command="{Binding IncreaseQuantityCommand}"
+                                                    Style="{StaticResource QuantityStepperButtonStyle}"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+
+                                <!-- Orange Primary Add to Cart Button (#E85D22) -->
+                                <Button Command="{Binding AddToCartCommand}"
+                                        Style="{StaticResource PrimaryCtaButtonStyle}"
+                                        Padding="26,12"
+                                        FontSize="15"
+                                        Margin="0,0,12,10"
+                                        Content="Thêm vào giỏ hàng"/>
+                            </WrapPanel>
+
+                            <!-- Out of Stock Warning Banner -->
+                            <Border Background="{StaticResource ErrorSoftBgBrush}"
+                                    BorderBrush="#FECACA"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="14,10"
+                                    Margin="0,8,0,0"
+                                    Visibility="{Binding SelectedBook.IsOutOfStock, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="Cuốn sách này hiện đã hết hàng trong kho. Bạn vui lòng chọn đầu sách khác."
+                                           Foreground="{StaticResource ErrorRedBrush}"
+                                           FontWeight="SemiBold"
+                                           FontSize="13"/>
+                            </Border>
+
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- 2. FALLBACK WHEN BOOK ID IS MISSING OR INVALID -->
+                <Border Style="{StaticResource CardPanelStyle}"
+                        Padding="48,40"
+                        Visibility="{Binding IsBookNotFound, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel HorizontalAlignment="Center" MaxWidth="440">
+                        <TextBlock Text="Không tìm thấy thông tin sách"
+                                   FontSize="20"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource BrandDarkBlueBrush}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,8"/>
+                        <TextBlock Text="{Binding ErrorMessage}"
+                                   FontSize="14"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,20"/>
+                        <Button Content="← Quay về Trang chủ"
+                                Command="{Binding BackToHomeCommand}"
+                                Style="{StaticResource PrimaryCtaButtonStyle}"
+                                HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Toast Confirmation Banner -->
+        <Border Background="{StaticResource BrandDarkBlueBrush}"
+                CornerRadius="10"
+                Padding="18,12"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="0,0,32,28"
+                Effect="{StaticResource ElevatedShadowEffect}"
+                Visibility="{Binding IsStatusVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="✓" Foreground="#4ADE80" FontWeight="Bold" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding StatusMessage}" Foreground="White" FontWeight="SemiBold" FontSize="13.5" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Page>
