@@ -17,6 +17,9 @@
     <conv:StockOutStatusBadgeForegroundConverter x:Key="StockOutStatusBadgeForegroundConverter"/>
     <conv:AccountStatusBadgeBackgroundConverter x:Key="AccountStatusBadgeBackgroundConverter"/>
     <conv:AccountStatusBadgeForegroundConverter x:Key="AccountStatusBadgeForegroundConverter"/>
+    <conv:CustomerOrderCodeConverter x:Key="CustomerOrderCodeConverter"/>
+    <conv:CustomerOrderDateConverter x:Key="CustomerOrderDateConverter"/>
+    <conv:CustomerOrderTotalConverter x:Key="CustomerOrderTotalConverter"/>
     <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
 
     <!-- Subtle Drop Shadows -->
@@ -559,6 +562,205 @@
         <Setter Property="ColumnHeaderStyle" Value="{StaticResource AdminDataGridColumnHeaderStyle}"/>
         <Setter Property="CellStyle" Value="{StaticResource AdminDataGridCellStyle}"/>
         <Setter Property="RowStyle" Value="{StaticResource AdminDataGridRowStyle}"/>
+    </Style>
+
+    <!-- ==================== CUSTOMER PROFILE PAGE STYLES (STEP 13) ==================== -->
+
+    <!-- Customer Profile Card Border -->
+    <Style x:Key="CustomerProfileCardStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource CardBackground}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource InputBorder}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="12"/>
+        <Setter Property="Effect" Value="{StaticResource CardShadowEffect}"/>
+    </Style>
+
+    <!-- Customer Profile Page Title (#172B4D) -->
+    <Style x:Key="CustomerPageTitleStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="24"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{StaticResource BrandDarkBlue}"/>
+    </Style>
+
+    <!-- Customer Profile Card Heading (#172B4D) -->
+    <Style x:Key="CustomerCardHeadingStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="18"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{StaticResource BrandDarkBlue}"/>
+    </Style>
+
+    <!-- Customer Profile Form Label (#333333) -->
+    <Style x:Key="CustomerFieldLabelStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13.5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource BrandDarkText}"/>
+        <Setter Property="Margin" Value="0,0,0,7"/>
+    </Style>
+
+    <!-- Breadcrumb Text Styles -->
+    <Style x:Key="BreadcrumbSecondaryTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style x:Key="BreadcrumbActiveTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource BrandDarkBlue}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- Customer Profile Editable TextBox Style -->
+    <Style x:Key="CustomerProfileTextBoxStyle" TargetType="TextBox">
+        <Setter Property="Background" Value="{StaticResource CardBackground}"/>
+        <Setter Property="Foreground" Value="{StaticResource BrandDarkText}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource InputBorder}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="14,10"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      Focusable="False"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Hidden"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="#CBD5E1"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource BrandOrange}"/>
+                            <Setter TargetName="border" Property="BorderThickness" Value="1.5"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Customer Profile Read-Only TextBox Style -->
+    <Style x:Key="CustomerProfileReadOnlyTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource CustomerProfileTextBoxStyle}">
+        <Setter Property="IsReadOnly" Value="True"/>
+        <Setter Property="Background" Value="{StaticResource PageBackgroundAlt}"/>
+        <Setter Property="Foreground" Value="{StaticResource BrandDarkText}"/>
+        <Setter Property="Cursor" Value="Arrow"/>
+    </Style>
+
+    <!-- Customer Sidebar Navigation Button (Inactive) -->
+    <Style x:Key="CustomerSidebarMenuButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource BrandDarkText}"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="Padding" Value="14,12"/>
+        <Setter Property="Margin" Value="0,0,0,6"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="8"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"
+                                          TextElement.FontWeight="{TemplateBinding FontWeight}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="{StaticResource PageBackground}"/>
+                            <Setter Property="Foreground" Value="{StaticResource BrandDarkBlue}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Customer Sidebar Active Navigation Button (Foreground: #E85D22, Background: #FFF0EB) -->
+    <Style x:Key="CustomerSidebarActiveMenuButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource ActiveMenuBackground}"/>
+        <Setter Property="Foreground" Value="{StaticResource BrandOrange}"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="Padding" Value="14,12"/>
+        <Setter Property="Margin" Value="0,0,0,6"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="8"
+                            Padding="{TemplateBinding Padding}">
+                        <Grid>
+                            <Border Width="4"
+                                    CornerRadius="2"
+                                    Background="{StaticResource BrandOrange}"
+                                    HorizontalAlignment="Left"
+                                    Margin="-14,-4,0,-4"/>
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"
+                                              TextElement.FontWeight="{TemplateBinding FontWeight}"/>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Customer Ghost/Outline Logout Button -->
+    <Style x:Key="CustomerLogoutGhostButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource BrandDarkText}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource InputBorder}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="Padding" Value="14,11"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"
+                                          TextElement.FontWeight="{TemplateBinding FontWeight}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="#FEF2F2"/>
+                            <Setter TargetName="border" Property="BorderBrush" Value="#FECACA"/>
+                            <Setter Property="Foreground" Value="#DC2626"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="#FEE2E2"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
 </ResourceDictionary>

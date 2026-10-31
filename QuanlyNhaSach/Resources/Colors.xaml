@@ -24,6 +24,15 @@
     <Color x:Key="MutedTextColor">#64748B</Color>
     <Color x:Key="BorderSubtleColor">#E2E8F0</Color>
 
+    <!-- Customer Profile Brand Color Palette -->
+    <Color x:Key="CustomerHeaderDarkBlueColor">#172B4D</Color>
+    <Color x:Key="CustomerDarkTextColor">#333333</Color>
+    <Color x:Key="PageBackgroundColor">#F4F5F7</Color>
+    <Color x:Key="PageBackgroundAltColor">#F8F9FA</Color>
+    <Color x:Key="CardBackgroundColor">#FFFFFF</Color>
+    <Color x:Key="ActiveMenuBackgroundColor">#FFF0EB</Color>
+    <Color x:Key="InputBorderColor">#E5E7EB</Color>
+
     <!-- Status Colors -->
     <Color x:Key="ErrorRedColor">#DC2626</Color>
     <Color x:Key="ErrorSoftBgColor">#FEF2F2</Color>
@@ -34,7 +43,17 @@
     <Color x:Key="InfoBlueColor">#2563EB</Color>
     <Color x:Key="InfoSoftBgColor">#EFF6FF</Color>
 
-    <!-- SolidColorBrushes -->
+    <!-- Semantic Order Status Badge Colors -->
+    <Color x:Key="StatusCompletedBgColor">#E8F5E9</Color>
+    <Color x:Key="StatusCompletedFgColor">#2E7D32</Color>
+    <Color x:Key="StatusShippingBgColor">#E3F2FD</Color>
+    <Color x:Key="StatusShippingFgColor">#1565C0</Color>
+    <Color x:Key="StatusProcessingBgColor">#FFF4E5</Color>
+    <Color x:Key="StatusProcessingFgColor">#B26A00</Color>
+    <Color x:Key="StatusCancelledBgColor">#FDECEC</Color>
+    <Color x:Key="StatusCancelledFgColor">#C62828</Color>
+
+    <!-- Existing SolidColorBrushes -->
     <SolidColorBrush x:Key="StaffSidebarBrush" Color="{StaticResource StaffSidebarColor}"/>
     <SolidColorBrush x:Key="StaffSidebarHoverBrush" Color="{StaticResource StaffSidebarHoverColor}"/>
     <SolidColorBrush x:Key="BrandDarkBlueBrush" Color="{StaticResource BrandDarkBlueColor}"/>
@@ -64,5 +83,27 @@
     <SolidColorBrush x:Key="WarningSoftBgBrush" Color="{StaticResource WarningSoftBgColor}"/>
     <SolidColorBrush x:Key="InfoBlueBrush" Color="{StaticResource InfoBlueColor}"/>
     <SolidColorBrush x:Key="InfoSoftBgBrush" Color="{StaticResource InfoSoftBgColor}"/>
+
+    <!-- Mandatory Brand Color Resources (Step 13) -->
+    <SolidColorBrush x:Key="BrandOrange" Color="#E85D22"/>
+    <SolidColorBrush x:Key="BrandOrangeHover" Color="#C94A18"/>
+    <SolidColorBrush x:Key="BrandOrangePressed" Color="#A83B12"/>
+    <SolidColorBrush x:Key="BrandDarkBlue" Color="#172B4D"/>
+    <SolidColorBrush x:Key="BrandDarkText" Color="#333333"/>
+    <SolidColorBrush x:Key="PageBackground" Color="#F4F5F7"/>
+    <SolidColorBrush x:Key="PageBackgroundAlt" Color="#F8F9FA"/>
+    <SolidColorBrush x:Key="CardBackground" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="ActiveMenuBackground" Color="#FFF0EB"/>
+    <SolidColorBrush x:Key="InputBorder" Color="#E5E7EB"/>
+
+    <!-- Semantic Order Status Brushes -->
+    <SolidColorBrush x:Key="StatusCompletedBgBrush" Color="{StaticResource StatusCompletedBgColor}"/>
+    <SolidColorBrush x:Key="StatusCompletedFgBrush" Color="{StaticResource StatusCompletedFgColor}"/>
+    <SolidColorBrush x:Key="StatusShippingBgBrush" Color="{StaticResource StatusShippingBgColor}"/>
+    <SolidColorBrush x:Key="StatusShippingFgBrush" Color="{StaticResource StatusShippingFgColor}"/>
+    <SolidColorBrush x:Key="StatusProcessingBgBrush" Color="{StaticResource StatusProcessingBgColor}"/>
+    <SolidColorBrush x:Key="StatusProcessingFgBrush" Color="{StaticResource StatusProcessingFgColor}"/>
+    <SolidColorBrush x:Key="StatusCancelledBgBrush" Color="{StaticResource StatusCancelledBgColor}"/>
+    <SolidColorBrush x:Key="StatusCancelledFgBrush" Color="{StaticResource StatusCancelledFgColor}"/>
 
 </ResourceDictionary>

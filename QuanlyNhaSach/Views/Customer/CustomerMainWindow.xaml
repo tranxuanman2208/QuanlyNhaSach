@@ -186,14 +186,19 @@
                         </StackPanel>
                     </Button>
 
-                    <!-- Authenticated Customer Identity Pill -->
+                    <!-- Authenticated Customer Identity Pill (Clickable -> CustomerProfilePage) -->
                     <Border Background="#172B4D"
                             BorderBrush="#3358B8"
                             BorderThickness="1"
                             CornerRadius="8"
                             Padding="12,6"
                             Margin="0,0,10,0"
+                            Cursor="Hand"
+                            ToolTip="Xem thông tin tài khoản của tôi"
                             VerticalAlignment="Center">
+                        <Border.InputBindings>
+                            <MouseBinding Gesture="LeftClick" Command="{Binding NavigateProfileCommand}"/>
+                        </Border.InputBindings>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Path Data="{StaticResource IconUserGeometry}"
                                   Fill="#93C5FD"

@@ -146,4 +146,39 @@
         </Border>
     </DataTemplate>
 
+    <!-- Reusable Customer Avatar DataTemplate (Step 13) -->
+    <DataTemplate x:Key="CustomerAvatarTemplate">
+        <Border Width="64"
+                Height="64"
+                CornerRadius="32"
+                Background="{StaticResource ActiveMenuBackground}"
+                BorderBrush="{StaticResource BrandOrange}"
+                BorderThickness="2"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+            <TextBlock Text="{Binding}"
+                       FontSize="20"
+                       FontWeight="Bold"
+                       Foreground="{StaticResource BrandOrange}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+        </Border>
+    </DataTemplate>
+
+    <!-- Reusable Order Status Badge DataTemplate for DONHANG (Step 12 & Step 13) -->
+    <DataTemplate x:Key="CustomerOrderStatusBadgeTemplate" DataType="{x:Type models:DONHANG}">
+        <Border CornerRadius="12"
+                Padding="12,5"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Background="{Binding Trangthaigiaohang, Converter={StaticResource OrderStatusBadgeBackgroundConverter}}">
+            <TextBlock Text="{Binding Trangthaigiaohang}"
+                       FontSize="12.5"
+                       FontWeight="SemiBold"
+                       Foreground="{Binding Trangthaigiaohang, Converter={StaticResource OrderStatusBadgeForegroundConverter}}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+        </Border>
+    </DataTemplate>
+
 </ResourceDictionary>

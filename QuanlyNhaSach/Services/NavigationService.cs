@@ -42,6 +42,9 @@ namespace QuanlyNhaSach.Services
         private CartCheckoutPage? _cartCheckoutPage;
         private CartCheckoutViewModel? _cartCheckoutViewModel;
 
+        private CustomerProfilePage? _customerProfilePage;
+        private CustomerProfileViewModel? _customerProfileViewModel;
+
         // Staff cached pages & ViewModels
         private StaffDashboardPage? _staffDashboardPage;
         private StaffDashboardViewModel? _staffDashboardViewModel;
@@ -218,6 +221,38 @@ namespace QuanlyNhaSach.Services
             if (_cartCheckoutPage != null)
             {
                 NavigateFrame(_customerFrame, _cartCheckoutPage);
+            }
+
+            Navigated?.Invoke(CurrentPageKey);
+        }
+
+        public void NavigateToCustomerProfile()
+        {
+            if (!EnsureCustomerAccess())
+            {
+                return;
+            }
+
+            CurrentPageKey = "CustomerProfile";
+
+            if (_customerProfileViewModel == null)
+            {
+                _customerProfileViewModel = new CustomerProfileViewModel(this, _dialogService);
+            }
+
+            if (_customerFrame != null && _customerProfilePage == null)
+            {
+                _customerProfilePage = new CustomerProfilePage(_customerProfileViewModel);
+            }
+
+            if (_customerProfileViewModel is INavigationAware aware)
+            {
+                aware.OnNavigatedTo(null);
+            }
+
+            if (_customerProfilePage != null)
+            {
+                NavigateFrame(_customerFrame, _customerProfilePage);
             }
 
             Navigated?.Invoke(CurrentPageKey);

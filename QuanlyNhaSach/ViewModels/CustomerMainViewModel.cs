@@ -33,6 +33,7 @@ namespace QuanlyNhaSach.ViewModels
         public bool HasCartItems => TotalQuantity > 0;
         public bool IsHomeActive => CurrentPageKey == "Home";
         public bool IsCartActive => CurrentPageKey == "CartCheckout";
+        public bool IsProfileActive => CurrentPageKey == "CustomerProfile";
 
         public CustomerMainViewModel(
             AuthService authService,
@@ -81,6 +82,7 @@ namespace QuanlyNhaSach.ViewModels
             CurrentPageKey = pageKey;
             OnPropertyChanged(nameof(IsHomeActive));
             OnPropertyChanged(nameof(IsCartActive));
+            OnPropertyChanged(nameof(IsProfileActive));
         }
 
         [RelayCommand]
@@ -123,6 +125,16 @@ namespace QuanlyNhaSach.ViewModels
                 return;
             }
             _navigationService.NavigateToCartCheckout();
+        }
+
+        [RelayCommand]
+        private void NavigateProfile()
+        {
+            if (!EnsureAuthorizedSession())
+            {
+                return;
+            }
+            _navigationService.NavigateToCustomerProfile();
         }
 
         [RelayCommand]
