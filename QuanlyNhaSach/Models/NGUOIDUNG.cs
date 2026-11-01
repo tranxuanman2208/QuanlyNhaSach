@@ -24,4 +24,8 @@ public partial class NGUOIDUNG
     public string? Trangthai { get; set; }
 
     public virtual ICollection<DONHANG> DONHANGs { get; set; } = new List<DONHANG>();
+
+    public virtual ICollection<GIOHANG> GIOHANGs { get; set; } = new List<GIOHANG>();
+
+    public virtual ICollection<PHIEUNHAP> PHIEUNHAPs { get; set; } = new List<PHIEUNHAP>();
 }
