@@ -1,0 +1,355 @@
+<Page x:Class="QuanlyNhaSach.Views.Staff.StaffStockOutPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      mc:Ignorable="d"
+      d:DesignHeight="780" d:DesignWidth="1060"
+      Title="StaffStockOutPage"
+      Background="{StaticResource SubtleSurfaceBrush}">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="32,26,32,36">
+
+            <!-- 1. ORDER SEARCH & BARCODE/ID INPUT CARD -->
+            <Border Style="{StaticResource CardPanelStyle}" Padding="24,20" Margin="0,0,0,20">
+                <StackPanel>
+                    <TextBlock Text="Tra Cứu Đơn Hàng Cần Xuất Kho (UC10)" Style="{StaticResource SectionHeadingStyle}" Margin="0,0,0,6"/>
+                    <TextBlock Text="Nhập hoặc quét Mã đơn hàng (ví dụ: 1001, #1002 hoặc #1003 để kiểm tra kịch bản Thiếu tồn kho) rồi nhấn Enter hoặc nút Tìm kiếm."
+                               FontSize="13"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               Margin="0,0,0,16"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="280"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="36"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Order ID Search Box -->
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding SearchOrderIdText, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource FormTextBoxStyle}"
+                                 FontWeight="Bold"
+                                 FontSize="15"
+                                 Margin="0,0,10,0">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Return" Command="{Binding SearchOrderByIdCommand}"/>
+                                <KeyBinding Key="Enter" Command="{Binding SearchOrderByIdCommand}"/>
+                            </TextBox.InputBindings>
+                        </TextBox>
+
+                        <!-- Search Button -->
+                        <Button Grid.Column="1"
+                                Content="Tìm kiếm đơn hàng"
+                                Command="{Binding SearchOrderByIdCommand}"
+                                Style="{StaticResource PrimaryCtaButtonStyle}"
+                                Padding="20,9"/>
+
+                        <!-- Quick Select Dropdown -->
+                        <Grid Grid.Column="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="Hoặc chọn nhanh đơn hàng:"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,10,0"/>
+                            <ComboBox Grid.Column="1"
+                                      ItemsSource="{Binding QuickOrdersList}"
+                                      SelectedItem="{Binding SelectedOrder, Mode=TwoWay}"
+                                      DisplayMemberPath="DisplayTitle"
+                                      Style="{StaticResource FormComboBoxStyle}"/>
+                        </Grid>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 2. OPERATION FEEDBACK BANNER -->
+            <Border CornerRadius="10"
+                    Padding="18,12"
+                    Margin="0,0,0,18"
+                    BorderThickness="1"
+                    Visibility="{Binding HasFeedback, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="{StaticResource SuccessSoftBgBrush}"/>
+                        <Setter Property="BorderBrush" Value="#6EE7B7"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsFeedbackSuccess}" Value="False">
+                                <Setter Property="Background" Value="{StaticResource ErrorSoftBgBrush}"/>
+                                <Setter Property="BorderBrush" Value="#FECACA"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="{Binding FeedbackMessage}"
+                           FontWeight="SemiBold"
+                           FontSize="13"
+                           TextWrapping="Wrap">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{StaticResource SuccessGreenBrush}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsFeedbackSuccess}" Value="False">
+                                    <Setter Property="Foreground" Value="{StaticResource ErrorRedBrush}"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Border>
+
+            <!-- 3. INSUFFICIENT STOCK WARNING BANNER ("Thiếu tồn kho") -->
+            <Border Background="{StaticResource ErrorSoftBgBrush}"
+                    BorderBrush="#DC2626"
+                    BorderThickness="1.5"
+                    CornerRadius="12"
+                    Padding="20,16"
+                    Margin="0,0,0,20"
+                    Visibility="{Binding HasInsufficientStock, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0"
+                            Width="42" Height="42"
+                            CornerRadius="21"
+                            Background="#DC2626"
+                            Margin="0,0,16,0"
+                            VerticalAlignment="Top">
+                        <Path Data="{StaticResource IconWarningGeometry}"
+                              Fill="White"
+                              Width="20" Height="20"
+                              Stretch="Uniform"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"/>
+                    </Border>
+
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <Border Background="#DC2626" CornerRadius="6" Padding="10,3" Margin="0,0,10,0">
+                                <TextBlock Text="Thiếu tồn kho" Foreground="White" FontWeight="Bold" FontSize="12"/>
+                            </Border>
+                            <TextBlock Text="Không đủ số lượng sách trong kho để thực hiện xuất kho toàn bộ đơn hàng"
+                                       FontWeight="Bold"
+                                       FontSize="14.5"
+                                       Foreground="#991B1B"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <TextBlock Text="{Binding InsufficientStockWarningMessage}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource ErrorRedBrush}"
+                                   TextWrapping="Wrap"
+                                   LineHeight="20"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 4. STOCK-OUT TABLE & CONFIRMATION PANEL -->
+            <Border Style="{StaticResource CardPanelStyle}"
+                    Padding="24"
+                    Visibility="{Binding HasSelectedOrder, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <StackPanel>
+                    <!-- Selected Order Summary Header -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding SelectedOrder.OrderCode, StringFormat='Chi Tiết Xuất Kho Đơn Hàng {0}'}"
+                                           Style="{StaticResource SectionHeadingStyle}"/>
+
+                                <Border Style="{StaticResource StatusBadgeBorderStyle}"
+                                        Margin="12,0,0,0"
+                                        Background="{Binding SelectedOrder.TrangThai, Converter={StaticResource OrderStatusBadgeBackgroundConverter}}">
+                                    <TextBlock Text="{Binding SelectedOrder.TrangThai}"
+                                               FontWeight="Bold"
+                                               FontSize="12"
+                                               Foreground="{Binding SelectedOrder.TrangThai, Converter={StaticResource OrderStatusBadgeForegroundConverter}}"/>
+                                </Border>
+
+                                <Border Style="{StaticResource StatusBadgeBorderStyle}"
+                                        Margin="8,0,0,0"
+                                        Background="{Binding SelectedOrder.TrangThaiXuatKho, Converter={StaticResource StockOutStatusBadgeBackgroundConverter}}">
+                                    <TextBlock Text="{Binding SelectedOrder.TrangThaiXuatKho}"
+                                               FontWeight="Bold"
+                                               FontSize="12"
+                                               Foreground="{Binding SelectedOrder.TrangThaiXuatKho, Converter={StaticResource StockOutStatusBadgeForegroundConverter}}"/>
+                                </Border>
+                            </StackPanel>
+
+                            <TextBlock Text="{Binding SelectedOrder.CustomerSummary, StringFormat='Khách hàng: {0}'}"
+                                       FontSize="13"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Action Buttons -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Content="Quay về Xử lý đơn (UC07)"
+                                    Command="{Binding GoToOrderProcessingCommand}"
+                                    Style="{StaticResource SecondaryOutlineButtonStyle}"
+                                    Margin="0,0,10,0"/>
+
+                            <Button Content="✓ Xác nhận xuất kho"
+                                    Command="{Binding ConfirmStockOutCommand}"
+                                    IsEnabled="{Binding CanConfirmStockOut}"
+                                    Style="{StaticResource PrimaryCtaButtonStyle}"
+                                    FontSize="14.5"
+                                    Padding="22,11"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Required Stock-Out Table with Insufficient Stock Row Highlighting -->
+                    <DataGrid ItemsSource="{Binding StockOutItems}"
+                              Style="{StaticResource AdminDataGridStyle}">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow" BasedOn="{StaticResource AdminDataGridRowStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsInsufficientStock}" Value="True">
+                                        <Setter Property="Background" Value="#FEF2F2"/>
+                                        <Setter Property="BorderBrush" Value="#FECACA"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+
+                        <DataGrid.Columns>
+                            <!-- Order ID -->
+                            <DataGridTextColumn Header="Mã ĐH" Binding="{Binding OrderCode}" Width="85">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                        <Setter Property="Foreground" Value="{StaticResource BrandDarkBlueBrush}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <!-- Book ID -->
+                            <DataGridTextColumn Header="Mã sách" Binding="{Binding MaSach, StringFormat='#{0}'}" Width="85">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <!-- Book Title -->
+                            <DataGridTextColumn Header="Tên sách" Binding="{Binding TenSach}" Width="1.6*">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                        <Setter Property="Foreground" Value="{StaticResource CharcoalTextBrush}"/>
+                                        <Setter Property="TextWrapping" Value="Wrap"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <!-- Current Stock Quantity -->
+                            <DataGridTextColumn Header="Tồn kho hiện tại" Binding="{Binding CurrentStock, StringFormat='{}{0} cuốn'}" Width="130">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsInsufficientStock}" Value="True">
+                                                <Setter Property="Foreground" Value="{StaticResource ErrorRedBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <!-- Ordered Quantity -->
+                            <DataGridTextColumn Header="Số lượng đặt" Binding="{Binding OrderedQuantity, StringFormat='{}{0} cuốn'}" Width="120"/>
+
+                            <!-- Quantity to Issue -->
+                            <DataGridTextColumn Header="Số lượng xuất" Binding="{Binding IssueQuantity, StringFormat='{}{0} cuốn'}" Width="120">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                        <Setter Property="Foreground" Value="{StaticResource BrandOrangeBrush}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <!-- Stock Availability Status Badge & Details -->
+                            <DataGridTemplateColumn Header="Trạng thái đáp ứng tồn kho" Width="1.8*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Border Style="{StaticResource StatusBadgeBorderStyle}"
+                                                    Margin="0,0,10,0"
+                                                    Background="{Binding AvailabilityStatusText, Converter={StaticResource StockOutStatusBadgeBackgroundConverter}}">
+                                                <TextBlock Text="{Binding AvailabilityStatusText}"
+                                                           FontWeight="Bold"
+                                                           FontSize="11.5"
+                                                           Foreground="{Binding AvailabilityStatusText, Converter={StaticResource StockOutStatusBadgeForegroundConverter}}"/>
+                                            </Border>
+
+                                            <TextBlock Text="{Binding AvailabilityDetailText}"
+                                                       FontSize="12"
+                                                       VerticalAlignment="Center"
+                                                       TextWrapping="Wrap">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsInsufficientStock}" Value="True">
+                                                                <Setter Property="Foreground" Value="{StaticResource ErrorRedBrush}"/>
+                                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+            </Border>
+
+            <!-- 5. NO ORDER LOADED PLACEHOLDER -->
+            <Border Style="{StaticResource CardPanelStyle}"
+                    Padding="48,40"
+                    Visibility="{Binding IsNoOrderLoaded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <StackPanel HorizontalAlignment="Center" MaxWidth="440">
+                    <Path Data="{StaticResource IconStockOutGeometry}"
+                          Fill="{StaticResource BrandDarkBlueBrush}"
+                          Width="42" Height="42"
+                          Stretch="Uniform"
+                          HorizontalAlignment="Center"
+                          Margin="0,0,0,14"/>
+                    <TextBlock Text="Chưa có đơn hàng nào được tải"
+                               FontSize="19"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource BrandDarkBlueBrush}"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,8"/>
+                    <TextBlock Text="Vui lòng nhập mã đơn hàng vào ô tìm kiếm phía trên hoặc chọn một đơn hàng từ danh sách để kiểm tra tồn kho và xuất kho."
+                               FontSize="13.5"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

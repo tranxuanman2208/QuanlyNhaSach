@@ -1,0 +1,435 @@
+<Window x:Class="QuanlyNhaSach.Views.Auth.AuthWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:conv="clr-namespace:QuanlyNhaSach.Converters"
+        mc:Ignorable="d"
+        Title="BookNest — Đăng Nhập &amp; Xác Thực Hệ Thống Nhà Sách"
+        Height="740" Width="1120"
+        MinHeight="640" MinWidth="920"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource MainBackgroundBrush}">
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <!-- Left Panel: Branding, XAML Bookstore Illustration & Demo Credentials -->
+            <ColumnDefinition Width="1.05*"/>
+            <!-- Right Panel: Login (UC01) & Customer Registration (UC14) Form -->
+            <ColumnDefinition Width="1.15*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- ==================== 1. LEFT PANEL: BRANDING & ILLUSTRATION ==================== -->
+        <Border Grid.Column="0" Background="{StaticResource StaffSidebarBrush}">
+            <Grid Margin="44,40">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Decorative Background Shapes -->
+                <Ellipse Grid.RowSpan="3" Width="320" Height="320" Fill="#12FFFFFF" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-90,-110,0"/>
+                <Ellipse Grid.RowSpan="3" Width="240" Height="240" Fill="#0DFFFFFF" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="-80,0,0,-70"/>
+
+                <!-- Top Brand Header -->
+                <StackPanel Grid.Row="0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,18">
+                        <Border Width="52" Height="52" CornerRadius="14" Background="{StaticResource BrandOrangeBrush}" Margin="0,0,14,0">
+                            <Path Data="{StaticResource IconBookGeometry}"
+                                  Fill="White"
+                                  Width="26" Height="26"
+                                  Stretch="Uniform"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="BookNest"
+                                       FontSize="28"
+                                       FontWeight="Bold"
+                                       Foreground="White"/>
+                            <TextBlock Text="HỆ THỐNG QUẢN LÝ &amp; NHÀ SÁCH TRỰC TUYẾN"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       Foreground="#93C5FD"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock Text="Mở sách hay, mở tương lai."
+                               FontSize="24"
+                               FontWeight="Bold"
+                               Foreground="White"
+                               Margin="0,4,0,8"/>
+
+                    <TextBlock Text="Trải nghiệm mua sắm sách trực tuyến dành cho Khách hàng và cổng điều hành nghiệp vụ tập trung dành cho Nhân viên nhà sách."
+                               FontSize="13.5"
+                               Foreground="#CBD5E1"
+                               TextWrapping="Wrap"
+                               LineHeight="20"/>
+                </StackPanel>
+
+                <!-- Center XAML Bookshelf Composition -->
+                <Border Grid.Row="1"
+                        Background="#1E3A8A"
+                        BorderBrush="#2B4C9E"
+                        BorderThickness="1"
+                        CornerRadius="16"
+                        Padding="26,22"
+                        VerticalAlignment="Center"
+                        Margin="0,20">
+                    <StackPanel>
+                        <TextBlock Text="KỆ SÁCH TRI THỨC BOOKNEST"
+                                   FontSize="11"
+                                   FontWeight="Bold"
+                                   Foreground="#93C5FD"
+                                   Margin="0,0,0,14"/>
+
+                        <!-- Visual XAML Bookshelf Row -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,4,0,8">
+                            <Border Width="38" Height="108" CornerRadius="5,5,2,2" Background="#E85D22" Margin="0,0,8,0" VerticalAlignment="Bottom">
+                                <Border Width="4" Background="#40FFFFFF" HorizontalAlignment="Left" Margin="5,8,0,8" CornerRadius="2"/>
+                            </Border>
+                            <Border Width="42" Height="124" CornerRadius="5,5,2,2" Background="#0F766E" Margin="0,0,8,0" VerticalAlignment="Bottom">
+                                <Border Width="4" Background="#40FFFFFF" HorizontalAlignment="Left" Margin="5,8,0,8" CornerRadius="2"/>
+                            </Border>
+                            <Border Width="36" Height="98" CornerRadius="5,5,2,2" Background="#D97706" Margin="0,0,8,0" VerticalAlignment="Bottom">
+                                <Border Width="4" Background="#40FFFFFF" HorizontalAlignment="Left" Margin="5,8,0,8" CornerRadius="2"/>
+                            </Border>
+                            <Border Width="44" Height="130" CornerRadius="5,5,2,2" Background="#4338CA" Margin="0,0,8,0" VerticalAlignment="Bottom">
+                                <Border Width="4" Background="#40FFFFFF" HorizontalAlignment="Left" Margin="5,8,0,8" CornerRadius="2"/>
+                            </Border>
+                            <Border Width="38" Height="114" CornerRadius="5,5,2,2" Background="#2563EB" Margin="0,0,0,0" VerticalAlignment="Bottom">
+                                <Border Width="4" Background="#40FFFFFF" HorizontalAlignment="Left" Margin="5,8,0,8" CornerRadius="2"/>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Shelf Base Bar -->
+                        <Border Height="8" CornerRadius="4" Background="#93C5FD" Opacity="0.35" Margin="10,0,10,14"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="• Phân hệ Khách hàng" Foreground="White" FontWeight="Bold" FontSize="12.5"/>
+                                <TextBlock Text="Duyệt sách, tìm kiếm, giỏ hàng &amp; đặt đơn" Foreground="#BFDBFE" FontSize="11.5" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                <TextBlock Text="• Cổng Nhân viên" Foreground="White" FontWeight="Bold" FontSize="12.5"/>
+                                <TextBlock Text="Thống kê, tra cứu, xử lý đơn, thu tiền &amp; xuất kho" Foreground="#BFDBFE" FontSize="11.5" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Bottom Demo Credentials Box (Clearly labelled as Demo-Only) -->
+                <Border Grid.Row="2"
+                        Background="#122240"
+                        BorderBrush="#2A4374"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="18,14">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,8">
+                            <TextBlock Text="TÀI KHOẢN MẪU KIỂM THỬ (DEMO-ONLY / IN-MEMORY)"
+                                       FontSize="11"
+                                       FontWeight="Bold"
+                                       Foreground="#FDBA74"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <TextBlock Text="Dữ liệu xác thực dưới đây chỉ phục vụ chạy thử nghiệm giao diện trên bộ nhớ RAM, không kết nối máy chủ thực tế:"
+                                   FontSize="11.5"
+                                   Foreground="#94A3B8"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,10"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Demo Customer Quick-Fill Button -->
+                            <Button Grid.Column="0"
+                                    Command="{Binding FillDemoCustomerCommand}"
+                                    Style="{StaticResource HeaderNavButtonStyle}"
+                                    Background="#1E3A8A"
+                                    Padding="8,8"
+                                    Margin="0,0,4,0"
+                                    ToolTip="Điền nhanh thông tin tài khoản Khách hàng mẫu">
+                                <StackPanel>
+                                    <TextBlock Text="TK Khách Hàng" Foreground="White" FontWeight="Bold" FontSize="11.5" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="customer@example.com" Foreground="#BFDBFE" FontSize="9.5" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Demo Staff Quick-Fill Button -->
+                            <Button Grid.Column="1"
+                                    Command="{Binding FillDemoStaffCommand}"
+                                    Style="{StaticResource HeaderNavButtonStyle}"
+                                    Background="#0F766E"
+                                    Padding="8,8"
+                                    Margin="4,0,4,0"
+                                    ToolTip="Điền nhanh thông tin tài khoản Nhân viên mẫu">
+                                <StackPanel>
+                                    <TextBlock Text="TK Nhân Viên" Foreground="White" FontWeight="Bold" FontSize="11.5" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="staff@example.com" Foreground="#CCFBF1" FontSize="9.5" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Demo Manager Quick-Fill Button -->
+                            <Button Grid.Column="2"
+                                    Command="{Binding FillDemoManagerCommand}"
+                                    Style="{StaticResource HeaderNavButtonStyle}"
+                                    Background="#E85D22"
+                                    Padding="8,8"
+                                    Margin="4,0,0,0"
+                                    ToolTip="Điền nhanh thông tin tài khoản Quản lý mẫu">
+                                <StackPanel>
+                                    <TextBlock Text="TK Quản Lý" Foreground="White" FontWeight="Bold" FontSize="11.5" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="manager@example.com" Foreground="#FFEDD5" FontSize="9.5" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- ==================== 2. RIGHT PANEL: LOGIN & REGISTRATION FORMS ==================== -->
+        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid Margin="52,40" VerticalAlignment="Center" MaxWidth="460">
+
+                <!-- A. LOGIN VIEW (UC01) -->
+                <StackPanel Visibility="{Binding IsLoginMode, Converter={StaticResource BooleanToVisibilityConverter}}">
+
+                    <Border Background="{StaticResource BrandDarkBlueLightBrush}"
+                            CornerRadius="8"
+                            Padding="12,5"
+                            HorizontalAlignment="Left"
+                            Margin="0,0,0,12">
+                        <TextBlock Text="UC01 — XÁC THỰC &amp; ĐĂNG NHẬP HỆ THỐNG"
+                                   Foreground="{StaticResource BrandDarkBlueBrush}"
+                                   FontWeight="Bold"
+                                   FontSize="11.5"/>
+                    </Border>
+
+                    <TextBlock Text="Chào mừng bạn quay trở lại"
+                               FontSize="28"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource CharcoalTextBrush}"
+                               Margin="0,0,0,6"/>
+
+                    <TextBlock Text="Vui lòng nhập thông tin tài khoản để truy cập phân hệ Khách hàng hoặc Cổng Nhân viên."
+                               FontSize="14"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,24"/>
+
+                    <!-- Success / Info Alert Banner -->
+                    <Border Background="{StaticResource SuccessSoftBgBrush}"
+                            BorderBrush="#6EE7B7"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="14,10"
+                            Margin="0,0,0,16"
+                            Visibility="{Binding HasLoginSuccess, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="{Binding LoginSuccessMessage}"
+                                   Foreground="{StaticResource SuccessGreenBrush}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap"/>
+                    </Border>
+
+                    <!-- Error Alert Banner -->
+                    <Border Background="{StaticResource ErrorSoftBgBrush}"
+                            BorderBrush="#FECACA"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="14,10"
+                            Margin="0,0,0,16"
+                            Visibility="{Binding HasLoginError, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="{Binding LoginErrorMessage}"
+                                   Foreground="{StaticResource ErrorRedBrush}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap"/>
+                    </Border>
+
+                    <!-- Username Input -->
+                    <TextBlock Text="Tên đăng nhập / Email *" Style="{StaticResource FormFieldLabelStyle}"/>
+                    <TextBox x:Name="LoginUsernameTextBox"
+                             Text="{Binding LoginUsername, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource FormTextBoxStyle}"
+                             Margin="0,0,0,16">
+                        <TextBox.InputBindings>
+                            <KeyBinding Key="Return" Command="{Binding LoginCommand}"/>
+                            <KeyBinding Key="Enter" Command="{Binding LoginCommand}"/>
+                        </TextBox.InputBindings>
+                    </TextBox>
+
+                    <!-- Password Input -->
+                    <TextBlock Text="Mật khẩu *" Style="{StaticResource FormFieldLabelStyle}"/>
+                    <PasswordBox x:Name="LoginPasswordBox"
+                                 Style="{StaticResource FormPasswordBoxStyle}"
+                                 conv:PasswordBoxHelper.BoundPassword="{Binding LoginPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 Margin="0,0,0,24">
+                        <PasswordBox.InputBindings>
+                            <KeyBinding Key="Return" Command="{Binding LoginCommand}"/>
+                            <KeyBinding Key="Enter" Command="{Binding LoginCommand}"/>
+                        </PasswordBox.InputBindings>
+                    </PasswordBox>
+
+                    <!-- Primary Login Button (#E85D22) -->
+                    <Button Content="Đăng nhập hệ thống"
+                            Command="{Binding LoginCommand}"
+                            Style="{StaticResource PrimaryCtaButtonStyle}"
+                            FontSize="15"
+                            Padding="0,13"
+                            HorizontalAlignment="Stretch"
+                            Margin="0,0,0,18"/>
+
+                    <Separator Background="{StaticResource BorderSubtleBrush}" Margin="0,4,0,18"/>
+
+                    <!-- Switch to Customer Registration -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="Bạn là khách hàng mới chưa có tài khoản?"
+                                   FontSize="13.5"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,8,0"/>
+                        <Button Content="Đăng ký ngay"
+                                Command="{Binding SwitchToRegisterCommand}"
+                                Style="{StaticResource SecondaryOutlineButtonStyle}"
+                                Padding="14,7"/>
+                    </StackPanel>
+
+                </StackPanel>
+
+                <!-- B. CUSTOMER REGISTRATION VIEW (UC14) -->
+                <StackPanel Visibility="{Binding IsRegisterMode, Converter={StaticResource BooleanToVisibilityConverter}}">
+
+                    <Border Background="{StaticResource BrandOrangeLightBrush}"
+                            BorderBrush="{StaticResource BrandOrangeBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,5"
+                            HorizontalAlignment="Left"
+                            Margin="0,0,0,10">
+                        <TextBlock Text="UC14 — ĐĂNG KÝ TÀI KHOẢN KHÁCH HÀNG"
+                                   Foreground="{StaticResource BrandOrangeBrush}"
+                                   FontWeight="Bold"
+                                   FontSize="11.5"/>
+                    </Border>
+
+                    <TextBlock Text="Tạo tài khoản Khách hàng"
+                               FontSize="26"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource CharcoalTextBrush}"
+                               Margin="0,0,0,4"/>
+
+                    <TextBlock Text="Điền thông tin cá nhân để tạo tài khoản mua sách trực tuyến (Mặc định phân quyền Khách hàng)."
+                               FontSize="13"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,16"/>
+
+                    <!-- Registration General Error Banner -->
+                    <Border Background="{StaticResource ErrorSoftBgBrush}"
+                            BorderBrush="#FECACA"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,9"
+                            Margin="0,0,0,14"
+                            Visibility="{Binding HasRegisterError, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="{Binding RegisterErrorMessage}"
+                                   Foreground="{StaticResource ErrorRedBrush}"
+                                   FontSize="12.5"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap"/>
+                    </Border>
+
+                    <!-- 1. Full Name -->
+                    <TextBlock Text="Họ và tên khách hàng *" Style="{StaticResource FormFieldLabelStyle}"/>
+                    <TextBox Text="{Binding RegisterHoTen, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource FormTextBoxStyle}"/>
+                    <TextBlock Text="{Binding HoTenError}"
+                               Style="{StaticResource ValidationErrorTextStyle}"
+                               Visibility="{Binding HasHoTenError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                    <!-- 2. Phone Number -->
+                    <TextBlock Text="Số điện thoại (10 chữ số) *" Style="{StaticResource FormFieldLabelStyle}" Margin="0,12,0,6"/>
+                    <TextBox Text="{Binding RegisterSDT, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="10"
+                             Style="{StaticResource FormTextBoxStyle}"/>
+                    <TextBlock Text="{Binding SdtError}"
+                               Style="{StaticResource ValidationErrorTextStyle}"
+                               Visibility="{Binding HasSdtError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                    <!-- 3. Address -->
+                    <TextBlock Text="Địa chỉ nhận hàng *" Style="{StaticResource FormFieldLabelStyle}" Margin="0,12,0,6"/>
+                    <TextBox Text="{Binding RegisterDiaChi, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource FormTextBoxStyle}"/>
+                    <TextBlock Text="{Binding DiaChiError}"
+                               Style="{StaticResource ValidationErrorTextStyle}"
+                               Visibility="{Binding HasDiaChiError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                    <!-- 4. Username / Email -->
+                    <TextBlock Text="Tên đăng nhập / Email *" Style="{StaticResource FormFieldLabelStyle}" Margin="0,12,0,6"/>
+                    <TextBox Text="{Binding RegisterUsername, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource FormTextBoxStyle}"/>
+                    <TextBlock Text="{Binding UsernameError}"
+                               Style="{StaticResource ValidationErrorTextStyle}"
+                               Visibility="{Binding HasUsernameError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                    <!-- 5. Password & Confirm Password -->
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                            <TextBlock Text="Mật khẩu (>= 6 ký tự) *" Style="{StaticResource FormFieldLabelStyle}"/>
+                            <PasswordBox Style="{StaticResource FormPasswordBoxStyle}"
+                                         conv:PasswordBoxHelper.BoundPassword="{Binding RegisterPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Text="{Binding PasswordError}"
+                                       Style="{StaticResource ValidationErrorTextStyle}"
+                                       Visibility="{Binding HasPasswordError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                            <TextBlock Text="Xác nhận mật khẩu *" Style="{StaticResource FormFieldLabelStyle}"/>
+                            <PasswordBox Style="{StaticResource FormPasswordBoxStyle}"
+                                         conv:PasswordBoxHelper.BoundPassword="{Binding RegisterConfirmPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Text="{Binding ConfirmPasswordError}"
+                                       Style="{StaticResource ValidationErrorTextStyle}"
+                                       Visibility="{Binding HasConfirmPasswordError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Primary Register Button -->
+                    <Button Content="Hoàn tất đăng ký Khách hàng"
+                            Command="{Binding RegisterCommand}"
+                            Style="{StaticResource PrimaryCtaButtonStyle}"
+                            FontSize="14.5"
+                            Padding="0,12"
+                            HorizontalAlignment="Stretch"
+                            Margin="0,20,0,12"/>
+
+                    <!-- Back to Login Button -->
+                    <Button Content="← Quay lại màn hình Đăng nhập"
+                            Command="{Binding SwitchToLoginCommand}"
+                            Style="{StaticResource SecondaryOutlineButtonStyle}"
+                            HorizontalAlignment="Stretch"
+                            Padding="0,10"/>
+
+                </StackPanel>
+
+            </Grid>
+        </ScrollViewer>
+    </Grid>
+</Window>

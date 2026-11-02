@@ -1,0 +1,437 @@
+<Page x:Class="QuanlyNhaSach.Views.Manager.ManagerOverviewPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      mc:Ignorable="d"
+      Title="Tổng quan — Cổng Quản Trị"
+      Background="{StaticResource SubtleSurfaceBrush}">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="32,26">
+
+            <!-- ==================== 1. PAGE HEADER ==================== -->
+            <Grid Margin="0,0,0,22">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Tổng quan"
+                               Style="{StaticResource PageTitleStyle}"/>
+                    <TextBlock Text="Tổng quan hoạt động kinh doanh, doanh thu thực thu, sách bán chạy và cảnh báo tồn kho (UC13)."
+                               FontSize="13.5"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Kỳ biểu đồ:"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource CharcoalTextBrush}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0"/>
+                    <ComboBox ItemsSource="{Binding ReportingPeriods}"
+                              SelectedItem="{Binding SelectedPeriod}"
+                              Style="{StaticResource FormComboBoxStyle}"
+                              Width="165"
+                              Margin="0,0,12,0"/>
+                    <Button Content="Làm mới số liệu"
+                            Command="{Binding RefreshOverviewCommand}"
+                            Style="{StaticResource SecondaryOutlineButtonStyle}"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- ==================== 2. FOUR STATISTIC CARDS ==================== -->
+            <UniformGrid Columns="4" Margin="0,0,0,24">
+
+                <!-- Card 1: Tổng doanh thu -->
+                <Border Style="{StaticResource StatCardBorderStyle}" Margin="0,0,14,0">
+                    <Grid>
+                        <StackPanel>
+                            <Grid Margin="0,0,0,10">
+                                <TextBlock Text="TỔNG DOANH THU"
+                                           FontSize="11.5"
+                                           FontWeight="Bold"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           VerticalAlignment="Center"/>
+                                <Border Width="34" Height="34" CornerRadius="8" Background="{StaticResource BrandOrangeLightBrush}" HorizontalAlignment="Right">
+                                    <Path Data="{StaticResource IconSalesGeometry}" Fill="{StaticResource BrandOrangeBrush}" Width="17" Height="17" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </Grid>
+                            <TextBlock Text="{Binding FormattedTotalRevenue}"
+                                       FontSize="24"
+                                       FontWeight="Bold"
+                                       Foreground="{StaticResource BrandOrangeBrush}"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding RevenueSubtext}"
+                                       FontSize="11.5"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       Margin="0,6,0,0"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Card 2: Tổng đơn hàng -->
+                <Border Style="{StaticResource StatCardBorderStyle}" Margin="4,0,10,0">
+                    <Grid>
+                        <StackPanel>
+                            <Grid Margin="0,0,0,10">
+                                <TextBlock Text="TỔNG ĐƠN HÀNG"
+                                           FontSize="11.5"
+                                           FontWeight="Bold"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           VerticalAlignment="Center"/>
+                                <Border Width="34" Height="34" CornerRadius="8" Background="{StaticResource BrandDarkBlueLightBrush}" HorizontalAlignment="Right">
+                                    <Path Data="{StaticResource IconOrdersGeometry}" Fill="{StaticResource BrandDarkBlueBrush}" Width="17" Height="17" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </Grid>
+                            <TextBlock Text="{Binding TotalOrders, StringFormat='{}{0} đơn hàng'}"
+                                       FontSize="24"
+                                       FontWeight="Bold"
+                                       Foreground="{StaticResource BrandDarkBlueBrush}"/>
+                            <TextBlock Text="{Binding OrdersSubtext}"
+                                       FontSize="11.5"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       Margin="0,6,0,0"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Card 3: Sách bán chạy -->
+                <Border Style="{StaticResource StatCardBorderStyle}" Margin="10,0,4,0">
+                    <Grid>
+                        <StackPanel>
+                            <Grid Margin="0,0,0,10">
+                                <TextBlock Text="SÁCH BÁN CHẠY"
+                                           FontSize="11.5"
+                                           FontWeight="Bold"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           VerticalAlignment="Center"/>
+                                <Border Width="34" Height="34" CornerRadius="8" Background="{StaticResource SuccessSoftBgBrush}" HorizontalAlignment="Right">
+                                    <Path Data="{StaticResource IconTrophyGeometry}" Fill="{StaticResource SuccessGreenBrush}" Width="17" Height="17" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </Grid>
+                            <TextBlock Text="{Binding BestSellingBookTitle}"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Foreground="{StaticResource CharcoalTextBrush}"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding BestSellingBookTitle}"/>
+                            <TextBlock Text="{Binding BestSellingBookSubtext}"
+                                       FontSize="11.5"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource SuccessGreenBrush}"
+                                       Margin="0,8,0,0"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Card 4: Sách sắp hết kho (< 10) -->
+                <Border Style="{StaticResource StatCardBorderStyle}" Margin="14,0,0,0">
+                    <Grid>
+                        <StackPanel>
+                            <Grid Margin="0,0,0,10">
+                                <TextBlock Text="SÁCH SẮP HẾT KHO"
+                                           FontSize="11.5"
+                                           FontWeight="Bold"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           VerticalAlignment="Center"/>
+                                <Border Width="34" Height="34" CornerRadius="8" Background="{StaticResource ErrorSoftBgBrush}" HorizontalAlignment="Right">
+                                    <Path Data="{StaticResource IconWarningGeometry}" Fill="{StaticResource ErrorRedBrush}" Width="17" Height="17" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </Grid>
+                            <TextBlock Text="{Binding LowStockBookCount, StringFormat='{}{0} đầu sách'}"
+                                       FontSize="24"
+                                       FontWeight="Bold"
+                                       Foreground="{StaticResource ErrorRedBrush}"/>
+                            <TextBlock Text="{Binding LowStockSubtext}"
+                                       FontSize="11.5"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       Margin="0,6,0,0"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+            </UniformGrid>
+
+            <!-- ==================== 3. MIDDLE ROW: REVENUE BAR CHART & TOP 5 BEST-SELLING BOOKS ==================== -->
+            <Grid Margin="0,0,0,24">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.35*"/>
+                    <ColumnDefinition Width="1*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Left: Revenue Bar Chart -->
+                <Border Grid.Column="0" Style="{StaticResource CardPanelStyle}" Padding="24,20" Margin="0,0,12,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Chart Header -->
+                        <Grid Grid.Row="0" Margin="0,0,0,18">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="{StaticResource IconChartBarGeometry}"
+                                          Fill="{StaticResource BrandOrangeBrush}"
+                                          Width="18" Height="18"
+                                          Stretch="Uniform"
+                                          Margin="0,0,8,0"
+                                          VerticalAlignment="Center"/>
+                                    <TextBlock Text="Doanh thu theo thời gian"
+                                               Style="{StaticResource SectionHeadingStyle}"/>
+                                </StackPanel>
+                                <TextBlock Text="Tính từ các đơn hàng Đã hoàn tất &amp; Đã thanh toán (không bao gồm đơn Đã hủy hoặc Chưa thu tiền)"
+                                           FontSize="12"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Native WPF Proportional Bar Chart -->
+                        <Border Grid.Row="1"
+                                Background="#F8FAFC"
+                                BorderBrush="#E2E8F0"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                Padding="16,18,16,12"
+                                MinHeight="255">
+                            <ItemsControl ItemsSource="{Binding RevenueChartPoints}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Rows="1"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="4,0"
+                                              VerticalAlignment="Bottom"
+                                              ToolTip="{Binding FullDateLabel, StringFormat='Ngày {0}'}">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+
+                                            <!-- Value label + Proportional Orange Bar -->
+                                            <StackPanel Grid.Row="0" VerticalAlignment="Bottom" HorizontalAlignment="Center">
+                                                <TextBlock Text="{Binding ShortRevenueLabel}"
+                                                           FontSize="10.5"
+                                                           FontWeight="Bold"
+                                                           Foreground="{StaticResource CharcoalTextBrush}"
+                                                           HorizontalAlignment="Center"
+                                                           Margin="0,0,0,5"/>
+                                                <Border Width="34"
+                                                        Height="{Binding BarHeight}"
+                                                        CornerRadius="6,6,2,2"
+                                                        HorizontalAlignment="Center"
+                                                        ToolTip="{Binding FormattedRevenue}">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="{StaticResource BrandOrangeBrush}"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding HasRevenue}" Value="False">
+                                                                    <Setter Property="Background" Value="#CBD5E1"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                </Border>
+                                            </StackPanel>
+
+                                            <!-- Baseline Divider -->
+                                            <Border Grid.Row="1" Height="1" Background="#CBD5E1" Margin="0,6,0,6"/>
+
+                                            <!-- Date Label -->
+                                            <TextBlock Grid.Row="2"
+                                                       Text="{Binding Label}"
+                                                       FontSize="11.5"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource MutedTextBrush}"
+                                                       HorizontalAlignment="Center"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+
+                        <!-- Chart Footer Summary -->
+                        <Grid Grid.Row="2" Margin="0,12,0,0">
+                            <TextBlock Text="{Binding ChartPeriodTotalText}"
+                                       FontSize="12.5"
+                                       FontWeight="Bold"
+                                       Foreground="{StaticResource BrandDarkBlueBrush}"
+                                       VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Border Width="12" Height="12" CornerRadius="3" Background="{StaticResource BrandOrangeBrush}" Margin="0,0,6,0"/>
+                                <TextBlock Text="Doanh thu thực thu (VND)" FontSize="11.5" Foreground="{StaticResource MutedTextBrush}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- Right: Top 5 Best-Selling Books -->
+                <Border Grid.Column="1" Style="{StaticResource CardPanelStyle}" Padding="24,20" Margin="12,0,0,0">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <Path Data="{StaticResource IconTrophyGeometry}"
+                                  Fill="{StaticResource BrandOrangeBrush}"
+                                  Width="18" Height="18"
+                                  Stretch="Uniform"
+                                  Margin="0,0,8,0"
+                                  VerticalAlignment="Center"/>
+                            <TextBlock Text="Top 5 sách bán chạy nhất"
+                                       Style="{StaticResource SectionHeadingStyle}"/>
+                        </StackPanel>
+                        <TextBlock Text="Xếp hạng theo tổng số lượng cuốn thực bán từ các đơn hàng hoàn tất"
+                                   FontSize="12"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   Margin="0,0,0,16"/>
+
+                        <ItemsControl ItemsSource="{Binding TopFiveBooks}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#F8FAFC"
+                                            BorderBrush="#E2E8F0"
+                                            BorderThickness="1"
+                                            CornerRadius="10"
+                                            Padding="12,10"
+                                            Margin="0,0,0,10">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Rank Badge -->
+                                            <Border Grid.Column="0"
+                                                    Width="32" Height="32"
+                                                    CornerRadius="8"
+                                                    Background="{StaticResource BrandOrangeBrush}"
+                                                    VerticalAlignment="Center"
+                                                    Margin="0,0,12,0">
+                                                <TextBlock Text="{Binding RankBadge}"
+                                                           Foreground="White"
+                                                           FontWeight="Bold"
+                                                           FontSize="12.5"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"/>
+                                            </Border>
+
+                                            <!-- Book Title & Author -->
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                <TextBlock Text="{Binding TenSach}"
+                                                           FontWeight="Bold"
+                                                           FontSize="13.5"
+                                                           Foreground="{StaticResource CharcoalTextBrush}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding TacGia}"
+                                                           FontSize="11.5"
+                                                           Foreground="{StaticResource MutedTextBrush}"
+                                                           Margin="0,2,0,0"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+
+                                            <!-- Quantity Sold & Revenue -->
+                                            <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                <Border Background="#ECFDF5" CornerRadius="6" Padding="8,3" HorizontalAlignment="Right">
+                                                    <TextBlock Text="{Binding QuantitySold, StringFormat='{}{0} cuốn'}"
+                                                               FontSize="12"
+                                                               FontWeight="Bold"
+                                                               Foreground="{StaticResource SuccessGreenBrush}"/>
+                                                </Border>
+                                                <TextBlock Text="{Binding FormattedRevenue}"
+                                                           FontSize="11.5"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{StaticResource BrandOrangeBrush}"
+                                                           HorizontalAlignment="Right"
+                                                           Margin="0,3,0,0"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- ==================== 4. LOW-STOCK ATTENTION SUMMARY (< 10) ==================== -->
+            <Border Style="{StaticResource CardPanelStyle}" Padding="24,20">
+                <StackPanel>
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="{StaticResource IconWarningGeometry}"
+                                      Fill="{StaticResource ErrorRedBrush}"
+                                      Width="18" Height="18"
+                                      Stretch="Uniform"
+                                      Margin="0,0,8,0"
+                                      VerticalAlignment="Center"/>
+                                <TextBlock Text="Danh sách sách sắp hết kho cần chú ý (Tồn kho &lt; 10)"
+                                           Style="{StaticResource SectionHeadingStyle}"/>
+                            </StackPanel>
+                            <TextBlock Text="Các đầu sách dưới ngưỡng an toàn (SoLuongTon &lt; 10) cần được ưu tiên lập phiếu nhập bổ sung."
+                                       FontSize="12.5"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       Margin="0,3,0,0"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Content="Mở Quản lý sách"
+                                    Command="{Binding GoToBookManagementCommand}"
+                                    Style="{StaticResource SecondaryOutlineButtonStyle}"
+                                    Margin="0,0,10,0"/>
+                            <Button Content="+ Lập phiếu nhập hàng"
+                                    Command="{Binding GoToImportReceiptCommand}"
+                                    Style="{StaticResource PrimaryCtaButtonStyle}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <DataGrid ItemsSource="{Binding LowStockBooks}"
+                              Style="{StaticResource AdminDataGridStyle}"
+                              MaxHeight="280">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Mã sách" Binding="{Binding BookCode}" Width="90"/>
+                            <DataGridTextColumn Header="Tên đầu sách" Binding="{Binding TenSach}" Width="2*"/>
+                            <DataGridTextColumn Header="Tác giả" Binding="{Binding TacGia}" Width="1.2*"/>
+                            <DataGridTextColumn Header="Giá bán" Binding="{Binding FormattedPrice}" Width="130"/>
+                            <DataGridTextColumn Header="Tồn hiện tại" Binding="{Binding SoLuongTon}" Width="110"/>
+                            <DataGridTemplateColumn Header="Cảnh báo tồn kho" Width="150">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border CornerRadius="6"
+                                                Padding="10,4"
+                                                HorizontalAlignment="Left"
+                                                Background="{StaticResource ErrorSoftBgBrush}">
+                                            <TextBlock Text="Sắp hết"
+                                                       FontSize="12"
+                                                       FontWeight="Bold"
+                                                       Foreground="{StaticResource ErrorRedBrush}"/>
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

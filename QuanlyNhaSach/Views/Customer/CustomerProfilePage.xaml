@@ -1,0 +1,322 @@
+<Page x:Class="QuanlyNhaSach.Views.Customer.CustomerProfilePage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      mc:Ignorable="d"
+      d:DesignHeight="780" d:DesignWidth="1220"
+      Title="CustomerProfilePage"
+      Background="{StaticResource PageBackground}">
+
+    <Grid Margin="32,26,32,32">
+        <Grid.ColumnDefinitions>
+            <!-- Left Sidebar (268px within 250-280px recommendation) -->
+            <ColumnDefinition Width="268"/>
+            <!-- Gap between Sidebar and Content -->
+            <ColumnDefinition Width="28"/>
+            <!-- Right Content Area -->
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- ==================== PART VII: LEFT SIDEBAR ==================== -->
+        <Border Grid.Column="0"
+                Style="{StaticResource CustomerProfileCardStyle}"
+                Padding="20,24">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <!-- 7.1 Customer Avatar & Greeting -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- Divider -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- 7.2 Vertical Navigation Menu -->
+                    <RowDefinition Height="*"/>
+                    <!-- 7.4 Logout Button -->
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- 7.1 Customer Avatar & Greeting -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="2,0,2,20">
+                    <ContentControl Content="{Binding AvatarInitials}"
+                                    ContentTemplate="{StaticResource CustomerAvatarTemplate}"
+                                    Margin="0,0,14,0"/>
+                    <StackPanel VerticalAlignment="Center" MaxWidth="150">
+                        <TextBlock Text="Xin chào,"
+                                   FontSize="12.5"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   Margin="0,0,0,2"/>
+                        <TextBlock Text="{Binding CustomerName}"
+                                   FontSize="15.5"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource BrandDarkBlue}"
+                                   TextWrapping="Wrap"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding CustomerName}"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Divider -->
+                <Separator Grid.Row="1"
+                           Background="{StaticResource InputBorder}"
+                           Margin="0,0,0,16"/>
+
+                <!-- 7.2 & 7.3 Vertical Navigation Menu -->
+                <StackPanel Grid.Row="2">
+                    <!-- 1. Thông tin tài khoản (Active Item: #E85D22 on #FFF0EB) -->
+                    <Button Command="{Binding NavigateAccountInfoCommand}"
+                            Style="{StaticResource CustomerSidebarActiveMenuButtonStyle}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Path Data="{StaticResource IconUserGeometry}"
+                                  Fill="{StaticResource BrandOrange}"
+                                  Width="18" Height="18"
+                                  Stretch="Uniform"
+                                  Margin="0,0,12,0"
+                                  VerticalAlignment="Center"/>
+                            <TextBlock Text="Thông tin tài khoản"
+                                       Foreground="{StaticResource BrandOrange}"
+                                       FontWeight="Bold"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- 2. Lịch sử mua hàng -->
+                    <Button Command="{Binding NavigatePurchaseHistoryCommand}"
+                            Style="{StaticResource CustomerSidebarMenuButtonStyle}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Path Data="{StaticResource IconHistoryGeometry}"
+                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  Width="18" Height="18"
+                                  Stretch="Uniform"
+                                  Margin="0,0,12,0"
+                                  VerticalAlignment="Center"/>
+                            <TextBlock Text="Lịch sử mua hàng"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                       FontWeight="{Binding FontWeight, RelativeSource={RelativeSource AncestorType=Button}}"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- 3. Sách yêu thích -->
+                    <Button Command="{Binding NavigateFavoriteBooksCommand}"
+                            Style="{StaticResource CustomerSidebarMenuButtonStyle}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Path Data="{StaticResource IconHeartGeometry}"
+                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  Width="18" Height="18"
+                                  Stretch="Uniform"
+                                  Margin="0,0,12,0"
+                                  VerticalAlignment="Center"/>
+                            <TextBlock Text="Sách yêu thích"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                       FontWeight="{Binding FontWeight, RelativeSource={RelativeSource AncestorType=Button}}"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- 7.4 Logout Button at Bottom of Sidebar -->
+                <StackPanel Grid.Row="3" Margin="0,16,0,0">
+                    <Separator Background="{StaticResource InputBorder}" Margin="0,0,0,14"/>
+                    <Button Command="{Binding LogoutCommand}"
+                            Style="{StaticResource CustomerLogoutGhostButtonStyle}"
+                            HorizontalAlignment="Stretch">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Path Data="{StaticResource IconLogoutGeometry}"
+                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  Width="16" Height="16"
+                                  Stretch="Uniform"
+                                  Margin="0,0,8,0"
+                                  VerticalAlignment="Center"/>
+                            <TextBlock Text="Đăng xuất"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ==================== PART VIII: RIGHT CONTENT AREA ==================== -->
+        <ScrollViewer Grid.Column="2"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="0,0,4,16">
+
+                <!-- STEP 9: Breadcrumb -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                    <TextBlock Text="Trang chủ"
+                               Style="{StaticResource BreadcrumbSecondaryTextStyle}"
+                               Cursor="Hand"
+                               ToolTip="Quay về Trang chủ">
+                        <TextBlock.InputBindings>
+                            <MouseBinding Gesture="LeftClick" Command="{Binding NavigateHomeCommand}"/>
+                        </TextBlock.InputBindings>
+                    </TextBlock>
+                    <TextBlock Text="  /  "
+                               Style="{StaticResource BreadcrumbSecondaryTextStyle}"/>
+                    <TextBlock Text="Tài khoản của tôi"
+                               Style="{StaticResource BreadcrumbActiveTextStyle}"/>
+                </StackPanel>
+
+                <!-- STEP 10: Page Header -->
+                <StackPanel Margin="0,0,0,22">
+                    <TextBlock Text="Tài khoản của tôi"
+                               Style="{StaticResource CustomerPageTitleStyle}"/>
+                    <TextBlock Text="Quản lý thông tin cá nhân và theo dõi hoạt động mua sắm của bạn."
+                               FontSize="14"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               Margin="0,5,0,0"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <!-- ==================== PART IX: CARD 1 — HỒ SƠ CỦA TÔI ==================== -->
+                <Border Style="{StaticResource CustomerProfileCardStyle}"
+                        Padding="28,24"
+                        Margin="0,0,0,24">
+                    <StackPanel>
+                        <!-- Card Heading -->
+                        <TextBlock Text="Hồ sơ của tôi"
+                                   Style="{StaticResource CustomerCardHeadingStyle}"
+                                   Margin="0,0,0,20"/>
+
+                        <!-- Two-Column Profile Form Layout -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="24"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="18"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Field 1: Họ và tên -->
+                            <StackPanel Grid.Row="0" Grid.Column="0">
+                                <TextBlock Text="Họ và tên"
+                                           Style="{StaticResource CustomerFieldLabelStyle}"/>
+                                <TextBox Text="{Binding CustomerName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource CustomerProfileTextBoxStyle}"/>
+                            </StackPanel>
+
+                            <!-- Field 2: Số điện thoại -->
+                            <StackPanel Grid.Row="0" Grid.Column="2">
+                                <TextBlock Text="Số điện thoại"
+                                           Style="{StaticResource CustomerFieldLabelStyle}"/>
+                                <TextBox Text="{Binding CustomerPhone, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         MaxLength="10"
+                                         Style="{StaticResource CustomerProfileTextBoxStyle}"/>
+                            </StackPanel>
+
+                            <!-- Field 3: Email -->
+                            <StackPanel Grid.Row="2" Grid.Column="0">
+                                <TextBlock Text="Email"
+                                           Style="{StaticResource CustomerFieldLabelStyle}"/>
+                                <TextBox Text="{Binding CustomerEmail, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource CustomerProfileTextBoxStyle}"/>
+                            </StackPanel>
+
+                            <!-- Field 4: Ngày tham gia -->
+                            <StackPanel Grid.Row="2" Grid.Column="2">
+                                <TextBlock Text="Ngày tham gia"
+                                           Style="{StaticResource CustomerFieldLabelStyle}"/>
+                                <TextBox Text="{Binding JoinDateDisplay, Mode=OneWay}"
+                                         Style="{StaticResource CustomerProfileReadOnlyTextBoxStyle}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Primary Action Button: Cập nhật thông tin (#E85D22) -->
+                        <Button Content="Cập nhật thông tin"
+                                Command="{Binding UpdateProfileCommand}"
+                                Style="{StaticResource PrimaryCtaButtonStyle}"
+                                Background="{StaticResource BrandOrange}"
+                                Foreground="#FFFFFF"
+                                FontWeight="Bold"
+                                Padding="24,11"
+                                Margin="0,24,0,0"
+                                HorizontalAlignment="Left"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================== PART X: CARD 2 — ĐƠN HÀNG GẦN ĐÂY ==================== -->
+                <Border Style="{StaticResource CustomerProfileCardStyle}"
+                        Padding="28,24">
+                    <StackPanel>
+                        <!-- Card Header Row: Title + Xem chi tiết Button -->
+                        <Grid Margin="0,0,0,18">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0"
+                                       Text="Đơn hàng gần đây"
+                                       Style="{StaticResource CustomerCardHeadingStyle}"
+                                       VerticalAlignment="Center"/>
+
+                            <Button Grid.Column="1"
+                                    Content="Xem chi tiết"
+                                    Command="{Binding ViewOrderDetailsCommand}"
+                                    Style="{StaticResource SecondaryOutlineButtonStyle}"
+                                    Padding="16,7"
+                                    VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <!-- Recent Orders DataGrid Bound to Orders (ObservableCollection<DONHANG>) -->
+                        <DataGrid ItemsSource="{Binding Orders}"
+                                  Style="{StaticResource AdminDataGridStyle}"
+                                  BorderThickness="0"
+                                  HorizontalScrollBarVisibility="Disabled">
+                            <DataGrid.Columns>
+                                <!-- 1. Mã đơn hàng -->
+                                <DataGridTemplateColumn Header="Mã đơn hàng" Width="1.1*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding MaDH, Converter={StaticResource CustomerOrderCodeConverter}}"
+                                                       FontWeight="Bold"
+                                                       FontSize="13.5"
+                                                       Foreground="{StaticResource BrandDarkBlue}"
+                                                       VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <!-- 2. Ngày đặt -->
+                                <DataGridTemplateColumn Header="Ngày đặt" Width="1.2*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding NgayTao, Converter={StaticResource CustomerOrderDateConverter}}"
+                                                       FontSize="13.5"
+                                                       Foreground="{StaticResource BrandDarkText}"
+                                                       VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <!-- 3. Tổng tiền -->
+                                <DataGridTemplateColumn Header="Tổng tiền" Width="1.3*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding MaDH, Converter={StaticResource CustomerOrderTotalConverter}}"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="13.5"
+                                                       Foreground="{StaticResource BrandDarkText}"
+                                                       VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <!-- 4. Trạng thái (Semantic Status Badge) -->
+                                <DataGridTemplateColumn Header="Trạng thái"
+                                                        Width="1.2*"
+                                                        CellTemplate="{StaticResource CustomerOrderStatusBadgeTemplate}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>
