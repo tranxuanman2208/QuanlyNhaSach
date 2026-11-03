@@ -17,7 +17,7 @@ namespace QuanlyNhaSach.Services
         // Customer Frame Navigation
         void Initialize(Frame frame);
         void NavigateToHome(string? searchKeyword = null);
-        void NavigateToBookDetail(int maSach);
+        void NavigateToBookDetail(string maSach);
         void NavigateToCartCheckout();
         void NavigateToCustomerProfile();
 

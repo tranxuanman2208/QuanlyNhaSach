@@ -21,12 +21,12 @@ namespace QuanlyNhaSach.ViewModels.Customer
         public const string PriceLowToHighSort = "Giá: Thấp đến Cao";
         public const string PriceHighToLowSort = "Giá: Cao đến Thấp";
 
-        private readonly MockDataService _mockDataService;
+        private readonly BookService _bookService;
         private readonly CartService _cartService;
         private readonly INavigationService _navigationService;
         private readonly IDialogService _dialogService;
 
-        public ObservableCollection<Book> DisplayedBooks { get; } = new();
+        public ObservableCollection<SACH> DisplayedBooks { get; } = new();
 
         public IReadOnlyList<string> StockFilterOptions { get; } = new List<string>
         {
@@ -78,17 +78,17 @@ namespace QuanlyNhaSach.ViewModels.Customer
             SelectedSortOption != DefaultSortOption;
 
         public HomeViewModel(
-            MockDataService mockDataService,
+            BookService bookService,
             CartService cartService,
             INavigationService navigationService,
             IDialogService dialogService)
         {
-            _mockDataService = mockDataService ?? throw new ArgumentNullException(nameof(mockDataService));
+            _bookService = bookService ?? throw new ArgumentNullException(nameof(bookService));
             _cartService = cartService ?? throw new ArgumentNullException(nameof(cartService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
 
-            _mockDataService.DataChanged += OnSharedDataChanged;
+            _bookService.BooksChanged += OnSharedDataChanged;
             ApplySearch(null);
         }
 
@@ -127,23 +127,23 @@ namespace QuanlyNhaSach.ViewModels.Customer
 
         public void ApplyFiltersAndSort()
         {
-            IEnumerable<Book> query = _mockDataService.SearchBooks(ActiveKeyword);
+            IEnumerable<SACH> query = _bookService.SearchAndFilterBooks(ActiveKeyword);
 
             // 1. Filter by Stock Status
             if (string.Equals(SelectedStockFilter, InStockFilter, StringComparison.OrdinalIgnoreCase))
             {
-                query = query.Where(b => b.SoLuongTon > 0);
+                query = query.Where(b => (b.Soluongton ?? 0) > 0);
             }
             else if (string.Equals(SelectedStockFilter, OutOfStockFilter, StringComparison.OrdinalIgnoreCase))
             {
-                query = query.Where(b => b.SoLuongTon <= 0);
+                query = query.Where(b => (b.Soluongton ?? 0) <= 0);
             }
 
             // 2. Sort by Selected Option
             query = SelectedSortOption switch
             {
-                PriceLowToHighSort => query.OrderBy(b => b.GiaBan).ThenBy(b => b.MaSach),
-                PriceHighToLowSort => query.OrderByDescending(b => b.GiaBan).ThenBy(b => b.MaSach),
+                PriceLowToHighSort => query.OrderBy(b => b.Giaban ?? 0m).ThenBy(b => b.MaSach),
+                PriceHighToLowSort => query.OrderByDescending(b => b.Giaban ?? 0m).ThenBy(b => b.MaSach),
                 _ => query
             };
 
@@ -186,7 +186,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
         }
 
         [RelayCommand]
-        private void ViewBookDetail(Book? book)
+        private void ViewBookDetail(SACH? book)
         {
             if (book == null)
             {
@@ -196,7 +196,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
         }
 
         [RelayCommand]
-        private async Task AddToCart(Book? book)
+        private async Task AddToCart(SACH? book)
         {
             if (book == null)
             {

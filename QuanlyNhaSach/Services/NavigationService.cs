@@ -155,7 +155,7 @@ namespace QuanlyNhaSach.Services
             Navigated?.Invoke(CurrentPageKey);
         }
 
-        public void NavigateToBookDetail(int maSach)
+        public void NavigateToBookDetail(string maSach)
         {
             if (!EnsureCustomerAccess())
             {

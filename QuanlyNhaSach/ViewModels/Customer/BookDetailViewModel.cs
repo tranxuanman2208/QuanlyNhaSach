@@ -16,27 +16,22 @@ namespace QuanlyNhaSach.ViewModels.Customer
         private readonly INavigationService _navigationService;
         private readonly IDialogService _dialogService;
 
-        private Book? _selectedBook;
-        public Book? SelectedBook
+        private SACH? _selectedBook;
+        public SACH? SelectedBook
         {
             get => _selectedBook;
             private set
             {
-                if (_selectedBook != null)
-                {
-                    PropertyChangedEventManager.RemoveHandler(_selectedBook, OnSelectedBookPropertyChanged, string.Empty);
-                }
-
+                // SACH (EF entity) không phát PropertyChanged; tồn kho được làm mới qua BookService.BooksChanged
                 if (SetProperty(ref _selectedBook, value))
                 {
-                    if (_selectedBook != null)
-                    {
-                        PropertyChangedEventManager.AddHandler(_selectedBook, OnSelectedBookPropertyChanged, string.Empty);
-                    }
                     NotifyBookDependentProperties();
                 }
             }
         }
+
+        /// <summary>Tồn kho hiện tại của sách đang xem (Soluongton là byte? trong DB).</summary>
+        private int CurrentStock => SelectedBook?.Soluongton ?? 0;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsBookNotFound))]
@@ -67,12 +62,12 @@ namespace QuanlyNhaSach.ViewModels.Customer
                     return;
                 }
 
-                if (value > SelectedBook.SoLuongTon)
+                if (value > CurrentStock)
                 {
                     _dialogService.ShowError(
                         "Vượt quá tồn kho",
-                        $"Sách \"{SelectedBook.TenSach}\" hiện chỉ còn {SelectedBook.SoLuongTon} cuốn trong kho.");
-                    SetProperty(ref _selectedQuantity, SelectedBook.SoLuongTon);
+                        $"Sách \"{SelectedBook.Tensach}\" hiện chỉ còn {CurrentStock} cuốn trong kho.");
+                    SetProperty(ref _selectedQuantity, CurrentStock);
                     NotifyQuantityCommands();
                     return;
                 }
@@ -90,20 +85,22 @@ namespace QuanlyNhaSach.ViewModels.Customer
         [ObservableProperty]
         private bool _isStatusVisible;
 
-        public bool CanPurchase => IsBookFound && SelectedBook != null && SelectedBook.SoLuongTon > 0;
-        public decimal EstimatedSubTotal => SelectedBook != null && CanPurchase ? SelectedBook.GiaBan * SelectedQuantity : 0m;
+        public bool CanPurchase => IsBookFound && SelectedBook != null && CurrentStock > 0;
+        public decimal EstimatedSubTotal => SelectedBook != null && CanPurchase ? (SelectedBook.Giaban ?? 0m) * SelectedQuantity : 0m;
         public string FormattedEstimatedSubTotal => $"{EstimatedSubTotal:N0} ₫";
 
         public BookDetailViewModel(
-            MockDataService mockDataService,
+            BookService bookService,
             CartService cartService,
             INavigationService navigationService,
             IDialogService dialogService)
         {
-            _mockDataService = mockDataService ?? throw new ArgumentNullException(nameof(mockDataService));
+            _bookService = bookService ?? throw new ArgumentNullException(nameof(bookService));
             _cartService = cartService ?? throw new ArgumentNullException(nameof(cartService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+
+            _bookService.BooksChanged += OnBooksChanged;
         }
 
         public void OnNavigatedTo(object? parameter)
@@ -111,11 +108,11 @@ namespace QuanlyNhaSach.ViewModels.Customer
             IsStatusVisible = false;
             StatusMessage = string.Empty;
 
-            if (parameter is int maSach)
+            if (parameter is string maSach && !string.IsNullOrWhiteSpace(maSach))
             {
                 LoadBook(maSach);
             }
-            else if (parameter is Book book)
+            else if (parameter is SACH book)
             {
                 LoadBook(book.MaSach);
             }
@@ -127,9 +124,9 @@ namespace QuanlyNhaSach.ViewModels.Customer
             }
         }
 
-        public void LoadBook(int maSach)
+        public void LoadBook(string maSach)
         {
-            var book = _mockDataService.GetBookById(maSach);
+            var book = _bookService.GetBookById(maSach);
             if (book == null)
             {
                 SelectedBook = null;
@@ -141,33 +138,47 @@ namespace QuanlyNhaSach.ViewModels.Customer
             SelectedBook = book;
             IsBookFound = true;
             ErrorMessage = string.Empty;
-            _selectedQuantity = book.SoLuongTon > 0 ? 1 : 0;
+            _selectedQuantity = (book.Soluongton ?? 0) > 0 ? 1 : 0;
             OnPropertyChanged(nameof(SelectedQuantity));
             NotifyBookDependentProperties();
         }
 
-        private void OnSelectedBookPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        /// <summary>
+        /// Thay thế cơ chế PropertyChanged của model Book cũ: khi BookService báo dữ liệu sách thay đổi,
+        /// tải lại sách đang xem từ DB và điều chỉnh số lượng chọn theo tồn kho mới.
+        /// </summary>
+        private void OnBooksChanged(object? sender, EventArgs e)
         {
-            if (e.PropertyName == nameof(Book.SoLuongTon) || string.IsNullOrEmpty(e.PropertyName))
+            if (SelectedBook == null)
             {
-                if (SelectedBook != null)
-                {
-                    if (SelectedBook.SoLuongTon <= 0)
-                    {
-                        _selectedQuantity = 0;
-                    }
-                    else if (_selectedQuantity > SelectedBook.SoLuongTon)
-                    {
-                        _selectedQuantity = SelectedBook.SoLuongTon;
-                    }
-                    else if (_selectedQuantity < 1)
-                    {
-                        _selectedQuantity = 1;
-                    }
-                    OnPropertyChanged(nameof(SelectedQuantity));
-                }
-                NotifyBookDependentProperties();
+                return;
             }
+
+            var refreshed = _bookService.GetBookById(SelectedBook.MaSach);
+            if (refreshed == null)
+            {
+                SelectedBook = null;
+                IsBookFound = false;
+                ErrorMessage = "Sách này không còn tồn tại trong hệ thống.";
+                return;
+            }
+
+            SelectedBook = refreshed;
+
+            if (CurrentStock <= 0)
+            {
+                _selectedQuantity = 0;
+            }
+            else if (_selectedQuantity > CurrentStock)
+            {
+                _selectedQuantity = CurrentStock;
+            }
+            else if (_selectedQuantity < 1)
+            {
+                _selectedQuantity = 1;
+            }
+            OnPropertyChanged(nameof(SelectedQuantity));
+            NotifyBookDependentProperties();
         }
 
         private void NotifyBookDependentProperties()
@@ -187,14 +198,14 @@ namespace QuanlyNhaSach.ViewModels.Customer
             AddToCartCommand.NotifyCanExecuteChanged();
         }
 
-        private bool CanIncreaseQuantity() => SelectedBook != null && SelectedBook.IsInStock && SelectedQuantity < SelectedBook.SoLuongTon;
+        private bool CanIncreaseQuantity() => SelectedBook != null && SelectedBook.IsInStock && SelectedQuantity < CurrentStock;
         private bool CanDecreaseQuantity() => SelectedBook != null && SelectedBook.IsInStock && SelectedQuantity > 1;
-        private bool CanAddToCart() => CanPurchase && SelectedQuantity >= 1 && SelectedBook != null && SelectedQuantity <= SelectedBook.SoLuongTon;
+        private bool CanAddToCart() => CanPurchase && SelectedQuantity >= 1 && SelectedBook != null && SelectedQuantity <= CurrentStock;
 
         [RelayCommand(CanExecute = nameof(CanIncreaseQuantity))]
         private void IncreaseQuantity()
         {
-            if (SelectedBook != null && SelectedQuantity < SelectedBook.SoLuongTon)
+            if (SelectedBook != null && SelectedQuantity < CurrentStock)
             {
                 SelectedQuantity++;
             }
@@ -217,17 +228,17 @@ namespace QuanlyNhaSach.ViewModels.Customer
                 return;
             }
 
-            if (SelectedBook.SoLuongTon <= 0)
+            if (CurrentStock <= 0)
             {
-                _dialogService.ShowError("Hết hàng", $"Sách \"{SelectedBook.TenSach}\" hiện đã hết hàng.");
+                _dialogService.ShowError("Hết hàng", $"Sách \"{SelectedBook.Tensach}\" hiện đã hết hàng.");
                 return;
             }
 
-            if (SelectedQuantity < 1 || SelectedQuantity > SelectedBook.SoLuongTon)
+            if (SelectedQuantity < 1 || SelectedQuantity > CurrentStock)
             {
                 _dialogService.ShowError(
                     "Số lượng không hợp lệ",
-                    $"Vui lòng chọn số lượng từ 1 đến {SelectedBook.SoLuongTon}.");
+                    $"Vui lòng chọn số lượng từ 1 đến {CurrentStock}.");
                 return;
             }
 
