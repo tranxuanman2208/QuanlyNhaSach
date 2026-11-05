@@ -105,7 +105,7 @@
                         <DataGridTemplateColumn Header="Họ và tên khách hàng" Width="1.4*">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding HoTen}"
+                                    <TextBlock Text="{Binding Hoten}"
                                                FontWeight="Bold"
                                                Foreground="{StaticResource CharcoalTextBrush}"/>
                                 </DataTemplate>
@@ -113,13 +113,13 @@
                         </DataGridTemplateColumn>
 
                         <!-- 3. Username -->
-                        <DataGridTextColumn Header="Tên đăng nhập" Binding="{Binding Username}" Width="1.4*"/>
+                        <DataGridTextColumn Header="Tên đăng nhập" Binding="{Binding Tendangnhap}" Width="1.4*"/>
 
                         <!-- 4. Phone Number -->
                         <DataGridTextColumn Header="Số điện thoại" Binding="{Binding SDT}" Width="120"/>
 
                         <!-- 5. Address -->
-                        <DataGridTextColumn Header="Địa chỉ" Binding="{Binding DiaChi}" Width="1.6*"/>
+                        <DataGridTextColumn Header="Địa chỉ" Binding="{Binding Diachi}" Width="1.6*"/>
 
                         <!-- 6. Account Status -->
                         <DataGridTemplateColumn Header="Trạng thái" Width="125">

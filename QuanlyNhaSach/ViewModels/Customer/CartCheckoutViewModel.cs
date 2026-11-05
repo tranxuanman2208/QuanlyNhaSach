@@ -18,6 +18,9 @@ namespace QuanlyNhaSach.ViewModels.Customer
     {
         private static readonly Regex PhoneTenDigitsRegex = new(@"^\d{10}$", RegexOptions.Compiled);
 
+        // Đồng bộ với quy tắc của OrderService.CreateCustomerOrder (email phải kết thúc bằng @gmail.com).
+        private const string RequiredEmailDomain = "@gmail.com";
+
         private readonly CartService _cartService;
         private readonly INavigationService _navigationService;
         private readonly IDialogService _dialogService;
@@ -153,6 +156,10 @@ namespace QuanlyNhaSach.ViewModels.Customer
         private string _sdtError = string.Empty;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasEmailError))]
+        private string _emailError = string.Empty;
+
+        [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(HasDiaChiError))]
         private string _diaChiError = string.Empty;
 
@@ -170,6 +177,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
 
         public bool HasHoTenError => !string.IsNullOrEmpty(HoTenError);
         public bool HasSDTError => !string.IsNullOrEmpty(SdtError);
+        public bool HasEmailError => !string.IsNullOrEmpty(EmailError);
         public bool HasDiaChiError => !string.IsNullOrEmpty(DiaChiError);
         public bool HasPaymentMethodError => !string.IsNullOrEmpty(PaymentMethodError);
         public bool HasGeneralError => !string.IsNullOrEmpty(GeneralErrorMessage);
@@ -279,6 +287,22 @@ namespace QuanlyNhaSach.ViewModels.Customer
                 }
             }
 
+            if (forceAll || _hasUserTouchedEmail)
+            {
+                if (string.IsNullOrWhiteSpace(Email))
+                {
+                    EmailError = "Vui lòng nhập email người đặt hàng.";
+                }
+                else if (!IsValidCheckoutEmail(Email))
+                {
+                    EmailError = "Email phải có dạng ten@gmail.com (không chứa khoảng trắng).";
+                }
+                else
+                {
+                    EmailError = string.Empty;
+                }
+            }
+
             if (forceAll || _hasUserTouchedDiaChi)
             {
                 DiaChiError = string.IsNullOrWhiteSpace(DiaChi)
@@ -292,6 +316,18 @@ namespace QuanlyNhaSach.ViewModels.Customer
                     ? "Vui lòng chọn phương thức thanh toán (COD hoặc Chuyển khoản)."
                     : string.Empty;
             }
+        }
+
+        /// <summary>
+        /// Khớp điều kiện của OrderService.CreateCustomerOrder: không rỗng, kết thúc bằng "@gmail.com"
+        /// (phân biệt hoa thường, không khoảng trắng thừa) và có phần tên trước "@".
+        /// </summary>
+        private static bool IsValidCheckoutEmail(string? email)
+        {
+            return !string.IsNullOrWhiteSpace(email)
+                && email.EndsWith(RequiredEmailDomain, StringComparison.Ordinal)
+                && email.Length > RequiredEmailDomain.Length
+                && !email.Any(char.IsWhiteSpace);
         }
 
         public bool CanConfirmCheckout()
@@ -312,6 +348,11 @@ namespace QuanlyNhaSach.ViewModels.Customer
             }
 
             if (string.IsNullOrWhiteSpace(SDT) || !PhoneTenDigitsRegex.IsMatch(SDT))
+            {
+                return false;
+            }
+
+            if (!IsValidCheckoutEmail(Email))
             {
                 return false;
             }
@@ -440,7 +481,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
                 return;
             }
 
-            if (HasHoTenError || HasSDTError || HasDiaChiError || HasPaymentMethodError)
+            if (HasHoTenError || HasSDTError || HasEmailError || HasDiaChiError || HasPaymentMethodError)
             {
                 GeneralErrorMessage = "Vui lòng kiểm tra và điền đầy đủ thông tin nhận hàng hợp lệ.";
                 _dialogService.ShowError("Thông tin chưa hợp lệ", GeneralErrorMessage);
@@ -499,24 +540,28 @@ namespace QuanlyNhaSach.ViewModels.Customer
         {
             _hasUserTouchedHoTen = false;
             _hasUserTouchedSDT = false;
+            _hasUserTouchedEmail = false;
             _hasUserTouchedDiaChi = false;
             _hasUserTouchedPayment = false;
 
             var currentUser = _authService?.CurrentUser;
             _hoTen = currentUser?.Hoten ?? string.Empty;
             _sdt = currentUser?.SDT ?? string.Empty;
+            _email = currentUser?.Email ?? string.Empty;
             _diaChi = currentUser?.Diachi ?? string.Empty;
             _selectedPaymentMethod = "COD — Thanh toán khi nhận hàng";
 
             ClearErrors();
             HoTenError = string.Empty;
             SdtError = string.Empty;
+            EmailError = string.Empty;
             DiaChiError = string.Empty;
             PaymentMethodError = string.Empty;
             GeneralErrorMessage = string.Empty;
 
             OnPropertyChanged(nameof(HoTen));
             OnPropertyChanged(nameof(SDT));
+            OnPropertyChanged(nameof(Email));
             OnPropertyChanged(nameof(DiaChi));
             OnPropertyChanged(nameof(SelectedPaymentMethod));
             OnPropertyChanged(nameof(NormalizedSelectedPayment));
