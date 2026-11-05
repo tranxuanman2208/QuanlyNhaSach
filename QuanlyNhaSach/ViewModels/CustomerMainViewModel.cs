@@ -65,7 +65,7 @@ namespace QuanlyNhaSach.ViewModels
             return true;
         }
 
-        private void OnSessionChanged(object? sender, Models.User? user)
+        private void OnSessionChanged(object? sender, Models.NGUOIDUNG? user)
         {
             OnPropertyChanged(nameof(CustomerFullName));
             OnPropertyChanged(nameof(CustomerUsername));

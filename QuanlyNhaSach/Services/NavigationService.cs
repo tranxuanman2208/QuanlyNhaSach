@@ -21,7 +21,8 @@ namespace QuanlyNhaSach.Services
         private Frame? _staffFrame;
         private Frame? _managerFrame;
 
-        private readonly MockDataService _mockDataService;
+
+
         private readonly AuthService _authService;
         private readonly CartService _cartService;
         private readonly OrderService _orderService;
@@ -92,7 +93,7 @@ namespace QuanlyNhaSach.Services
         public event Action<string>? ManagerNavigated;
 
         public NavigationService(
-            //MockDataService mockDataService,
+
             AuthService authService,
             CartService cartService,
             OrderService orderService,
@@ -103,16 +104,17 @@ namespace QuanlyNhaSach.Services
             SupplierService? supplierService = null,
             ImportService? importService = null)
         {
-            //_mockDataService = mockDataService ?? throw new ArgumentNullException(nameof(mockDataService));
+
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             _cartService = cartService ?? throw new ArgumentNullException(nameof(cartService));
             _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService));
             _inventoryService = inventoryService ?? throw new ArgumentNullException(nameof(inventoryService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+            _bookService = bookService ?? new BookService();
 
-            _userManagementService = userManagementService ?? new UserManagementService(_mockDataService);
-            _supplierService = supplierService ?? new SupplierService(_mockDataService);
-            _importService = importService ?? new ImportService(_mockDataService);
+            _userManagementService = userManagementService ?? new UserManagementService();
+            _supplierService = supplierService ?? new SupplierService();
+            _importService = importService ?? new ImportService();
         }
 
         // ==================== CUSTOMER NAVIGATION ====================
@@ -134,7 +136,7 @@ namespace QuanlyNhaSach.Services
 
             if (_homeViewModel == null)
             {
-                _homeViewModel = new HomeViewModel(_mockDataService, _cartService, this, _dialogService);
+                _homeViewModel = new HomeViewModel(_bookService, _cartService, this, _dialogService);
             }
 
             if (_customerFrame != null && _homePage == null)
@@ -166,7 +168,7 @@ namespace QuanlyNhaSach.Services
 
             if (_bookDetailViewModel == null)
             {
-                _bookDetailViewModel = new BookDetailViewModel(_mockDataService, _cartService, this, _dialogService);
+                _bookDetailViewModel = new BookDetailViewModel(_bookService, _cartService, this, _dialogService);
             }
 
             if (_customerFrame != null && _bookDetailPage == null)
@@ -199,7 +201,6 @@ namespace QuanlyNhaSach.Services
             if (_cartCheckoutViewModel == null)
             {
                 _cartCheckoutViewModel = new CartCheckoutViewModel(
-                    _mockDataService,
                     _cartService,
                     this,
                     _dialogService,
@@ -236,7 +237,7 @@ namespace QuanlyNhaSach.Services
 
             if (_customerProfileViewModel == null)
             {
-                _customerProfileViewModel = new CustomerProfileViewModel(this, _dialogService);
+                _customerProfileViewModel = new CustomerProfileViewModel(this, _dialogService, _authService);
             }
 
             if (_customerFrame != null && _customerProfilePage == null)
@@ -276,7 +277,7 @@ namespace QuanlyNhaSach.Services
 
             if (_staffDashboardViewModel == null)
             {
-                _staffDashboardViewModel = new StaffDashboardViewModel(_mockDataService, _orderService, this);
+                _staffDashboardViewModel = new StaffDashboardViewModel(_orderService, this);
             }
 
             if (_staffFrame != null && _staffDashboardPage == null)
@@ -305,7 +306,7 @@ namespace QuanlyNhaSach.Services
 
             if (_staffLookupViewModel == null)
             {
-                _staffLookupViewModel = new StaffLookupViewModel(_mockDataService, _orderService, this);
+                _staffLookupViewModel = new StaffLookupViewModel(_bookService, this, _orderService);
             }
 
             if (_staffFrame != null && _staffLookupPage == null)
@@ -334,7 +335,7 @@ namespace QuanlyNhaSach.Services
 
             if (_staffSalesViewModel == null)
             {
-                _staffSalesViewModel = new StaffSalesViewModel(_mockDataService, _orderService, this, _dialogService);
+                _staffSalesViewModel = new StaffSalesViewModel(_orderService, this, _dialogService);
             }
 
             if (_staffFrame != null && _staffSalesPage == null)
@@ -364,7 +365,6 @@ namespace QuanlyNhaSach.Services
             if (_staffOrderProcessingViewModel == null)
             {
                 _staffOrderProcessingViewModel = new StaffOrderProcessingViewModel(
-                    _mockDataService,
                     _orderService,
                     this,
                     _dialogService);
@@ -397,7 +397,6 @@ namespace QuanlyNhaSach.Services
             if (_staffStockOutViewModel == null)
             {
                 _staffStockOutViewModel = new StaffStockOutViewModel(
-                    _mockDataService,
                     _orderService,
                     _inventoryService,
                     this,
@@ -439,7 +438,6 @@ namespace QuanlyNhaSach.Services
             if (_managerOverviewViewModel == null)
             {
                 _managerOverviewViewModel = new ManagerOverviewViewModel(
-                    _mockDataService,
                     _orderService,
                     _bookService,
                     this);
@@ -473,7 +471,6 @@ namespace QuanlyNhaSach.Services
             {
                 _bookManagementViewModel = new BookManagementViewModel(
                     _bookService,
-                    _mockDataService,
                     _dialogService);
             }
 
@@ -506,7 +503,6 @@ namespace QuanlyNhaSach.Services
                 _staffManagementViewModel = new StaffManagementViewModel(
                     _userManagementService,
                     _authService,
-                    _mockDataService,
                     _dialogService);
             }
 
@@ -539,7 +535,6 @@ namespace QuanlyNhaSach.Services
                 _customerManagementViewModel = new CustomerManagementViewModel(
                     _userManagementService,
                     _authService,
-                    _mockDataService,
                     _dialogService);
             }
 
@@ -571,7 +566,6 @@ namespace QuanlyNhaSach.Services
             {
                 _supplierManagementViewModel = new SupplierManagementViewModel(
                     _supplierService,
-                    _mockDataService,
                     _dialogService);
             }
 
@@ -606,7 +600,6 @@ namespace QuanlyNhaSach.Services
                     _supplierService,
                     _bookService,
                     _authService,
-                    _mockDataService,
                     this,
                     _dialogService);
             }
@@ -639,7 +632,6 @@ namespace QuanlyNhaSach.Services
             {
                 _importHistoryViewModel = new ImportHistoryViewModel(
                     _importService,
-                    _mockDataService,
                     this);
             }
 
@@ -660,7 +652,7 @@ namespace QuanlyNhaSach.Services
 
         // ==================== ROLE ROUTING & WINDOW LIFECYCLE ====================
 
-        public void RouteAuthenticatedUser(User user)
+        public void RouteAuthenticatedUser(NGUOIDUNG user)
         {
             if (user == null || !_authService.IsAuthenticated || _authService.CurrentUser == null)
             {

@@ -91,7 +91,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
             return true;
         }
 
-        private void OnSessionChanged(object? sender, User? user)
+        private void OnSessionChanged(object? sender, NGUOIDUNG? user)
         {
             OnPropertyChanged(nameof(ManagerFullName));
             OnPropertyChanged(nameof(ManagerInitials));

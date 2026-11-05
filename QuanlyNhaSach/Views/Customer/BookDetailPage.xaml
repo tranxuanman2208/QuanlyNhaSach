@@ -30,7 +30,7 @@
                             Padding="15,8"
                             FontWeight="Bold"
                             Foreground="#FFFFFF"
-                            Cursor="Hand" Click="Button_Click">
+                            Cursor="Hand">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="Xem giỏ hàng &amp; Thanh toán"
                                        Foreground="#FFFFFF"
@@ -90,7 +90,7 @@
                                           Stretch="Uniform"
                                           HorizontalAlignment="Center"
                                           Margin="0,0,0,16"/>
-                                    <TextBlock Text="{Binding SelectedBook.TenSach}"
+                                    <TextBlock Text="{Binding SelectedBook.Tensach}"
                                                Foreground="White"
                                                FontWeight="Bold"
                                                FontSize="20"
@@ -100,7 +100,7 @@
 
                                 <!-- Bottom Author Bar -->
                                 <Border Grid.Row="2" Background="#38000000" CornerRadius="8" Padding="12,10">
-                                    <TextBlock Text="{Binding SelectedBook.TacGia, StringFormat='Tác giả: {0}'}"
+                                    <TextBlock Text="{Binding SelectedBook.Tacgia, StringFormat='Tác giả: {0}'}"
                                                Foreground="#F1F5F9"
                                                FontSize="13.5"
                                                FontWeight="SemiBold"
@@ -126,7 +126,7 @@
                             </Border>
 
                             <!-- Book Title -->
-                            <TextBlock Text="{Binding SelectedBook.TenSach}"
+                            <TextBlock Text="{Binding SelectedBook.Tensach}"
                                        FontSize="28"
                                        FontWeight="Bold"
                                        Foreground="{StaticResource BrandDarkBlueBrush}"
@@ -143,22 +143,22 @@
                                         Margin="0,0,12,8">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="Tác giả: " Foreground="{StaticResource MutedTextBrush}" FontSize="13.5"/>
-                                        <TextBlock Text="{Binding SelectedBook.TacGia}" FontWeight="Bold" FontSize="13.5" Foreground="{StaticResource CharcoalTextBrush}"/>
+                                        <TextBlock Text="{Binding SelectedBook.Tacgia}" FontWeight="Bold" FontSize="13.5" Foreground="{StaticResource CharcoalTextBrush}"/>
                                     </StackPanel>
                                 </Border>
 
                                 <Border CornerRadius="8"
                                         Padding="14,8"
                                         Margin="0,0,12,8"
-                                        Background="{Binding SelectedBook.SoLuongTon, Converter={StaticResource StockBadgeBackgroundConverter}}">
+                                        Background="{Binding SelectedBook.Soluongton, Converter={StaticResource StockBadgeBackgroundConverter}}">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="Tồn kho: "
                                                    FontSize="13.5"
-                                                   Foreground="{Binding SelectedBook.SoLuongTon, Converter={StaticResource StockBadgeForegroundConverter}}"/>
+                                                   Foreground="{Binding SelectedBook.Soluongton, Converter={StaticResource StockBadgeForegroundConverter}}"/>
                                         <TextBlock Text="{Binding SelectedBook.StockStatusText}"
                                                    FontWeight="Bold"
                                                    FontSize="13.5"
-                                                   Foreground="{Binding SelectedBook.SoLuongTon, Converter={StaticResource StockBadgeForegroundConverter}}"/>
+                                                   Foreground="{Binding SelectedBook.Soluongton, Converter={StaticResource StockBadgeForegroundConverter}}"/>
                                     </StackPanel>
                                 </Border>
                             </WrapPanel>

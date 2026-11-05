@@ -14,13 +14,12 @@ namespace QuanlyNhaSach.ViewModels.Staff
 {
     public partial class StaffSalesViewModel : ObservableObject, INavigationAware
     {
-        private readonly MockDataService _mockDataService;
         private readonly OrderService _orderService;
         private readonly INavigationService _navigationService;
         private readonly IDialogService _dialogService;
 
-        public ObservableCollection<Order> AvailableOrders { get; } = new();
-        public ObservableCollection<OrderItem> SelectedOrderItems { get; } = new();
+        public ObservableCollection<DONHANG> AvailableOrders { get; } = new();
+        public ObservableCollection<CHITIETDONHANG> SelectedOrderItems { get; } = new();
 
         public IReadOnlyList<string> PaymentMethodOptions { get; } = new List<string>
         {
@@ -32,8 +31,8 @@ namespace QuanlyNhaSach.ViewModels.Staff
         [ObservableProperty]
         private string _orderSearchKeyword = string.Empty;
 
-        private Order? _selectedOrder;
-        public Order? SelectedOrder
+        private DONHANG? _selectedOrder;
+        public DONHANG? SelectedOrder
         {
             get => _selectedOrder;
             set
@@ -117,7 +116,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
 
                 if (IsBankTransferSelected)
                 {
-                    return "Chuyển khoản (Mô phỏng): Xác nhận nhân viên đã kiểm tra khoản chuyển khoản nội bộ trên dữ liệu mẫu (không kết nối ngân hàng thực tế).";
+                    return "Chuyển khoản: Xác nhận nhân viên đã kiểm tra khoản chuyển khoản thanh toán cho đơn hàng.";
                 }
 
                 if (IsCodSelected)
@@ -132,17 +131,15 @@ namespace QuanlyNhaSach.ViewModels.Staff
         }
 
         public StaffSalesViewModel(
-            MockDataService mockDataService,
             OrderService orderService,
             INavigationService navigationService,
             IDialogService dialogService)
         {
-            _mockDataService = mockDataService ?? throw new ArgumentNullException(nameof(mockDataService));
             _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
 
-            _mockDataService.DataChanged += (_, _) => RefreshAvailableOrders(preserveSelection: true);
+            _orderService.OrderUpdated += (_, _) => RefreshAvailableOrders(preserveSelection: true);
             RefreshAvailableOrders();
         }
 
@@ -284,6 +281,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
 
             IsFeedbackSuccess = true;
             FeedbackMessage = result.Message;
+            RefreshAvailableOrders(preserveSelection: true);
             OnPropertyChanged(nameof(SelectedOrder));
             OnPropertyChanged(nameof(CanShowCodDeliveryCheck));
             _dialogService.ShowInformation("Ghi nhận nghiệp vụ Bán hàng & Thanh toán", result.Message);

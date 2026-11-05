@@ -216,7 +216,7 @@
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
 
-                            <DataGridTextColumn Header="Tên sách" Binding="{Binding TenSach}" Width="1.8*">
+                            <DataGridTextColumn Header="Tên sách" Binding="{Binding Tensach}" Width="1.8*">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="FontWeight" Value="SemiBold"/>
@@ -225,7 +225,7 @@
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
 
-                            <DataGridTextColumn Header="Tác giả" Binding="{Binding TacGia}" Width="1.2*"/>
+                            <DataGridTextColumn Header="Tác giả" Binding="{Binding Tacgia}" Width="1.2*"/>
 
                             <DataGridTextColumn Header="Giá bán" Binding="{Binding FormattedPrice}" Width="130">
                                 <DataGridTextColumn.ElementStyle>
@@ -236,7 +236,7 @@
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
 
-                            <DataGridTextColumn Header="Số lượng tồn" Binding="{Binding SoLuongTon}" Width="115">
+                            <DataGridTextColumn Header="Số lượng tồn" Binding="{Binding Soluongton}" Width="115">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="FontWeight" Value="Bold"/>
@@ -248,11 +248,11 @@
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Border Style="{StaticResource StatusBadgeBorderStyle}"
-                                                Background="{Binding SoLuongTon, Converter={StaticResource StockBadgeBackgroundConverter}}">
+                                                Background="{Binding Soluongton, Converter={StaticResource StockBadgeBackgroundConverter}}">
                                             <TextBlock Text="{Binding StockStatusText}"
                                                        FontWeight="Bold"
                                                        FontSize="11.5"
-                                                       Foreground="{Binding SoLuongTon, Converter={StaticResource StockBadgeForegroundConverter}}"/>
+                                                       Foreground="{Binding Soluongton, Converter={StaticResource StockBadgeForegroundConverter}}"/>
                                         </Border>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>

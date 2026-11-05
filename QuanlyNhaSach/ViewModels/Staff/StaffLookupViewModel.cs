@@ -15,12 +15,12 @@ namespace QuanlyNhaSach.ViewModels.Staff
         public const string OrdersOnlyScope = "Chỉ Đơn hàng & Khách hàng";
         public const string BooksOnlyScope = "Chỉ Danh mục Sách & Tồn kho";
 
-        private readonly MockDataService _mockDataService;
+        private readonly BookService _bookService;
         private readonly OrderService _orderService;
         private readonly INavigationService _navigationService;
 
-        public ObservableCollection<Order> MatchedOrders { get; } = new();
-        public ObservableCollection<Book> MatchedBooks { get; } = new();
+        public ObservableCollection<DONHANG> MatchedOrders { get; } = new();
+        public ObservableCollection<SACH> MatchedBooks { get; } = new();
 
         public IReadOnlyList<string> SearchScopes { get; } = new List<string>
         {
@@ -57,15 +57,17 @@ namespace QuanlyNhaSach.ViewModels.Staff
         public bool IsNoResults => !ShowOrdersSection && !ShowBooksSection;
 
         public StaffLookupViewModel(
-            MockDataService mockDataService,
-            OrderService orderService,
-            INavigationService navigationService)
+            BookService bookService,
+            INavigationService navigationService,
+            OrderService? orderService = null)
         {
-            _mockDataService = mockDataService ?? throw new ArgumentNullException(nameof(mockDataService));
-            _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService));
+            _bookService = bookService ?? throw new ArgumentNullException(nameof(bookService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+            _orderService = orderService ?? new OrderService();
 
-            _mockDataService.DataChanged += (_, _) => ExecuteLookup();
+            _bookService.BooksChanged += (_, _) => ExecuteLookup();
+            _orderService.OrderUpdated += (_, _) => ExecuteLookup();
+
             ExecuteLookup();
         }
 
@@ -101,7 +103,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
             MatchedBooks.Clear();
             if (SelectedScope == AllScope || SelectedScope == BooksOnlyScope)
             {
-                var books = _mockDataService.SearchBooks(normalized);
+                var books = _bookService.SearchAndFilterBooks(normalized);
                 foreach (var book in books)
                 {
                     MatchedBooks.Add(book);
@@ -116,7 +118,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
 
             if (string.IsNullOrWhiteSpace(normalized))
             {
-                ResultSummary = $"Hiển thị toàn bộ dữ liệu: {MatchedOrders.Count} đơn hàng và {MatchedBooks.Count} đầu sách.";
+                ResultSummary = $"Hiển thị toàn bộ dữ liệu: {MatchedOrders.Count} đơn hàng, {MatchedBooks.Count} đầu sách.";
             }
             else
             {
@@ -133,7 +135,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
         }
 
         [RelayCommand]
-        private void OpenOrderProcessing(Order? order)
+        private void OpenOrderProcessing(DONHANG? order)
         {
             if (order == null)
             {
@@ -143,7 +145,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
         }
 
         [RelayCommand]
-        private void OpenSales(Order? order)
+        private void OpenSales(DONHANG? order)
         {
             if (order == null)
             {
@@ -153,7 +155,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
         }
 
         [RelayCommand]
-        private void OpenStockOut(Order? order)
+        private void OpenStockOut(DONHANG? order)
         {
             if (order == null)
             {

@@ -123,10 +123,10 @@
                                                 CornerRadius="6"
                                                 Background="{Binding MauBia, Converter={StaticResource StringToBrushConverter}}"
                                                 HorizontalAlignment="Left">
-                                            <TextBlock Text="{Binding CoverInitials}"
+                                            <TextBlock Text="{Binding MaSach}"
                                                        Foreground="White"
                                                        FontWeight="Bold"
-                                                       FontSize="13"
+                                                       FontSize="11"
                                                        HorizontalAlignment="Center"
                                                        VerticalAlignment="Center"/>
                                         </Border>
@@ -135,19 +135,19 @@
                             </DataGridTemplateColumn>
 
                             <!-- 2. Book ID -->
-                            <DataGridTextColumn Header="Mã sách" Binding="{Binding BookCode}" Width="90"/>
+                            <DataGridTextColumn Header="Mã sách" Binding="{Binding MaSach}" Width="90"/>
 
                             <!-- 3. Book Title -->
                             <DataGridTemplateColumn Header="Tên đầu sách" Width="2.2*">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel>
-                                            <TextBlock Text="{Binding TenSach}"
+                                            <TextBlock Text="{Binding Tensach}"
                                                        FontWeight="Bold"
                                                        FontSize="13.5"
                                                        Foreground="{StaticResource CharcoalTextBrush}"
                                                        TextWrapping="Wrap"/>
-                                            <TextBlock Text="{Binding TheLoai}"
+                                            <TextBlock Text="{Binding Theloai}"
                                                        FontSize="11.5"
                                                        Foreground="{StaticResource MutedTextBrush}"
                                                        Margin="0,2,0,0"/>
@@ -157,7 +157,7 @@
                             </DataGridTemplateColumn>
 
                             <!-- 4. Author -->
-                            <DataGridTextColumn Header="Tác giả" Binding="{Binding TacGia}" Width="1.3*"/>
+                            <DataGridTextColumn Header="Tác giả" Binding="{Binding Tacgia}" Width="1.3*"/>
 
                             <!-- 5. Selling Price -->
                             <DataGridTemplateColumn Header="Giá bán" Width="130">
@@ -174,7 +174,7 @@
                             <DataGridTemplateColumn Header="Tồn kho" Width="95">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding SoLuongTon}"
+                                        <TextBlock Text="{Binding Soluongton}"
                                                    FontWeight="Bold"
                                                    FontSize="13.5"
                                                    Foreground="{StaticResource CharcoalTextBrush}"/>
@@ -189,11 +189,11 @@
                                         <Border CornerRadius="6"
                                                 Padding="10,4"
                                                 HorizontalAlignment="Left"
-                                                Background="{Binding SoLuongTon, Converter={StaticResource StockBadgeBackgroundConverter}}">
+                                                Background="{Binding Soluongton, Converter={StaticResource StockBadgeBackgroundConverter}}">
                                             <TextBlock Text="{Binding AdminStockStatusText}"
                                                        FontSize="12"
                                                        FontWeight="Bold"
-                                                       Foreground="{Binding SoLuongTon, Converter={StaticResource StockBadgeForegroundConverter}}"/>
+                                                       Foreground="{Binding Soluongton, Converter={StaticResource StockBadgeForegroundConverter}}"/>
                                         </Border>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
@@ -255,11 +255,23 @@
                                    TextWrapping="Wrap"/>
                     </Border>
 
-                    <!-- Book Title -->
-                    <TextBlock Text="Tên sách *" Style="{StaticResource FormFieldLabelStyle}"/>
-                    <TextBox Text="{Binding FormTenSach, UpdateSourceTrigger=PropertyChanged}"
-                             Style="{StaticResource FormTextBoxStyle}"
-                             Margin="0,0,0,12"/>
+                    <!-- Book ID & Book Title -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                            <TextBlock Text="Mã sách *" Style="{StaticResource FormFieldLabelStyle}"/>
+                            <TextBox Text="{Binding FormMaSach, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsEditMode}" MaxLength="10"
+                                     Style="{StaticResource FormTextBoxStyle}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                            <TextBlock Text="Tên sách *" Style="{StaticResource FormFieldLabelStyle}"/>
+                            <TextBox Text="{Binding FormTenSach, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource FormTextBoxStyle}"/>
+                        </StackPanel>
+                    </Grid>
 
                     <!-- Author & Category -->
                     <Grid Margin="0,0,0,12">
@@ -279,8 +291,26 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- Selling Price & Stock -->
+                    <!-- Publisher (NXB) & Supplier ID (MaNCC) -->
                     <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                            <TextBlock Text="Nhà xuất bản (NXB) *" Style="{StaticResource FormFieldLabelStyle}"/>
+                            <TextBox Text="{Binding FormNXB, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource FormTextBoxStyle}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                            <TextBlock Text="Mã nhà cung cấp (MaNCC) *" Style="{StaticResource FormFieldLabelStyle}"/>
+                            <TextBox Text="{Binding FormMaNCC, UpdateSourceTrigger=PropertyChanged}" MaxLength="10" ToolTip="{Binding SupplierHintText}"
+                                     Style="{StaticResource FormTextBoxStyle}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Selling Price & Stock -->
+                    <Grid Margin="0,0,0,18">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
@@ -291,39 +321,11 @@
                                      Style="{StaticResource FormTextBoxStyle}"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                            <TextBlock Text="Số lượng tồn kho (>= 0) *" Style="{StaticResource FormFieldLabelStyle}"/>
+                            <TextBlock Text="Số lượng tồn kho (0 - 255) *" Style="{StaticResource FormFieldLabelStyle}"/>
                             <TextBox Text="{Binding FormSoLuongTonText, UpdateSourceTrigger=PropertyChanged}"
                                      Style="{StaticResource FormTextBoxStyle}"/>
                         </StackPanel>
                     </Grid>
-
-                    <!-- Cover Color & Cover Placeholder -->
-                    <Grid Margin="0,0,0,12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                            <TextBlock Text="Màu bìa hiển thị" Style="{StaticResource FormFieldLabelStyle}"/>
-                            <ComboBox ItemsSource="{Binding CoverColorPresets}"
-                                      SelectedItem="{Binding FormMauBia}"
-                                      Style="{StaticResource FormComboBoxStyle}"/>
-                        </StackPanel>
-                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                            <TextBlock Text="Mã ảnh bìa / Placeholder" Style="{StaticResource FormFieldLabelStyle}"/>
-                            <TextBox Text="{Binding FormAnhBia, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource FormTextBoxStyle}"/>
-                        </StackPanel>
-                    </Grid>
-
-                    <!-- Description -->
-                    <TextBlock Text="Mô tả nội dung sách" Style="{StaticResource FormFieldLabelStyle}"/>
-                    <TextBox Text="{Binding FormMoTa, UpdateSourceTrigger=PropertyChanged}"
-                             Style="{StaticResource FormTextBoxStyle}"
-                             Height="64"
-                             TextWrapping="Wrap"
-                             AcceptsReturn="True"
-                             Margin="0,0,0,18"/>
 
                     <!-- Dialog Actions -->
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">

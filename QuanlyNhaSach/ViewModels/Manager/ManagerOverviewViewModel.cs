@@ -1,12 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using QuanlyNhaSach.Models;
-using QuanlyNhaSach.Models.Enums;
 using QuanlyNhaSach.Navigation;
 using QuanlyNhaSach.Services;
 
@@ -17,14 +15,13 @@ namespace QuanlyNhaSach.ViewModels.Manager
         public const string Period7Days = "7 ngày gần nhất";
         public const string Period14Days = "14 ngày gần nhất";
 
-        private readonly MockDataStore _dataStore;
         private readonly OrderService _orderService;
         private readonly BookService _bookService;
         private readonly INavigationService _navigationService;
 
         public ObservableCollection<RevenueChartPoint> RevenueChartPoints { get; } = new();
         public ObservableCollection<BestSellingBookItem> TopFiveBooks { get; } = new();
-        public ObservableCollection<Book> LowStockBooks { get; } = new();
+        public ObservableCollection<SACH> LowStockBooks { get; } = new();
 
         public IReadOnlyList<string> ReportingPeriods { get; } = new List<string>
         {
@@ -74,19 +71,15 @@ namespace QuanlyNhaSach.ViewModels.Manager
         public bool HasTopBooks => TopFiveBooks.Count > 0;
 
         public ManagerOverviewViewModel(
-            MockDataStore dataStore,
             OrderService orderService,
             BookService bookService,
             INavigationService navigationService)
         {
-            _dataStore = dataStore ?? throw new ArgumentNullException(nameof(dataStore));
             _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService));
             _bookService = bookService ?? throw new ArgumentNullException(nameof(bookService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
 
-            _dataStore.DataChanged += OnSharedDataChanged;
-            _dataStore.Orders.CollectionChanged += OnCollectionChanged;
-            _dataStore.Books.CollectionChanged += OnCollectionChanged;
+            _bookService.BooksChanged += OnSharedDataChanged;
             _orderService.OrderUpdated += OnOrderUpdated;
 
             RefreshOverview();
@@ -107,12 +100,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
             RefreshOverview();
         }
 
-        private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        {
-            RefreshOverview();
-        }
-
-        private void OnOrderUpdated(object? sender, Order? e)
+        private void OnOrderUpdated(object? sender, DONHANG? e)
         {
             RefreshOverview();
         }
@@ -127,9 +115,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
 
             // 2. Card 2: Total Orders
             TotalOrders = _orderService.GetTotalOrdersCount();
-            int completedCount = _dataStore.Orders.Count(o => o.Status == OrderStatus.Completed);
-            int cancelledCount = _dataStore.Orders.Count(o => o.Status == OrderStatus.Cancelled);
-            int processingCount = Math.Max(0, TotalOrders - completedCount - cancelledCount);
+            var (completedCount, processingCount, cancelledCount) = _orderService.GetOrderStatusBreakdown();
             OrdersSubtext = $"{completedCount} hoàn tất • {processingCount} đang xử lý • {cancelledCount} đã hủy";
 
             // 3. Card 3 & Top 5 Best-Selling Books
@@ -162,8 +148,8 @@ namespace QuanlyNhaSach.ViewModels.Manager
             }
 
             LowStockBookCount = lowStockList.Count;
-            int outOfStockCount = lowStockList.Count(b => b.SoLuongTon <= 0);
-            int warningCount = lowStockList.Count(b => b.SoLuongTon > 0 && b.SoLuongTon < 10);
+            int outOfStockCount = lowStockList.Count(b => (b.Soluongton ?? 0) <= 0);
+            int warningCount = lowStockList.Count(b => (b.Soluongton ?? 0) > 0 && (b.Soluongton ?? 0) < 10);
             LowStockSubtext = $"{outOfStockCount} hết hàng (0 cuốn) • {warningCount} sắp hết (1–9 cuốn)";
 
             // 5. Revenue Bar Chart

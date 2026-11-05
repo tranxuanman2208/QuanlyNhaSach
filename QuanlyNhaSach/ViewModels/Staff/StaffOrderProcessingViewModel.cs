@@ -13,12 +13,11 @@ namespace QuanlyNhaSach.ViewModels.Staff
 {
     public partial class StaffOrderProcessingViewModel : ObservableObject, INavigationAware
     {
-        private readonly MockDataService _mockDataService;
         private readonly OrderService _orderService;
         private readonly INavigationService _navigationService;
         private readonly IDialogService _dialogService;
 
-        public ObservableCollection<Order> DisplayedOrders { get; } = new();
+        public ObservableCollection<DONHANG> DisplayedOrders { get; } = new();
 
         public IReadOnlyList<string> StatusFilterOptions { get; } = new List<string>
         {
@@ -47,7 +46,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(HasSelectedOrder))]
-        private Order? _selectedOrder;
+        private DONHANG? _selectedOrder;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsEmptyOrders))]
@@ -65,17 +64,15 @@ namespace QuanlyNhaSach.ViewModels.Staff
         public bool HasFeedback => !string.IsNullOrWhiteSpace(FeedbackMessage);
 
         public StaffOrderProcessingViewModel(
-            MockDataService mockDataService,
             OrderService orderService,
             INavigationService navigationService,
             IDialogService dialogService)
         {
-            _mockDataService = mockDataService ?? throw new ArgumentNullException(nameof(mockDataService));
             _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
 
-            _mockDataService.DataChanged += (_, _) => RefreshOrders(preserveSelection: true);
+            _orderService.OrderUpdated += (_, _) => RefreshOrders(preserveSelection: true);
             RefreshOrders();
         }
 
@@ -111,13 +108,14 @@ namespace QuanlyNhaSach.ViewModels.Staff
         {
             int? previousId = preserveSelection ? SelectedOrder?.MaDH : null;
 
-            IEnumerable<Order> filtered = _orderService.GetOrdersByStatus(SelectedStatusFilter);
+            IEnumerable<DONHANG> filtered = _orderService.GetOrdersByStatus(SelectedStatusFilter);
 
             if (!string.IsNullOrWhiteSpace(SearchKeyword))
             {
                 string kw = SearchKeyword.Trim().TrimStart('#');
                 filtered = filtered.Where(o =>
                     o.MaDH.ToString().Contains(kw, StringComparison.OrdinalIgnoreCase) ||
+                    o.OrderCode.Contains(kw, StringComparison.OrdinalIgnoreCase) ||
                     o.HoTenKhachHang.Contains(kw, StringComparison.OrdinalIgnoreCase) ||
                     o.SDTKhachHang.Contains(kw, StringComparison.OrdinalIgnoreCase));
             }
@@ -151,7 +149,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
         }
 
         [RelayCommand]
-        private void ApplyStatusTransition(Order? order)
+        private void ApplyStatusTransition(DONHANG? order)
         {
             var targetOrder = order ?? SelectedOrder;
             if (targetOrder == null)
@@ -174,13 +172,13 @@ namespace QuanlyNhaSach.ViewModels.Staff
 
             IsFeedbackSuccess = true;
             FeedbackMessage = result.Message;
-            SelectedOrder = targetOrder;
+            SelectedOrder = result.Data ?? targetOrder;
             RefreshOrders(preserveSelection: true);
             _dialogService.ShowInformation("Cập nhật trạng thái thành công", result.Message);
         }
 
         [RelayCommand]
-        private void QuickConfirmOrder(Order? order)
+        private void QuickConfirmOrder(DONHANG? order)
         {
             var targetOrder = order ?? SelectedOrder;
             if (targetOrder == null)
@@ -192,7 +190,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
         }
 
         [RelayCommand]
-        private void QuickShipOrder(Order? order)
+        private void QuickShipOrder(DONHANG? order)
         {
             var targetOrder = order ?? SelectedOrder;
             if (targetOrder == null)
@@ -204,7 +202,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
         }
 
         [RelayCommand]
-        private void QuickCompleteOrder(Order? order)
+        private void QuickCompleteOrder(DONHANG? order)
         {
             var targetOrder = order ?? SelectedOrder;
             if (targetOrder == null)
@@ -215,7 +213,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
             ExecuteDirectTransition(targetOrder, OrderStatus.Completed);
         }
 
-        private void ExecuteDirectTransition(Order targetOrder, OrderStatus nextStatus)
+        private void ExecuteDirectTransition(DONHANG targetOrder, OrderStatus nextStatus)
         {
             var result = _orderService.TransitionOrderStatus(targetOrder.MaDH, nextStatus);
             if (!result.IsSuccess)
@@ -228,13 +226,13 @@ namespace QuanlyNhaSach.ViewModels.Staff
 
             IsFeedbackSuccess = true;
             FeedbackMessage = result.Message;
-            SelectedOrder = targetOrder;
+            SelectedOrder = result.Data ?? targetOrder;
             RefreshOrders(preserveSelection: true);
             _dialogService.ShowInformation("Cập nhật thành công", result.Message);
         }
 
         [RelayCommand]
-        private void OpenStockOut(Order? order)
+        private void OpenStockOut(DONHANG? order)
         {
             var target = order ?? SelectedOrder;
             if (target == null)
@@ -245,7 +243,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
         }
 
         [RelayCommand]
-        private void OpenSales(Order? order)
+        private void OpenSales(DONHANG? order)
         {
             var target = order ?? SelectedOrder;
             if (target == null)

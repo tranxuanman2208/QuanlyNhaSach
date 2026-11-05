@@ -90,7 +90,8 @@ namespace QuanlyNhaSach.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is int stock)
+            int stock = value is byte b ? b : (value is int i ? i : -1);
+            if (stock >= 0)
             {
                 if (stock <= 0)
                 {
@@ -119,7 +120,8 @@ namespace QuanlyNhaSach.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is int stock)
+            int stock = value is byte b ? b : (value is int i ? i : -1);
+            if (stock >= 0)
             {
                 if (stock <= 0)
                 {
@@ -428,8 +430,8 @@ namespace QuanlyNhaSach.Converters
         {
             decimal total = value switch
             {
+                DONHANG dh => dh.TongTien > 0m ? dh.TongTien : CustomerProfileViewModel.GetMockOrderTotal(dh.MaDH),
                 int maDh => CustomerProfileViewModel.GetMockOrderTotal(maDh),
-                DONHANG dh => CustomerProfileViewModel.GetMockOrderTotal(dh.MaDH),
                 decimal d => d,
                 _ => 0m
             };

@@ -40,7 +40,7 @@ namespace QuanlyNhaSach.Services
         void NavigateToImportHistory();
 
         // Role Window & Session Routing
-        void RouteAuthenticatedUser(User user);
+        void RouteAuthenticatedUser(NGUOIDUNG user);
         void LogoutToAuthWindow();
     }
 }

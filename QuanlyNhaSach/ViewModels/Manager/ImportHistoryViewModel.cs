@@ -12,10 +12,9 @@ namespace QuanlyNhaSach.ViewModels.Manager
     public partial class ImportHistoryViewModel : ObservableObject, INavigationAware
     {
         private readonly ImportService _importService;
-        private readonly MockDataStore _dataStore;
         private readonly INavigationService _navigationService;
 
-        public ObservableCollection<ImportReceipt> DisplayedReceipts { get; } = new();
+        public ObservableCollection<PHIEUNHAP> DisplayedReceipts { get; } = new();
 
         [ObservableProperty]
         private string _searchKeyword = string.Empty;
@@ -29,7 +28,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
         // ==================== RECEIPT DETAILS MODAL STATE ====================
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(HasSelectedReceipt))]
-        private ImportReceipt? _selectedReceiptForDetail;
+        private PHIEUNHAP? _selectedReceiptForDetail;
 
         [ObservableProperty]
         private bool _isDetailModalOpen;
@@ -38,14 +37,11 @@ namespace QuanlyNhaSach.ViewModels.Manager
 
         public ImportHistoryViewModel(
             ImportService importService,
-            MockDataStore dataStore,
             INavigationService navigationService)
         {
             _importService = importService ?? throw new ArgumentNullException(nameof(importService));
-            _dataStore = dataStore ?? throw new ArgumentNullException(nameof(dataStore));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
 
-            _dataStore.DataChanged += (_, _) => RefreshHistory();
             _importService.ImportReceiptConfirmed += (_, _) => RefreshHistory();
 
             RefreshHistory();
@@ -85,7 +81,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
         }
 
         [RelayCommand]
-        public void ViewReceiptDetails(ImportReceipt? receipt)
+        public void ViewReceiptDetails(PHIEUNHAP? receipt)
         {
             if (receipt == null)
             {

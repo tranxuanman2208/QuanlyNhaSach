@@ -16,31 +16,30 @@ namespace QuanlyNhaSach.ViewModels.Manager
         private readonly SupplierService _supplierService;
         private readonly BookService _bookService;
         private readonly AuthService _authService;
-        private readonly MockDataStore _dataStore;
         private readonly INavigationService _navigationService;
         private readonly IDialogService _dialogService;
 
         private bool _isConfirming;
 
-        public ObservableCollection<Supplier> ActiveSuppliers { get; } = new();
-        public ObservableCollection<Book> MatchedBooks { get; } = new();
-        public ObservableCollection<ImportReceiptDetail> DraftDetails { get; } = new();
+        public ObservableCollection<NHACUNGCAP> ActiveSuppliers { get; } = new();
+        public ObservableCollection<SACH> MatchedBooks { get; } = new();
+        public ObservableCollection<CHITIETPHIEUNHAP> DraftDetails { get; } = new();
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(SelectedSupplierDisplay))]
-        private Supplier? _selectedSupplier;
+        private NHACUNGCAP? _selectedSupplier;
 
         [ObservableProperty]
         private string _bookSearchKeyword = string.Empty;
 
         [ObservableProperty]
-        private Book? _selectedSearchBook;
+        private SACH? _selectedSearchBook;
 
         [ObservableProperty]
         private string _draftGhiChu = "Nhập bổ sung sách vào kho";
 
         [ObservableProperty]
-        private string _draftReceiptCode = "PN0007 (Bản nháp)";
+        private string _draftReceiptCode = "PN0001 (Bản nháp)";
 
         [ObservableProperty]
         private string _draftDateDisplay = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
@@ -67,7 +66,6 @@ namespace QuanlyNhaSach.ViewModels.Manager
             SupplierService supplierService,
             BookService bookService,
             AuthService authService,
-            MockDataStore dataStore,
             INavigationService navigationService,
             IDialogService dialogService)
         {
@@ -75,14 +73,12 @@ namespace QuanlyNhaSach.ViewModels.Manager
             _supplierService = supplierService ?? throw new ArgumentNullException(nameof(supplierService));
             _bookService = bookService ?? throw new ArgumentNullException(nameof(bookService));
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
-            _dataStore = dataStore ?? throw new ArgumentNullException(nameof(dataStore));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
 
             DraftDetails.CollectionChanged += OnDraftDetailsCollectionChanged;
-            _dataStore.DataChanged += (_, _) =>
+            _bookService.BooksChanged += (_, _) =>
             {
-                RefreshSuppliers();
                 RefreshBookSearch();
                 RefreshDraftCurrentStocks();
             };
@@ -115,7 +111,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
 
         public void RefreshSuppliers()
         {
-            int? prevSupplierId = SelectedSupplier?.MaNCC;
+            string? prevSupplierId = SelectedSupplier?.MaNCC;
             var active = _supplierService.GetActiveSuppliers();
 
             ActiveSuppliers.Clear();
@@ -124,10 +120,11 @@ namespace QuanlyNhaSach.ViewModels.Manager
                 ActiveSuppliers.Add(s);
             }
 
-            if (prevSupplierId.HasValue)
+            if (!string.IsNullOrWhiteSpace(prevSupplierId))
             {
-                SelectedSupplier = ActiveSuppliers.FirstOrDefault(s => s.MaNCC == prevSupplierId.Value)
-                                ?? ActiveSuppliers.FirstOrDefault();
+                SelectedSupplier = ActiveSuppliers.FirstOrDefault(s =>
+                                       string.Equals(s.MaNCC, prevSupplierId, StringComparison.OrdinalIgnoreCase))
+                                   ?? ActiveSuppliers.FirstOrDefault();
             }
             else if (SelectedSupplier == null && ActiveSuppliers.Count > 0)
             {
@@ -137,7 +134,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
 
         public void RefreshBookSearch()
         {
-            var books = _bookService.SearchAndFilterBooks(BookSearchKeyword, includeInactive: false);
+            var books = _bookService.SearchAndFilterBooks(BookSearchKeyword);
             MatchedBooks.Clear();
             foreach (var b in books)
             {
@@ -152,7 +149,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
                 var sharedBook = _bookService.GetBookById(line.MaSach);
                 if (sharedBook != null)
                 {
-                    line.CurrentStock = sharedBook.SoLuongTon;
+                    line.CurrentStock = sharedBook.Soluongton ?? 0;
                 }
             }
         }
@@ -161,7 +158,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
         {
             if (e.OldItems != null)
             {
-                foreach (ImportReceiptDetail oldItem in e.OldItems)
+                foreach (CHITIETPHIEUNHAP oldItem in e.OldItems)
                 {
                     oldItem.LineValueChanged -= OnDraftLineValueChanged;
                 }
@@ -169,7 +166,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
 
             if (e.NewItems != null)
             {
-                foreach (ImportReceiptDetail newItem in e.NewItems)
+                foreach (CHITIETPHIEUNHAP newItem in e.NewItems)
                 {
                     newItem.LineValueChanged += OnDraftLineValueChanged;
                 }
@@ -195,7 +192,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
         }
 
         [RelayCommand]
-        public void AddBookToDraft(Book? book)
+        public void AddBookToDraft(SACH? book)
         {
             var targetBook = book ?? SelectedSearchBook;
             if (targetBook == null)
@@ -206,7 +203,8 @@ namespace QuanlyNhaSach.ViewModels.Manager
             ValidationErrorMessage = string.Empty;
 
             // Prevent duplicate lines: if book already exists in draft, increment quantity by 5
-            var existingLine = DraftDetails.FirstOrDefault(d => d.MaSach == targetBook.MaSach);
+            var existingLine = DraftDetails.FirstOrDefault(d =>
+                string.Equals(d.MaSach, targetBook.MaSach, StringComparison.OrdinalIgnoreCase));
             if (existingLine != null)
             {
                 existingLine.SoLuongNhap += 5;
@@ -215,14 +213,15 @@ namespace QuanlyNhaSach.ViewModels.Manager
             }
 
             // Default import unit price to ~68% of selling price (rounded to nearest 1,000 VND)
-            decimal suggestedImportPrice = Math.Max(10000m, Math.Round((targetBook.GiaBan * 0.68m) / 1000m, 0) * 1000m);
+            decimal sellingPrice = targetBook.Giaban ?? 0m;
+            decimal suggestedImportPrice = Math.Max(10000m, Math.Round((sellingPrice * 0.68m) / 1000m, 0) * 1000m);
 
-            var newLine = new ImportReceiptDetail
+            var newLine = new CHITIETPHIEUNHAP
             {
                 MaSach = targetBook.MaSach,
-                TenSach = targetBook.TenSach,
-                TacGia = targetBook.TacGia,
-                CurrentStock = targetBook.SoLuongTon,
+                TenSach = targetBook.Tensach ?? string.Empty,
+                TacGia = targetBook.Tacgia ?? string.Empty,
+                CurrentStock = targetBook.Soluongton ?? 0,
                 SoLuongNhap = 10,
                 DonGiaNhap = suggestedImportPrice
             };
@@ -232,7 +231,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
         }
 
         [RelayCommand]
-        public void RemoveDraftLine(ImportReceiptDetail? detailLine)
+        public void RemoveDraftLine(CHITIETPHIEUNHAP? detailLine)
         {
             if (detailLine == null)
             {
@@ -272,7 +271,6 @@ namespace QuanlyNhaSach.ViewModels.Manager
 
             ValidationErrorMessage = string.Empty;
 
-            // 1. Validate entire draft BEFORE showing confirmation dialog or modifying inventory
             var validation = _importService.ValidateDraft(SelectedSupplier, DraftDetails);
             if (!validation.IsSuccess)
             {
@@ -281,7 +279,6 @@ namespace QuanlyNhaSach.ViewModels.Manager
                 return;
             }
 
-            // 2. Display confirmation dialog showing supplier and total amount
             string confirmPrompt =
                 $"Bạn có chắc chắn muốn XÁC NHẬN NHẬP HÀNG cho phiếu nhập này không?\n\n" +
                 $"• Nhà cung cấp: {SelectedSupplier!.TenNCC}\n" +
@@ -292,7 +289,6 @@ namespace QuanlyNhaSach.ViewModels.Manager
 
             if (!_dialogService.ShowConfirmation("Xác nhận lập phiếu nhập hàng", confirmPrompt))
             {
-                // Preserve draft data when user cancels
                 return;
             }
 
@@ -312,7 +308,6 @@ namespace QuanlyNhaSach.ViewModels.Manager
                     return;
                 }
 
-                // Clear draft and refresh header for next receipt
                 DraftDetails.Clear();
                 DraftGhiChu = "Nhập bổ sung sách vào kho";
                 InitializeHeaderState();

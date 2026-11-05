@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore;
 using QuanlyNhaSach.Models;
 using QuanlyNhaSach.Models.Enums;
 
@@ -15,26 +16,36 @@ namespace QuanlyNhaSach.Services
 
         private static readonly Regex PhoneTenDigitsRegex = new(@"^\d{10}$", RegexOptions.Compiled);
 
-        private readonly MockDataStore _dataStore;
-
         public event EventHandler? UsersChanged;
 
-        public UserManagementService(MockDataStore dataStore)
+        public UserManagementService()
         {
-            _dataStore = dataStore ?? throw new ArgumentNullException(nameof(dataStore));
         }
 
-        public IReadOnlyList<User> GetUsersByRole(UserRole role)
+        public IReadOnlyList<NGUOIDUNG> GetUsersByRole(UserRole role)
         {
-            return _dataStore.Users
-                .Where(u => u.Role == role)
-                .OrderBy(u => u.MaND)
-                .ToList();
+            try
+            {
+                using var db = new QuanlyNhaSachContext();
+                var allUsers = db.NGUOIDUNGs
+                    .AsNoTracking()
+                    .OrderBy(u => u.MaND)
+                    .ToList();
+
+                return allUsers
+                    .Where(u => u.Role == role)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi khi tải danh sách người dùng theo vai trò {role}: {ex.Message}");
+                return Array.Empty<NGUOIDUNG>();
+            }
         }
 
-        public IReadOnlyList<User> SearchAccounts(UserRole role, string? keyword, string? statusFilter = null)
+        public IReadOnlyList<NGUOIDUNG> SearchAccounts(UserRole role, string? keyword, string? statusFilter = null)
         {
-            IEnumerable<User> query = _dataStore.Users.Where(u => u.Role == role);
+            IEnumerable<NGUOIDUNG> query = GetUsersByRole(role);
 
             if (!string.IsNullOrWhiteSpace(statusFilter) &&
                 !statusFilter.Equals(AllStatusFilter, StringComparison.OrdinalIgnoreCase))
@@ -53,29 +64,21 @@ namespace QuanlyNhaSach.Services
             {
                 string kw = keyword.Trim();
                 string cleanId = kw.TrimStart('#');
-                if ((cleanId.StartsWith("NV", StringComparison.OrdinalIgnoreCase) ||
-                     cleanId.StartsWith("KH", StringComparison.OrdinalIgnoreCase)) &&
-                    cleanId.Length > 2)
-                {
-                    cleanId = cleanId.Substring(2).TrimStart('0');
-                    if (string.IsNullOrEmpty(cleanId))
-                    {
-                        cleanId = "0";
-                    }
-                }
 
                 query = query.Where(u =>
                     u.HoTen.Contains(kw, StringComparison.OrdinalIgnoreCase) ||
                     u.Username.Contains(kw, StringComparison.OrdinalIgnoreCase) ||
-                    u.SDT.Contains(kw, StringComparison.OrdinalIgnoreCase) ||
+                    (u.Tendangnhap?.Contains(kw, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (u.Email?.Contains(kw, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (u.SDT?.Contains(kw, StringComparison.OrdinalIgnoreCase) ?? false) ||
                     u.UserCode.Contains(kw, StringComparison.OrdinalIgnoreCase) ||
-                    u.MaND.ToString().Equals(cleanId, StringComparison.OrdinalIgnoreCase));
+                    u.MaND.Contains(cleanId, StringComparison.OrdinalIgnoreCase));
             }
 
             return query.OrderBy(u => u.MaND).ToList();
         }
 
-        public OperationResult<User> AddStaffAccount(
+        public OperationResult<NGUOIDUNG> AddStaffAccount(
             string? hoTen,
             string? sdt,
             string? diaChi,
@@ -85,139 +88,270 @@ namespace QuanlyNhaSach.Services
         {
             if (string.IsNullOrWhiteSpace(hoTen))
             {
-                return OperationResult<User>.Failure("Vui lòng nhập họ và tên nhân viên.");
+                return OperationResult<NGUOIDUNG>.Failure("Vui lòng nhập họ và tên nhân viên.");
+            }
+
+            if (hoTen.Trim().Length > 100)
+            {
+                return OperationResult<NGUOIDUNG>.Failure("Họ và tên nhân viên không được vượt quá 100 ký tự.");
             }
 
             if (string.IsNullOrWhiteSpace(sdt) || !PhoneTenDigitsRegex.IsMatch(sdt.Trim()))
             {
-                return OperationResult<User>.Failure("Số điện thoại nhân viên không hợp lệ. Vui lòng nhập đúng 10 chữ số (0-9).");
+                return OperationResult<NGUOIDUNG>.Failure("Số điện thoại nhân viên không hợp lệ. Vui lòng nhập đúng 10 chữ số (0-9).");
             }
 
             if (string.IsNullOrWhiteSpace(diaChi))
             {
-                return OperationResult<User>.Failure("Vui lòng nhập địa chỉ liên hệ của nhân viên.");
+                return OperationResult<NGUOIDUNG>.Failure("Vui lòng nhập địa chỉ liên hệ của nhân viên.");
+            }
+
+            if (diaChi.Trim().Length > 100)
+            {
+                return OperationResult<NGUOIDUNG>.Failure("Địa chỉ nhân viên không được vượt quá 100 ký tự.");
             }
 
             if (string.IsNullOrWhiteSpace(username) || username.Trim().Length < 3)
             {
-                return OperationResult<User>.Failure("Tên đăng nhập phải có tối thiểu 3 ký tự.");
+                return OperationResult<NGUOIDUNG>.Failure("Tên đăng nhập / Email phải có ít nhất 3 ký tự.");
             }
 
-            string normalizedUsername = username.Trim();
-            if (normalizedUsername.Contains(' '))
+            if (username.Trim().Contains(' '))
             {
-                return OperationResult<User>.Failure("Tên đăng nhập không được chứa khoảng trắng.");
-            }
-
-            bool exists = _dataStore.Users.Any(u =>
-                !string.IsNullOrWhiteSpace(u.Username) &&
-                u.Username.Equals(normalizedUsername, StringComparison.OrdinalIgnoreCase));
-
-            if (exists)
-            {
-                return OperationResult<User>.Failure(
-                    $"Tên đăng nhập \"{normalizedUsername}\" đã tồn tại trong hệ thống. Vui lòng chọn tên đăng nhập khác.");
+                return OperationResult<NGUOIDUNG>.Failure("Tên đăng nhập không được chứa khoảng trắng.");
             }
 
             if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
             {
-                return OperationResult<User>.Failure("Mật khẩu khởi tạo phải có tối thiểu 6 ký tự.");
+                return OperationResult<NGUOIDUNG>.Failure("Mật khẩu khởi tạo phải có ít nhất 6 ký tự.");
             }
 
             if (confirmPassword != null && !string.Equals(password, confirmPassword, StringComparison.Ordinal))
             {
-                return OperationResult<User>.Failure("Mật khẩu xác nhận không khớp với mật khẩu khởi tạo.");
+                return OperationResult<NGUOIDUNG>.Failure("Mật khẩu xác nhận không khớp với mật khẩu khởi tạo.");
             }
 
-            var newStaff = new Staff
+            string normalizedName = hoTen.Trim();
+            string normalizedPhone = sdt.Trim();
+            string normalizedAddress = diaChi.Trim();
+            string normalizedInputUsername = username.Trim();
+
+            try
             {
-                MaND = _dataStore.GenerateNextUserId(),
-                HoTen = hoTen.Trim(),
-                SDT = sdt.Trim(),
-                DiaChi = diaChi.Trim(),
-                Username = normalizedUsername,
-                Password = password,
-                Role = UserRole.Staff, // Strictly enforced Staff role
-                IsActive = true
-            };
+                using var db = new QuanlyNhaSachContext();
 
-            _dataStore.Users.Add(newStaff);
-            NotifyChanged();
+                bool duplicateExists = db.NGUOIDUNGs
+                    .AsNoTracking()
+                    .Any(u =>
+                        u.Tendangnhap.ToLower() == normalizedInputUsername.ToLower() ||
+                        (u.Email != null && u.Email.ToLower() == normalizedInputUsername.ToLower()) ||
+                        (u.SDT != null && u.SDT == normalizedPhone));
 
-            return OperationResult<User>.Success(
-                newStaff,
-                $"Đã thêm tài khoản nhân viên \"{newStaff.HoTen}\" ({newStaff.UserCode} — {newStaff.Username}) ở trạng thái Hoạt động.");
+                if (duplicateExists)
+                {
+                    return OperationResult<NGUOIDUNG>.Failure(
+                        "Tên đăng nhập, Email hoặc Số điện thoại này đã được sử dụng bởi một tài khoản khác.");
+                }
+
+                string newMaND = GenerateNextUserId(db, "NV");
+                string loginKey = BuildUniqueShortLoginKey(db, normalizedInputUsername, newMaND);
+                string? emailValue = normalizedInputUsername.Contains('@') || normalizedInputUsername.Length > 10
+                    ? normalizedInputUsername
+                    : null;
+
+                var newStaff = new NGUOIDUNG
+                {
+                    MaND = newMaND,
+                    Tendangnhap = loginKey,
+                    Matkhau = password,
+                    Hoten = normalizedName,
+                    SDT = normalizedPhone,
+                    Email = emailValue,
+                    Diachi = normalizedAddress,
+                    Vaitro = UserRole.Staff.ToVietnameseLabel(),
+                    Trangthai = AccountStatus.Active.ToVietnameseLabel()
+                };
+
+                db.NGUOIDUNGs.Add(newStaff);
+                db.SaveChanges();
+
+                NotifyChanged();
+                return OperationResult<NGUOIDUNG>.Success(
+                    newStaff,
+                    $"Đã tạo tài khoản nhân viên \"{newStaff.HoTen}\" ({newStaff.UserCode} — {newStaff.Username}) thành công.");
+            }
+            catch (Exception ex)
+            {
+                return OperationResult<NGUOIDUNG>.Failure(
+                    $"Không thể tạo tài khoản nhân viên trong cơ sở dữ liệu: {ex.InnerException?.Message ?? ex.Message}");
+            }
         }
 
-        public OperationResult<User> ToggleAccountLock(int targetUserId, int? currentActorUserId = null)
+        public OperationResult<NGUOIDUNG> ToggleAccountLock(
+            string? targetMaND,
+            string? currentActorMaND = null)
         {
-            var user = _dataStore.Users.FirstOrDefault(u => u.MaND == targetUserId);
-            if (user == null)
+            if (string.IsNullOrWhiteSpace(targetMaND))
             {
-                return OperationResult<User>.Failure($"Không tìm thấy tài khoản người dùng #{targetUserId}.");
+                return OperationResult<NGUOIDUNG>.Failure("Mã người dùng không hợp lệ.");
             }
 
-            if (user.Role == UserRole.Manager)
+            string targetKey = targetMaND.Trim();
+            if (!string.IsNullOrWhiteSpace(currentActorMaND) &&
+                string.Equals(targetKey, currentActorMaND.Trim(), StringComparison.OrdinalIgnoreCase))
             {
-                return OperationResult<User>.Failure("Không được phép khóa hoặc thay đổi trạng thái tài khoản Quản lý (Manager) từ giao diện này.");
+                return OperationResult<NGUOIDUNG>.Failure("Bạn không thể tự khóa tài khoản Quản lý đang đăng nhập.");
             }
 
-            if (currentActorUserId.HasValue && user.MaND == currentActorUserId.Value)
+            try
             {
-                return OperationResult<User>.Failure("Bạn không thể tự khóa tài khoản đang đăng nhập của chính mình.");
+                using var db = new QuanlyNhaSachContext();
+                var user = db.NGUOIDUNGs.FirstOrDefault(u => u.MaND == targetKey);
+                if (user == null)
+                {
+                    return OperationResult<NGUOIDUNG>.Failure($"Không tìm thấy tài khoản #{targetKey} trong cơ sở dữ liệu.");
+                }
+
+                if (user.Role == UserRole.Manager && user.IsActive)
+                {
+                    int activeManagersCount = db.NGUOIDUNGs
+                        .AsNoTracking()
+                        .ToList()
+                        .Count(u => u.Role == UserRole.Manager && u.IsActive);
+
+                    if (activeManagersCount <= 1)
+                    {
+                        return OperationResult<NGUOIDUNG>.Failure(
+                            "Không thể khóa tài khoản Quản lý duy nhất đang hoạt động trong hệ thống.");
+                    }
+                }
+
+                bool nextActiveState = !user.IsActive;
+                user.IsActive = nextActiveState;
+
+                db.SaveChanges();
+                NotifyChanged();
+
+                string stateText = nextActiveState ? "Mở khóa (Hoạt động)" : "Khóa tài khoản";
+                return OperationResult<NGUOIDUNG>.Success(
+                    user,
+                    $"Đã cập nhật trạng thái tài khoản \"{user.HoTen}\" ({user.UserCode}) thành: {stateText}.");
             }
-
-            user.IsActive = !user.IsActive;
-            NotifyChanged();
-
-            string stateAction = user.IsActive ? "MỞ KHÓA" : "KHÓA";
-            string loginEffect = user.IsActive
-                ? "Tài khoản này đã có thể đăng nhập trở lại vào hệ thống."
-                : "Tài khoản này sẽ bị từ chối đăng nhập ngay lập tức trên cổng xác thực AuthService.";
-
-            return OperationResult<User>.Success(
-                user,
-                $"Đã {stateAction} tài khoản \"{user.HoTen}\" ({user.Username}).\n• Trạng thái hiện tại: {user.AccountStatusLabel}\n• {loginEffect}");
+            catch (Exception ex)
+            {
+                return OperationResult<NGUOIDUNG>.Failure(
+                    $"Không thể cập nhật trạng thái tài khoản: {ex.InnerException?.Message ?? ex.Message}");
+            }
         }
 
-        /// <summary>
-        /// Demonstration-only password reset for a customer account.
-        /// Generates a temporary mock password and updates the shared User record so it can log in immediately.
-        /// </summary>
-        public OperationResult<string> ResetCustomerPassword(int customerUserId)
+        public OperationResult<string> ResetCustomerPassword(string? customerMaND)
         {
-            var customer = _dataStore.Users.FirstOrDefault(u => u.MaND == customerUserId);
-            if (customer == null)
+            if (string.IsNullOrWhiteSpace(customerMaND))
             {
-                return OperationResult<string>.Failure($"Không tìm thấy tài khoản khách hàng #{customerUserId}.");
+                return OperationResult<string>.Failure("Mã khách hàng không hợp lệ.");
             }
 
-            if (customer.Role != UserRole.Customer)
+            string key = customerMaND.Trim();
+
+            try
             {
-                return OperationResult<string>.Failure("Chức năng cấp lại mật khẩu tại màn hình này chỉ áp dụng cho tài khoản Khách hàng.");
+                using var db = new QuanlyNhaSachContext();
+                var customer = db.NGUOIDUNGs.FirstOrDefault(u => u.MaND == key);
+                if (customer == null)
+                {
+                    return OperationResult<string>.Failure($"Không tìm thấy khách hàng #{key} trong cơ sở dữ liệu.");
+                }
+
+                string tempPassword = $"NS@{Random.Shared.Next(1000, 9999)}";
+                customer.Matkhau = tempPassword;
+
+                db.SaveChanges();
+                NotifyChanged();
+
+                return OperationResult<string>.Success(
+                    tempPassword,
+                    $"Đã cấp lại mật khẩu cho khách hàng \"{customer.HoTen}\" ({customer.UserCode}).\n\n" +
+                    $"• Tên đăng nhập: {customer.Username}\n" +
+                    $"• Mật khẩu mới: {tempPassword}\n\n" +
+                    $"Mật khẩu đã được lưu vào cơ sở dữ liệu.");
+            }
+            catch (Exception ex)
+            {
+                return OperationResult<string>.Failure(
+                    $"Không thể cấp lại mật khẩu: {ex.InnerException?.Message ?? ex.Message}");
+            }
+        }
+
+        internal static string GenerateNextUserId(QuanlyNhaSachContext db, string prefix)
+        {
+            var existingIds = db.NGUOIDUNGs
+                .AsNoTracking()
+                .Select(u => u.MaND)
+                .ToList();
+
+            int maxNum = 0;
+            foreach (var id in existingIds)
+            {
+                if (string.IsNullOrWhiteSpace(id) || !id.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                string digits = Regex.Replace(id, @"\D", "");
+                if (int.TryParse(digits, out int num) && num > maxNum)
+                {
+                    maxNum = num;
+                }
             }
 
-            int randomSuffix = Random.Shared.Next(100, 999);
-            string temporaryPassword = $"BookNest@{customer.MaND:D2}{randomSuffix}";
+            int next = maxNum + 1;
+            string candidate = $"{prefix.ToUpperInvariant()}{next:D3}";
+            while (existingIds.Any(x => string.Equals(x?.Trim(), candidate, StringComparison.OrdinalIgnoreCase)))
+            {
+                next++;
+                candidate = $"{prefix.ToUpperInvariant()}{next:D3}";
+            }
 
-            customer.Password = temporaryPassword;
-            NotifyChanged();
+            return candidate;
+        }
 
-            string msg =
-                $"Đã cấp lại mật khẩu tạm thời (Mô phỏng) cho khách hàng:\n\n" +
-                $"• Mã KH: {customer.UserCode}\n" +
-                $"• Họ và tên: {customer.HoTen}\n" +
-                $"• Tên đăng nhập: {customer.Username}\n" +
-                $"• Mật khẩu tạm thời mới: {temporaryPassword}\n\n" +
-                $"[Lưu ý mô phỏng]: Đây là cơ chế cấp lại mật khẩu minh họa trên bộ nhớ In-Memory (không gửi email/SMS thực tế). Mật khẩu tạm thời chỉ hiển thị một lần tại hộp thoại này và có hiệu lực đăng nhập ngay lập tức.";
+        internal static string BuildUniqueShortLoginKey(
+            QuanlyNhaSachContext db,
+            string rawUsername,
+            string fallbackMaND)
+        {
+            string baseKey = rawUsername.Trim();
+            if (baseKey.Contains('@'))
+            {
+                baseKey = baseKey.Split('@')[0];
+            }
 
-            return OperationResult<string>.Success(temporaryPassword, msg);
+            if (baseKey.Length > 10)
+            {
+                baseKey = baseKey.Substring(0, 10);
+            }
+
+            if (string.IsNullOrWhiteSpace(baseKey))
+            {
+                baseKey = fallbackMaND;
+            }
+
+            var existingLogins = db.NGUOIDUNGs
+                .AsNoTracking()
+                .Select(u => u.Tendangnhap)
+                .ToList();
+
+            if (!existingLogins.Any(x => string.Equals(x?.Trim(), baseKey, StringComparison.OrdinalIgnoreCase)))
+            {
+                return baseKey;
+            }
+
+            return fallbackMaND.Length <= 10 ? fallbackMaND : fallbackMaND.Substring(0, 10);
         }
 
         private void NotifyChanged()
         {
             UsersChanged?.Invoke(this, EventArgs.Empty);
-            _dataStore.NotifyDataChanged();
         }
     }
 }

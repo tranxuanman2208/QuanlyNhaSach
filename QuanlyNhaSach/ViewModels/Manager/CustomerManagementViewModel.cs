@@ -15,10 +15,9 @@ namespace QuanlyNhaSach.ViewModels.Manager
     {
         private readonly UserManagementService _userManagementService;
         private readonly AuthService _authService;
-        private readonly MockDataStore _dataStore;
         private readonly IDialogService _dialogService;
 
-        public ObservableCollection<User> DisplayedCustomers { get; } = new();
+        public ObservableCollection<NGUOIDUNG> DisplayedCustomers { get; } = new();
 
         public IReadOnlyList<string> StatusFilterOptions { get; } = new List<string>
         {
@@ -45,15 +44,12 @@ namespace QuanlyNhaSach.ViewModels.Manager
         public CustomerManagementViewModel(
             UserManagementService userManagementService,
             AuthService authService,
-            MockDataStore dataStore,
             IDialogService dialogService)
         {
             _userManagementService = userManagementService ?? throw new ArgumentNullException(nameof(userManagementService));
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
-            _dataStore = dataStore ?? throw new ArgumentNullException(nameof(dataStore));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
 
-            _dataStore.DataChanged += (_, _) => RefreshCustomers();
             _userManagementService.UsersChanged += (_, _) => RefreshCustomers();
 
             RefreshCustomers();
@@ -99,7 +95,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
         }
 
         [RelayCommand]
-        public void ToggleCustomerLock(User? customer)
+        public void ToggleCustomerLock(NGUOIDUNG? customer)
         {
             if (customer == null)
             {
@@ -132,7 +128,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
         }
 
         [RelayCommand]
-        public void ResetCustomerPassword(User? customer)
+        public void ResetCustomerPassword(NGUOIDUNG? customer)
         {
             if (customer == null)
             {
@@ -140,12 +136,12 @@ namespace QuanlyNhaSach.ViewModels.Manager
             }
 
             bool confirmed = _dialogService.ShowConfirmation(
-                "Xác nhận cấp lại mật khẩu (Mô phỏng)",
+                "Xác nhận cấp lại mật khẩu",
                 $"Bạn có chắc chắn muốn cấp lại mật khẩu tạm thời cho tài khoản khách hàng:\n" +
                 $"• Mã KH: {customer.UserCode}\n" +
                 $"• Họ tên: {customer.HoTen}\n" +
                 $"• Tên đăng nhập: {customer.Username}\n\n" +
-                $"Mật khẩu tạm thời mới sẽ được hiển thị một lần sau khi xác nhận.");
+                $"Mật khẩu tạm thời mới sẽ được cập nhật vào cơ sở dữ liệu và hiển thị một lần sau khi xác nhận.");
 
             if (!confirmed)
             {

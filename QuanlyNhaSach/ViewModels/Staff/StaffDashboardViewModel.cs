@@ -1,6 +1,5 @@
 using System;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using QuanlyNhaSach.Models;
@@ -11,11 +10,10 @@ namespace QuanlyNhaSach.ViewModels.Staff
 {
     public partial class StaffDashboardViewModel : ObservableObject, INavigationAware
     {
-        private readonly MockDataService _mockDataService;
         private readonly OrderService _orderService;
         private readonly INavigationService _navigationService;
 
-        public ObservableCollection<Order> UrgentOrders { get; } = new();
+        public ObservableCollection<DONHANG> UrgentOrders { get; } = new();
 
         [ObservableProperty]
         private int _newOrdersCount;
@@ -47,16 +45,12 @@ namespace QuanlyNhaSach.ViewModels.Staff
         public bool IsUrgentOrdersEmpty => UrgentOrdersCount == 0;
 
         public StaffDashboardViewModel(
-            MockDataService mockDataService,
             OrderService orderService,
             INavigationService navigationService)
         {
-            _mockDataService = mockDataService ?? throw new ArgumentNullException(nameof(mockDataService));
             _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
 
-            _mockDataService.Orders.CollectionChanged += OnOrdersCollectionChanged;
-            _mockDataService.DataChanged += OnSharedDataChanged;
             _orderService.OrderUpdated += OnOrderUpdated;
 
             RefreshDashboard();
@@ -67,17 +61,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
             RefreshDashboard();
         }
 
-        private void OnOrdersCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        {
-            RefreshDashboard();
-        }
-
-        private void OnSharedDataChanged(object? sender, EventArgs e)
-        {
-            RefreshDashboard();
-        }
-
-        private void OnOrderUpdated(object? sender, Order? e)
+        private void OnOrderUpdated(object? sender, DONHANG? e)
         {
             RefreshDashboard();
         }
@@ -105,7 +89,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
         }
 
         [RelayCommand]
-        private void ProcessOrder(Order? order)
+        private void ProcessOrder(DONHANG? order)
         {
             if (order == null)
             {
@@ -115,7 +99,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
         }
 
         [RelayCommand]
-        private void GoToStockOut(Order? order)
+        private void GoToStockOut(DONHANG? order)
         {
             if (order == null)
             {
@@ -125,7 +109,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
         }
 
         [RelayCommand]
-        private void GoToSales(Order? order)
+        private void GoToSales(DONHANG? order)
         {
             if (order == null)
             {

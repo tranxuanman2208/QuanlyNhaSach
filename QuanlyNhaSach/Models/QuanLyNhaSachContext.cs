@@ -4,13 +4,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace QuanlyNhaSach.Models;
 
-public partial class QuanLyNhaSachContext : DbContext
+public partial class QuanlyNhaSachContext : DbContext
 {
-    public QuanLyNhaSachContext()
+    public QuanlyNhaSachContext()
     {
     }
 
-    public QuanLyNhaSachContext(DbContextOptions<QuanLyNhaSachContext> options)
+    public QuanlyNhaSachContext(DbContextOptions<QuanlyNhaSachContext> options)
         : base(options)
     {
     }
@@ -37,8 +37,7 @@ public partial class QuanLyNhaSachContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Data Source=TRANMAN\\MSSQLSERVER02;Initial Catalog=QuanlyNhaSach;Integrated Security=True;Trust Server Certificate=True");
-
+     => optionsBuilder.UseSqlServer("Data Source=.\\SQLEXPRESS;Initial Catalog=QuanlyNhaSach;Integrated Security=True;Trust Server Certificate=True");
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<CHITIETDONHANG>(entity =>

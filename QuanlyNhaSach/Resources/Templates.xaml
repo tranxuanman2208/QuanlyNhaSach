@@ -3,7 +3,7 @@
                     xmlns:models="clr-namespace:QuanlyNhaSach.Models">
 
     <!-- Reusable Book Catalog Card DataTemplate (Used in HomePage) -->
-    <DataTemplate x:Key="BookCatalogCardTemplate" DataType="{x:Type models:Book}">
+    <DataTemplate x:Key="BookCatalogCardTemplate" DataType="{x:Type models:SACH}">
         <Border Width="264" Height="396" Margin="0,0,22,24" Style="{StaticResource BookCardBorderStyle}">
             <Grid>
                 <Grid.RowDefinitions>
@@ -42,14 +42,14 @@
                         <!-- Placeholder Cover Art & Title -->
                         <StackPanel VerticalAlignment="Bottom" Margin="4,0,0,0">
                             <TextBlock Text="📘" FontSize="26" Margin="0,0,0,6"/>
-                            <TextBlock Text="{Binding TenSach}"
+                            <TextBlock Text="{Binding Tensach}"
                                        Foreground="White"
                                        FontWeight="Bold"
                                        FontSize="15"
                                        MaxHeight="42"
                                        TextWrapping="Wrap"
                                        TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Text="{Binding TacGia}"
+                            <TextBlock Text="{Binding Tacgia}"
                                        Foreground="#E2E8F0"
                                        FontSize="12"
                                        Margin="0,3,0,0"
@@ -61,7 +61,7 @@
                 <!-- Book Body Info -->
                 <StackPanel Grid.Row="1" Margin="16,14,16,8">
                     <!-- Clickable Title -->
-                    <TextBlock Text="{Binding TenSach}"
+                    <TextBlock Text="{Binding Tensach}"
                                FontSize="15"
                                FontWeight="Bold"
                                Foreground="{StaticResource CharcoalTextBrush}"
@@ -69,7 +69,7 @@
                                TextWrapping="Wrap"
                                TextTrimming="CharacterEllipsis"
                                Cursor="Hand"
-                               ToolTip="{Binding TenSach}">
+                               ToolTip="{Binding Tensach}">
                         <TextBlock.InputBindings>
                             <MouseBinding Gesture="LeftClick"
                                           Command="{Binding DataContext.ViewBookDetailCommand, RelativeSource={RelativeSource AncestorType=Page}}"
@@ -78,7 +78,7 @@
                     </TextBlock>
 
                     <!-- Author -->
-                    <TextBlock Text="{Binding TacGia, StringFormat='Tác giả: {0}'}"
+                    <TextBlock Text="{Binding Tacgia, StringFormat='Tác giả: {0}'}"
                                FontSize="12.5"
                                Foreground="{StaticResource MutedTextBrush}"
                                Margin="0,5,0,10"
@@ -88,11 +88,11 @@
                     <Border HorizontalAlignment="Left"
                             CornerRadius="6"
                             Padding="8,4"
-                            Background="{Binding SoLuongTon, Converter={StaticResource StockBadgeBackgroundConverter}}">
+                            Background="{Binding Soluongton, Converter={StaticResource StockBadgeBackgroundConverter}}">
                         <TextBlock Text="{Binding StockStatusText}"
                                    FontSize="11.5"
                                    FontWeight="SemiBold"
-                                   Foreground="{Binding SoLuongTon, Converter={StaticResource StockBadgeForegroundConverter}}"/>
+                                   Foreground="{Binding Soluongton, Converter={StaticResource StockBadgeForegroundConverter}}"/>
                     </Border>
                 </StackPanel>
 

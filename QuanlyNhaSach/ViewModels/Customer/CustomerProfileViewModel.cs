@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.EntityFrameworkCore;
 using QuanlyNhaSach.Models;
 using QuanlyNhaSach.Navigation;
 using QuanlyNhaSach.Services;
@@ -14,18 +16,9 @@ namespace QuanlyNhaSach.ViewModels.Customer
     {
         private readonly INavigationService? _navigationService;
         private readonly IDialogService? _dialogService;
+        private readonly AuthService? _authService;
 
-        /// <summary>
-        /// Presentation-level mock order total mapping keyed by DONHANG.MaDH.
-        /// Required because the scaffolded DONHANG table stores line totals in CHITIETDONHANG
-        /// rather than a direct column on DONHANG.
-        /// </summary>
-        private static readonly IReadOnlyDictionary<int, decimal> MockOrderTotalsByMaDH = new Dictionary<int, decimal>
-        {
-            [1] = 250_000m,
-            [2] = 180_000m,
-            [3] = 320_000m
-        };
+        private static readonly Dictionary<int, decimal> CachedOrderTotalsByMaDH = new();
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(CustomerName))]
@@ -34,10 +27,6 @@ namespace QuanlyNhaSach.ViewModels.Customer
         [NotifyPropertyChangedFor(nameof(CustomerEmail))]
         private NGUOIDUNG _currentUser;
 
-        /// <summary>
-        /// ViewModel-only display property for the customer's join date,
-        /// as the scaffolded NGUOIDUNG table does not include a join-date column.
-        /// </summary>
         [ObservableProperty]
         private string _joinDateDisplay = "15/03/2025";
 
@@ -47,7 +36,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
         [ObservableProperty]
         private string _activeMenuKey = "AccountInfo";
 
-        public ObservableCollection<DONHANG> Orders { get; }
+        public ObservableCollection<DONHANG> Orders { get; } = new();
 
         public string CustomerName
         {
@@ -91,18 +80,19 @@ namespace QuanlyNhaSach.ViewModels.Customer
 
         public string AvatarInitials => ComputeInitials(CustomerName);
 
-        public CustomerProfileViewModel() : this(null, null)
+        public CustomerProfileViewModel() : this(null, null, null)
         {
         }
 
         public CustomerProfileViewModel(
             INavigationService? navigationService,
-            IDialogService? dialogService)
+            IDialogService? dialogService,
+            AuthService? authService = null)
         {
             _navigationService = navigationService;
             _dialogService = dialogService;
+            _authService = authService;
 
-            // Initialize 1 mock NGUOIDUNG record using actual scaffolded properties
             _currentUser = new NGUOIDUNG
             {
                 MaND = "KH001",
@@ -119,44 +109,122 @@ namespace QuanlyNhaSach.ViewModels.Customer
             _joinDate = new DateTime(2025, 3, 15);
             _joinDateDisplay = _joinDate.ToString("dd/MM/yyyy");
 
-            // Initialize 3 mock DONHANG records using actual scaffolded properties
-            Orders = new ObservableCollection<DONHANG>
-            {
-                new DONHANG
-                {
-                    MaDH = 1,
-                    MaKH = "KH001",
-                    NgayTao = new DateOnly(2026, 10, 20),
-                    Phuongthucthanhtoan = "COD",
-                    Trangthaigiaohang = "Hoàn tất"
-                },
-                new DONHANG
-                {
-                    MaDH = 2,
-                    MaKH = "KH001",
-                    NgayTao = new DateOnly(2026, 10, 25),
-                    Phuongthucthanhtoan = "Chuyển khoản",
-                    Trangthaigiaohang = "Đang xử lý"
-                },
-                new DONHANG
-                {
-                    MaDH = 3,
-                    MaKH = "KH001",
-                    NgayTao = new DateOnly(2026, 10, 29),
-                    Phuongthucthanhtoan = "COD",
-                    Trangthaigiaohang = "Đang giao"
-                }
-            };
+            LoadCustomerAndOrdersFromDatabase();
         }
 
         public void OnNavigatedTo(object? parameter)
         {
             ActiveMenuKey = "AccountInfo";
+            LoadCustomerAndOrdersFromDatabase();
+        }
+
+        private void LoadCustomerAndOrdersFromDatabase()
+        {
+            try
+            {
+                using var db = new QuanlyNhaSachContext();
+
+                NGUOIDUNG? dbUser = null;
+                var sessionUser = _authService?.CurrentUser;
+
+                if (sessionUser != null)
+                {
+                    string? username = sessionUser.Username?.Trim();
+                    string? phone = sessionUser.SDT?.Trim();
+
+                    dbUser = db.NGUOIDUNGs
+                        .AsNoTracking()
+                        .FirstOrDefault(u =>
+                            (!string.IsNullOrEmpty(username) && (u.Tendangnhap == username || u.Email == username)) ||
+                            (!string.IsNullOrEmpty(phone) && u.SDT == phone));
+
+                    if (dbUser == null)
+                    {
+                        dbUser = new NGUOIDUNG
+                        {
+                            MaND = $"KH{sessionUser.MaND:D3}",
+                            Tendangnhap = username ?? "customer",
+                            Hoten = sessionUser.HoTen,
+                            SDT = sessionUser.SDT,
+                            Email = username,
+                            Diachi = sessionUser.DiaChi,
+                            Vaitro = "Khách hàng",
+                            Trangthai = "Hoạt động"
+                        };
+                    }
+                }
+                else
+                {
+                    dbUser = db.NGUOIDUNGs
+                        .AsNoTracking()
+                        .FirstOrDefault(u => u.Vaitro == "Khách hàng" || u.MaND.StartsWith("KH"));
+                }
+
+                if (dbUser != null)
+                {
+                    CurrentUser = dbUser;
+                }
+
+                var dbOrders = db.DONHANGs
+                    .AsNoTracking()
+                    .Include(d => d.CHITIETDONHANGs)
+                    .Where(d => CurrentUser != null && d.MaKH == CurrentUser.MaND)
+                    .OrderByDescending(d => d.NgayTao)
+                    .ThenByDescending(d => d.MaDH)
+                    .ToList();
+
+                if (dbOrders.Count == 0)
+                {
+                    dbOrders = db.DONHANGs
+                        .AsNoTracking()
+                        .Include(d => d.CHITIETDONHANGs)
+                        .OrderByDescending(d => d.NgayTao)
+                        .ThenByDescending(d => d.MaDH)
+                        .Take(10)
+                        .ToList();
+                }
+
+                Orders.Clear();
+                foreach (var order in dbOrders)
+                {
+                    CachedOrderTotalsByMaDH[order.MaDH] = order.TongTien;
+                    Orders.Add(order);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi khi tải hồ sơ khách hàng từ CSDL: {ex.Message}");
+            }
         }
 
         public static decimal GetMockOrderTotal(int maDh)
         {
-            return MockOrderTotalsByMaDH.TryGetValue(maDh, out decimal total) ? total : 0m;
+            if (CachedOrderTotalsByMaDH.TryGetValue(maDh, out decimal cached) && cached > 0m)
+            {
+                return cached;
+            }
+
+            try
+            {
+                using var db = new QuanlyNhaSachContext();
+                var order = db.DONHANGs
+                    .AsNoTracking()
+                    .Include(d => d.CHITIETDONHANGs)
+                    .FirstOrDefault(d => d.MaDH == maDh);
+
+                if (order != null)
+                {
+                    decimal total = order.TongTien;
+                    CachedOrderTotalsByMaDH[maDh] = total;
+                    return total;
+                }
+            }
+            catch
+            {
+                // Ignore DB lookup errors in converter fallback
+            }
+
+            return 0m;
         }
 
         public static string FormatOrderCode(int maDh)
@@ -177,7 +245,6 @@ namespace QuanlyNhaSach.ViewModels.Customer
                 return parts[0].Substring(0, 1).ToUpperInvariant();
             }
 
-            // Use last two name tokens for Vietnamese given names (e.g., "Nguyễn Minh Anh" -> "MA")
             char first = parts[^2][0];
             char second = parts[^1][0];
             return $"{first}{second}".ToUpperInvariant();
@@ -186,11 +253,42 @@ namespace QuanlyNhaSach.ViewModels.Customer
         [RelayCommand]
         private void UpdateProfile()
         {
-            MessageBox.Show(
-                "Cập nhật thông tin thành công!",
-                "Thông báo",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            try
+            {
+                if (CurrentUser != null && !string.IsNullOrWhiteSpace(CurrentUser.MaND))
+                {
+                    using var db = new QuanlyNhaSachContext();
+                    var entity = db.NGUOIDUNGs.FirstOrDefault(u => u.MaND == CurrentUser.MaND);
+                    if (entity != null)
+                    {
+                        entity.Hoten = CustomerName.Trim();
+                        entity.SDT = CustomerPhone.Trim();
+                        entity.Email = CustomerEmail.Trim();
+                        db.SaveChanges();
+                    }
+                }
+
+                if (_dialogService != null)
+                {
+                    _dialogService.ShowInformation("Thông báo", "Cập nhật thông tin tài khoản thành công!");
+                }
+                else
+                {
+                    MessageBox.Show(
+                        "Cập nhật thông tin thành công!",
+                        "Thông báo",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Không thể cập nhật thông tin: {ex.InnerException?.Message ?? ex.Message}",
+                    "Lỗi",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
         }
 
         [RelayCommand]
@@ -230,9 +328,10 @@ namespace QuanlyNhaSach.ViewModels.Customer
         [RelayCommand]
         private void NavigatePurchaseHistory()
         {
+            LoadCustomerAndOrdersFromDatabase();
             MessageBox.Show(
-                "Chức năng Lịch sử mua hàng đang được phát triển trong phiên bản tiếp theo.",
-                "Thông báo",
+                $"Hiện có {Orders.Count} đơn hàng trong lịch sử mua hàng của bạn.",
+                "Lịch sử mua hàng",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
@@ -250,9 +349,24 @@ namespace QuanlyNhaSach.ViewModels.Customer
         [RelayCommand]
         private void ViewOrderDetails()
         {
+            LoadCustomerAndOrdersFromDatabase();
+            if (Orders.Count == 0)
+            {
+                MessageBox.Show(
+                    "Bạn chưa có đơn hàng nào trong hệ thống.",
+                    "Chi tiết đơn hàng",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var latest = Orders[0];
             MessageBox.Show(
-                "Chức năng Xem chi tiết đơn hàng đang được phát triển trong phiên bản tiếp theo.",
-                "Thông báo",
+                $"Đơn hàng gần nhất: {latest.OrderCode}\n" +
+                $"Ngày đặt: {latest.FormattedNgayDat}\n" +
+                $"Trạng thái: {latest.TrangThai}\n" +
+                $"Tổng tiền: {latest.FormattedTongTien}",
+                "Chi tiết đơn hàng",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.EntityFrameworkCore;
 using QuanlyNhaSach.Models;
 using QuanlyNhaSach.Models.Enums;
 
@@ -8,214 +9,328 @@ namespace QuanlyNhaSach.Services
 {
     public class InventoryService
     {
-        private readonly MockDataService _mockDataService;
-
         public event EventHandler? InventoryChanged;
 
-        public InventoryService(MockDataService mockDataService)
+        public InventoryService()
         {
-            _mockDataService = mockDataService ?? throw new ArgumentNullException(nameof(mockDataService));
         }
 
-        public int GetCurrentStock(int maSach)
+        public int GetCurrentStock(string? maSach)
         {
-            var book = _mockDataService.GetBookById(maSach);
-            return book?.SoLuongTon ?? 0;
+            if (string.IsNullOrWhiteSpace(maSach))
+            {
+                return 0;
+            }
+
+            try
+            {
+                string key = maSach.Trim();
+                using var db = new QuanlyNhaSachContext();
+                var book = db.SACHs
+                    .AsNoTracking()
+                    .FirstOrDefault(b => b.MaSach == key && (b.Daxoa == null || b.Daxoa == false));
+                return book?.Soluongton ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
         }
 
-        public OperationResult ValidateRequestedQuantity(int maSach, int requestedQuantity)
+        public OperationResult ValidateRequestedQuantity(string? maSach, int requestedQuantity)
         {
             if (requestedQuantity < 1)
             {
                 return OperationResult.Failure("Số lượng yêu cầu phải lớn hơn hoặc bằng 1.");
             }
 
-            var book = _mockDataService.GetBookById(maSach);
-            if (book == null)
+            if (string.IsNullOrWhiteSpace(maSach))
             {
-                return OperationResult.Failure($"Không tìm thấy sách có mã #{maSach} trong hệ thống.");
+                return OperationResult.Failure("Mã sách không hợp lệ.");
             }
 
-            if (book.SoLuongTon < requestedQuantity)
+            try
             {
-                return OperationResult.Failure(
-                    $"Thiếu tồn kho cho sách \"{book.TenSach}\": Cần {requestedQuantity} cuốn, tồn kho hiện tại chỉ còn {book.SoLuongTon} cuốn.");
-            }
+                string key = maSach.Trim();
+                using var db = new QuanlyNhaSachContext();
+                var book = db.SACHs
+                    .AsNoTracking()
+                    .FirstOrDefault(b => b.MaSach == key && (b.Daxoa == null || b.Daxoa == false));
 
-            return OperationResult.Success();
+                if (book == null)
+                {
+                    return OperationResult.Failure($"Không tìm thấy sách có mã #{key} trong kho.");
+                }
+
+                int currentStock = book.Soluongton ?? 0;
+                if (currentStock < requestedQuantity)
+                {
+                    return OperationResult.Failure(
+                        $"Sách \"{book.Tensach}\" hiện chỉ còn {currentStock} cuốn trong kho (yêu cầu: {requestedQuantity} cuốn).");
+                }
+
+                return OperationResult.Success();
+            }
+            catch (Exception ex)
+            {
+                return OperationResult.Failure($"Không thể kiểm tra tồn kho: {ex.InnerException?.Message ?? ex.Message}");
+            }
         }
 
-        public IReadOnlyList<StockOutLineItem> GetStockOutLineItems(Order? order)
+        public IReadOnlyList<StockOutLineItem> GetStockOutLineItems(DONHANG? order)
         {
-            if (order == null || order.Items == null || order.Items.Count == 0)
+            if (order == null)
             {
                 return Array.Empty<StockOutLineItem>();
             }
 
-            bool isIssued = order.StockOutStatus == StockOutStatus.Issued;
-            var result = new List<StockOutLineItem>(order.Items.Count);
-
-            foreach (var item in order.Items)
+            try
             {
-                var sharedBook = _mockDataService.GetBookById(item.MaSach);
-                result.Add(new StockOutLineItem(order.MaDH, item, sharedBook, isIssued));
-            }
+                using var db = new QuanlyNhaSachContext();
+                var dbOrder = db.DONHANGs
+                    .AsNoTracking()
+                    .Include(o => o.CHITIETDONHANGs)
+                        .ThenInclude(i => i.MaSachNavigation)
+                    .Include(o => o.PHIEUXUATs)
+                    .FirstOrDefault(o => o.MaDH == order.MaDH) ?? order;
 
-            // Synchronize order's StockOutStatus if not already issued
-            if (!isIssued && order.Status != OrderStatus.Cancelled)
+                var items = dbOrder.CHITIETDONHANGs?.ToList() ?? new List<CHITIETDONHANG>();
+                if (items.Count == 0)
+                {
+                    return Array.Empty<StockOutLineItem>();
+                }
+
+                bool isAlreadyIssued = dbOrder.StockOutStatus == StockOutStatus.Issued;
+                var bookIds = items.Select(i => i.MaSach).Distinct().ToList();
+                var booksMap = db.SACHs
+                    .AsNoTracking()
+                    .Where(b => bookIds.Contains(b.MaSach))
+                    .ToDictionary(b => b.MaSach.Trim(), b => b, StringComparer.OrdinalIgnoreCase);
+
+                var result = new List<StockOutLineItem>(items.Count);
+                foreach (var item in items)
+                {
+                    booksMap.TryGetValue(item.MaSach?.Trim() ?? string.Empty, out var book);
+                    book ??= item.MaSachNavigation;
+                    result.Add(new StockOutLineItem(dbOrder.MaDH, item, book, isAlreadyIssued));
+                }
+
+                return result;
+            }
+            catch (Exception ex)
             {
-                bool anyInsufficient = result.Any(r => r.IsInsufficientStock);
-                order.StockOutStatus = anyInsufficient
-                    ? StockOutStatus.InsufficientStock
-                    : StockOutStatus.NotIssued;
+                System.Diagnostics.Debug.WriteLine($"Lỗi khi tải chi tiết xuất kho: {ex.Message}");
+                return Array.Empty<StockOutLineItem>();
             }
-
-            return result;
         }
 
-        public OperationResult ValidateStockOut(Order? order)
+        public OperationResult ValidateStockOut(DONHANG? order)
         {
             if (order == null)
             {
                 return OperationResult.Failure("Không tìm thấy đơn hàng cần xuất kho.");
             }
 
-            if (order.Status == OrderStatus.Cancelled)
+            try
             {
-                return OperationResult.Failure($"Đơn hàng #{order.MaDH} đã hủy. Không được phép thực hiện xuất kho.");
-            }
+                using var db = new QuanlyNhaSachContext();
+                var dbOrder = db.DONHANGs
+                    .AsNoTracking()
+                    .Include(o => o.CHITIETDONHANGs)
+                        .ThenInclude(i => i.MaSachNavigation)
+                    .Include(o => o.PHIEUXUATs)
+                    .FirstOrDefault(o => o.MaDH == order.MaDH);
 
-            if (order.StockOutStatus == StockOutStatus.Issued ||
-                order.Status == OrderStatus.Shipping ||
-                order.Status == OrderStatus.Completed)
+                if (dbOrder == null)
+                {
+                    return OperationResult.Failure($"Không tìm thấy đơn hàng #{order.MaDH} trong cơ sở dữ liệu.");
+                }
+
+                if (dbOrder.Status == OrderStatus.Cancelled)
+                {
+                    return OperationResult.Failure($"Đơn hàng {dbOrder.OrderCode} đã bị hủy, không thể xuất kho.");
+                }
+
+                if (dbOrder.StockOutStatus == StockOutStatus.Issued)
+                {
+                    return OperationResult.Failure($"Đơn hàng {dbOrder.OrderCode} đã được xuất kho trước đó.");
+                }
+
+                if (dbOrder.CHITIETDONHANGs == null || dbOrder.CHITIETDONHANGs.Count == 0)
+                {
+                    return OperationResult.Failure($"Đơn hàng {dbOrder.OrderCode} không có chi tiết sách cần xuất.");
+                }
+
+                foreach (var item in dbOrder.CHITIETDONHANGs)
+                {
+                    string bookKey = item.MaSach.Trim();
+                    var book = db.SACHs
+                        .AsNoTracking()
+                        .FirstOrDefault(b => b.MaSach == bookKey && (b.Daxoa == null || b.Daxoa == false));
+
+                    if (book == null)
+                    {
+                        return OperationResult.Failure(
+                            $"Sách \"{item.TenSach}\" (Mã #{bookKey}) không tồn tại hoặc đã ngừng kinh doanh.");
+                    }
+
+                    int currentStock = book.Soluongton ?? 0;
+                    int requiredQty = item.SoLuongMua;
+                    if (currentStock < requiredQty)
+                    {
+                        return OperationResult.Failure(
+                            $"Thiếu tồn kho cho sách \"{book.Tensach}\" (Mã #{book.MaSach}): Cần xuất {requiredQty} cuốn nhưng kho chỉ còn {currentStock} cuốn.");
+                    }
+                }
+
+                return OperationResult.Success();
+            }
+            catch (Exception ex)
             {
                 return OperationResult.Failure(
-                    $"Đơn hàng #{order.MaDH} đã được xuất kho trước đó. Hệ thống từ chối xuất kho trùng lặp.");
+                    $"Không thể kiểm tra điều kiện xuất kho: {ex.InnerException?.Message ?? ex.Message}");
             }
-
-            if (order.Items == null || order.Items.Count == 0)
-            {
-                return OperationResult.Failure($"Đơn hàng #{order.MaDH} không có danh mục sách cần xuất.");
-            }
-
-            var insufficientDetails = new List<string>();
-
-            var groupedItems = order.Items
-                .GroupBy(i => i.MaSach)
-                .Select(g => new
-                {
-                    MaSach = g.Key,
-                    TenSach = g.First().TenSach,
-                    RequiredQty = g.Sum(x => x.SoLuongMua)
-                })
-                .ToList();
-
-            foreach (var line in groupedItems)
-            {
-                if (line.RequiredQty < 1)
-                {
-                    return OperationResult.Failure($"Số lượng xuất của sách \"{line.TenSach}\" không hợp lệ ({line.RequiredQty}).");
-                }
-
-                var sharedBook = _mockDataService.GetBookById(line.MaSach);
-                if (sharedBook == null)
-                {
-                    return OperationResult.Failure($"Sách \"{line.TenSach}\" (Mã #{line.MaSach}) không tồn tại trong kho.");
-                }
-
-                if (sharedBook.SoLuongTon < line.RequiredQty)
-                {
-                    int shortage = line.RequiredQty - sharedBook.SoLuongTon;
-                    insufficientDetails.Add(
-                        $"• {sharedBook.TenSach} (Mã #{sharedBook.MaSach}): Cần xuất {line.RequiredQty} cuốn, tồn kho hiện tại {sharedBook.SoLuongTon} cuốn (Thiếu {shortage} cuốn)");
-                }
-            }
-
-            if (insufficientDetails.Count > 0)
-            {
-                order.StockOutStatus = StockOutStatus.InsufficientStock;
-                order.NgayCapNhat = DateTime.Now;
-                _mockDataService.NotifyDataChanged();
-
-                string message =
-                    $"Không thể xác nhận xuất kho cho đơn hàng #{order.MaDH} do THIẾU TỒN KHO:\n" +
-                    string.Join("\n", insufficientDetails) +
-                    "\n\nTồn kho được giữ nguyên, không có cuốn sách nào bị trừ.";
-
-                return OperationResult.Failure(message);
-            }
-
-            return OperationResult.Success("Đơn hàng đủ điều kiện tồn kho để xuất kho.");
         }
 
-        public OperationResult<Order> ExecuteStockOut(int maDH)
+        public OperationResult<DONHANG> ExecuteStockOut(int maDH)
         {
-            var order = _mockDataService.GetOrderById(maDH);
-            if (order == null)
+            try
             {
-                return OperationResult<Order>.Failure($"Không tìm thấy đơn hàng có mã #{maDH} trong hệ thống.");
-            }
+                using var db = new QuanlyNhaSachContext();
+                var order = db.DONHANGs
+                    .AsNoTracking()
+                    .FirstOrDefault(o => o.MaDH == maDH);
 
-            return ExecuteStockOut(order);
+                if (order == null)
+                {
+                    return OperationResult<DONHANG>.Failure($"Không tìm thấy đơn hàng #{maDH} trong cơ sở dữ liệu.");
+                }
+
+                return ExecuteStockOut(order);
+            }
+            catch (Exception ex)
+            {
+                return OperationResult<DONHANG>.Failure(
+                    $"Lỗi khi truy vấn đơn hàng #{maDH}: {ex.InnerException?.Message ?? ex.Message}");
+            }
         }
 
-        public OperationResult<Order> ExecuteStockOut(Order? order)
+        public OperationResult<DONHANG> ExecuteStockOut(DONHANG? order)
         {
             if (order == null)
             {
-                return OperationResult<Order>.Failure("Vui lòng chọn đơn hàng hợp lệ trước khi xác nhận xuất kho.");
+                return OperationResult<DONHANG>.Failure("Vui lòng chọn đơn hàng hợp lệ trước khi xác nhận xuất kho.");
             }
 
-            // 1. Validate all lines atomically before changing any Book stock
-            var validation = ValidateStockOut(order);
-            if (!validation.IsSuccess)
+            try
             {
-                return OperationResult<Order>.Failure(validation.Message);
-            }
+                using var db = new QuanlyNhaSachContext();
+                using var transaction = db.Database.BeginTransaction();
 
-            // 2. Prepare atomic deductions
-            var deductions = new List<(Book SharedBook, int Quantity)>();
-            foreach (var item in order.Items)
-            {
-                var sharedBook = _mockDataService.GetBookById(item.MaSach);
-                if (sharedBook == null || sharedBook.SoLuongTon < item.SoLuongMua)
+                try
                 {
-                    order.StockOutStatus = StockOutStatus.InsufficientStock;
-                    return OperationResult<Order>.Failure(
-                        $"Phát hiện thiếu tồn kho cho sách \"{item.TenSach}\". Không thực hiện trừ kho.");
+                    var dbOrder = db.DONHANGs
+                        .Include(o => o.MaKHNavigation)
+                        .Include(o => o.CHITIETDONHANGs)
+                            .ThenInclude(i => i.MaSachNavigation)
+                        .Include(o => o.PHIEUXUATs)
+                        .FirstOrDefault(o => o.MaDH == order.MaDH);
+
+                    if (dbOrder == null)
+                    {
+                        transaction.Rollback();
+                        return OperationResult<DONHANG>.Failure($"Không tìm thấy đơn hàng #{order.MaDH} trong cơ sở dữ liệu.");
+                    }
+
+                    if (dbOrder.Status == OrderStatus.Cancelled)
+                    {
+                        transaction.Rollback();
+                        return OperationResult<DONHANG>.Failure($"Đơn hàng {dbOrder.OrderCode} đã hủy, không thể xuất kho.");
+                    }
+
+                    if (dbOrder.StockOutStatus == StockOutStatus.Issued)
+                    {
+                        transaction.Rollback();
+                        return OperationResult<DONHANG>.Failure($"Đơn hàng {dbOrder.OrderCode} đã được xuất kho trước đó (không trừ kho lặp lại).");
+                    }
+
+                    if (dbOrder.CHITIETDONHANGs == null || dbOrder.CHITIETDONHANGs.Count == 0)
+                    {
+                        transaction.Rollback();
+                        return OperationResult<DONHANG>.Failure($"Đơn hàng {dbOrder.OrderCode} không có sách để xuất kho.");
+                    }
+
+                    int totalIssuedBooks = 0;
+
+                    foreach (var line in dbOrder.CHITIETDONHANGs)
+                    {
+                        string bookKey = line.MaSach.Trim();
+                        var book = db.SACHs.FirstOrDefault(b => b.MaSach == bookKey && (b.Daxoa == null || b.Daxoa == false));
+                        if (book == null)
+                        {
+                            transaction.Rollback();
+                            return OperationResult<DONHANG>.Failure(
+                                $"Không tìm thấy sách \"{line.TenSach}\" (Mã #{bookKey}) trong kho.");
+                        }
+
+                        int currentStock = book.Soluongton ?? 0;
+                        int issueQty = line.SoLuongMua;
+                        if (issueQty < 1)
+                        {
+                            continue;
+                        }
+
+                        if (currentStock < issueQty)
+                        {
+                            transaction.Rollback();
+                            return OperationResult<DONHANG>.Failure(
+                                $"Không đủ tồn kho cho sách \"{book.Tensach}\" (Mã #{book.MaSach}): Cần xuất {issueQty} cuốn, tồn hiện tại {currentStock} cuốn.");
+                        }
+
+                        book.Soluongton = (byte)(currentStock - issueQty);
+                        totalIssuedBooks += issueQty;
+                    }
+
+                    if (dbOrder.Status == OrderStatus.New)
+                    {
+                        dbOrder.Status = OrderStatus.Confirmed;
+                    }
+
+                    var phieuXuat = new PHIEUXUAT
+                    {
+                        MaDH = dbOrder.MaDH,
+                        NgayXuat = DateOnly.FromDateTime(DateTime.Now),
+                        Ghichu = $"Xuất kho {totalIssuedBooks} cuốn cho đơn hàng {dbOrder.OrderCode}"
+                    };
+
+                    db.PHIEUXUATs.Add(phieuXuat);
+                    db.SaveChanges();
+                    transaction.Commit();
+
+                    dbOrder.StockOutStatus = StockOutStatus.Issued;
+                    dbOrder.StockOutDate = DateTime.Now;
+                    order.StockOutStatus = StockOutStatus.Issued;
+                    order.StockOutDate = DateTime.Now;
+                    order.Status = dbOrder.Status;
+
+                    InventoryChanged?.Invoke(this, EventArgs.Empty);
+
+                    return OperationResult<DONHANG>.Success(
+                        dbOrder,
+                        $"Đã xác nhận xuất kho thành công cho đơn hàng {dbOrder.OrderCode} (Phiếu xuất #{phieuXuat.MaPX}, tổng {totalIssuedBooks} cuốn). Tồn kho đã được trừ tương ứng.");
                 }
-                deductions.Add((sharedBook, item.SoLuongMua));
+                catch (Exception innerEx)
+                {
+                    transaction.Rollback();
+                    return OperationResult<DONHANG>.Failure(
+                        $"Lỗi giao dịch khi xuất kho: {innerEx.InnerException?.Message ?? innerEx.Message}");
+                }
             }
-
-            // 3. Apply stock deductions across all lines
-            int totalBooksIssued = 0;
-            foreach (var (sharedBook, quantity) in deductions)
+            catch (Exception ex)
             {
-                sharedBook.SoLuongTon -= quantity;
-                totalBooksIssued += quantity;
+                return OperationResult<DONHANG>.Failure(
+                    $"Không thể kết nối cơ sở dữ liệu để xuất kho: {ex.InnerException?.Message ?? ex.Message}");
             }
-
-            // 4. Mark order StockOutStatus as Issued
-            order.StockOutStatus = StockOutStatus.Issued;
-            order.StockOutDate = DateTime.Now;
-            order.NgayCapNhat = DateTime.Now;
-
-            if (order.Status == OrderStatus.New)
-            {
-                order.Status = OrderStatus.Confirmed;
-            }
-
-            InventoryChanged?.Invoke(this, EventArgs.Empty);
-            _mockDataService.NotifyDataChanged();
-
-            string summaryMessage =
-                $"Xuất kho thành công cho đơn hàng #{order.MaDH}!\n" +
-                $"• Khách hàng: {order.HoTenKhachHang}\n" +
-                $"• Tổng số sách đã xuất: {totalBooksIssued} cuốn ({order.Items.Count} đầu sách)\n" +
-                $"• Trạng thái xuất kho: {order.TrangThaiXuatKho}\n" +
-                $"• Số lượng tồn kho đã được cập nhật đồng bộ trên toàn hệ thống.";
-
-            return OperationResult<Order>.Success(order, summaryMessage);
         }
     }
 }

@@ -18,7 +18,6 @@ namespace QuanlyNhaSach.ViewModels.Customer
     {
         private static readonly Regex PhoneTenDigitsRegex = new(@"^\d{10}$", RegexOptions.Compiled);
 
-        private readonly MockDataService _mockDataService;
         private readonly CartService _cartService;
         private readonly INavigationService _navigationService;
         private readonly IDialogService _dialogService;
@@ -31,7 +30,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
         private bool _hasUserTouchedPayment;
 
         public ObservableCollection<CartItem> CartItems => _cartService.Items;
-        public ObservableCollection<Order> CompletedOrders => _mockDataService.Orders;
+        public ObservableCollection<DONHANG> CompletedOrders { get; } = new();
 
         public IReadOnlyList<string> PaymentMethods { get; } = new List<string>
         {
@@ -44,7 +43,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
         public string FormattedTotalAmount => _cartService.FormattedTotalAmount;
         public bool IsCartEmpty => _cartService.IsEmpty;
         public bool HasCartItems => !_cartService.IsEmpty;
-        public bool HasCompletedOrders => _mockDataService.Orders.Count > 0;
+        public bool HasCompletedOrders => CompletedOrders.Count > 0;
 
         private string _hoTen = string.Empty;
         [Required(ErrorMessage = "Họ và tên không được để trống.")]
@@ -115,7 +114,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
         public string NormalizedSelectedPayment =>
             string.IsNullOrWhiteSpace(SelectedPaymentMethod)
                 ? "Chưa chọn"
-                : MockDataService.NormalizePaymentMethod(SelectedPaymentMethod);
+                : NormalizePaymentMethod(SelectedPaymentMethod);
 
         private bool _isProcessingCheckout;
         public bool IsProcessingCheckout
@@ -152,7 +151,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(HasLastCreatedOrder))]
-        private Order? _lastCreatedOrder;
+        private DONHANG? _lastCreatedOrder;
 
         public bool HasHoTenError => !string.IsNullOrEmpty(HoTenError);
         public bool HasSDTError => !string.IsNullOrEmpty(SdtError);
@@ -162,14 +161,12 @@ namespace QuanlyNhaSach.ViewModels.Customer
         public bool HasLastCreatedOrder => LastCreatedOrder != null;
 
         public CartCheckoutViewModel(
-            MockDataService mockDataService,
             CartService cartService,
             INavigationService navigationService,
             IDialogService dialogService,
             AuthService? authService = null,
             OrderService? orderService = null)
         {
-            _mockDataService = mockDataService ?? throw new ArgumentNullException(nameof(mockDataService));
             _cartService = cartService ?? throw new ArgumentNullException(nameof(cartService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
@@ -177,7 +174,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
             _orderService = orderService;
 
             _cartService.CartChanged += OnCartChanged;
-            _mockDataService.Orders.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasCompletedOrders));
+            CompletedOrders.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasCompletedOrders));
 
             PreFillAuthenticatedCustomerDetails();
         }
@@ -270,7 +267,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
 
             if (forceAll || _hasUserTouchedPayment)
             {
-                PaymentMethodError = !MockDataService.IsValidPaymentMethod(SelectedPaymentMethod)
+                PaymentMethodError = !IsValidPaymentMethod(SelectedPaymentMethod)
                     ? "Vui lòng chọn phương thức thanh toán (COD hoặc Chuyển khoản)."
                     : string.Empty;
             }
@@ -298,20 +295,44 @@ namespace QuanlyNhaSach.ViewModels.Customer
                 return false;
             }
 
-            if (!MockDataService.IsValidPaymentMethod(SelectedPaymentMethod))
+            if (!IsValidPaymentMethod(SelectedPaymentMethod))
             {
                 return false;
             }
 
             foreach (var item in _cartService.Items)
             {
-                if (item.SoLuongMua < 1 || item.Book == null || item.SoLuongMua > item.Book.SoLuongTon)
+                if (item.SoLuongMua < 1 || item.Book == null || item.SoLuongMua > (item.Book.Soluongton ?? 0))
                 {
                     return false;
                 }
             }
 
             return true;
+        }
+
+        private static bool IsValidPaymentMethod(string? method)
+        {
+            if (string.IsNullOrWhiteSpace(method))
+            {
+                return false;
+            }
+            return method.Contains("COD", StringComparison.OrdinalIgnoreCase) ||
+                   method.Contains("Chuyển khoản", StringComparison.OrdinalIgnoreCase) ||
+                   method.Contains("Tiền mặt", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizePaymentMethod(string? method)
+        {
+            if (string.IsNullOrWhiteSpace(method))
+            {
+                return "COD";
+            }
+            if (method.Contains("Chuyển khoản", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Chuyển khoản";
+            }
+            return "COD";
         }
 
         [RelayCommand]
@@ -410,8 +431,8 @@ namespace QuanlyNhaSach.ViewModels.Customer
             {
                 await Task.Delay(200);
 
-                int? authenticatedCustomerId = _authService?.CurrentUser?.MaND;
-                OperationResult<Order> orderResult = _orderService != null
+                string? authenticatedCustomerId = _authService?.CurrentUser?.MaND;
+                OperationResult<DONHANG> orderResult = _orderService != null
                     ? _orderService.CreateCustomerOrder(
                         HoTen,
                         SDT,
@@ -419,13 +440,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
                         SelectedPaymentMethod,
                         _cartService.Items.ToList(),
                         authenticatedCustomerId)
-                    : _mockDataService.CreateOrder(
-                        HoTen,
-                        SDT,
-                        DiaChi,
-                        SelectedPaymentMethod,
-                        _cartService.Items.ToList(),
-                        authenticatedCustomerId);
+                    : OperationResult<DONHANG>.Failure("Dịch vụ Đặt hàng chưa được khởi tạo.");
 
                 if (!orderResult.IsSuccess || orderResult.Data == null)
                 {
@@ -436,6 +451,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
 
                 var createdOrder = orderResult.Data;
                 LastCreatedOrder = createdOrder;
+                CompletedOrders.Insert(0, createdOrder);
 
                 _cartService.ClearCart();
                 ResetFormFields();
@@ -446,8 +462,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
                     $"• Khách hàng: {createdOrder.HoTenKhachHang} ({createdOrder.SDTKhachHang})\n" +
                     $"• Phương thức thanh toán: {createdOrder.PhuongThucThanhToan}\n" +
                     $"• Tổng thanh toán: {createdOrder.FormattedTongTien}\n" +
-                    $"• Trạng thái đơn hàng: {createdOrder.TrangThai}\n\n" +
-                    $"[Đồng bộ dữ liệu In-Memory]: Đơn hàng này đã được thêm trực tiếp vào bộ nhớ dùng chung và xuất hiện tức thì tại Cổng Nhân viên (Staff Portal).";
+                    $"• Trạng thái đơn hàng: {createdOrder.TrangThai}";
 
                 _dialogService.ShowInformation("Đặt hàng thành công", successDetails);
             }

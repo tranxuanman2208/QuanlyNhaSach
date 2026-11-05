@@ -171,23 +171,23 @@
 
                                                     <!-- Book Title, Author & Stock Indicator -->
                                                     <StackPanel Grid.Column="1" Margin="10,0,10,0" VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding Book.TenSach}"
+                                                        <TextBlock Text="{Binding Book.Tensach}"
                                                                    FontWeight="Bold"
                                                                    FontSize="14"
                                                                    Foreground="{StaticResource CharcoalTextBrush}"
                                                                    TextWrapping="Wrap"/>
-                                                        <TextBlock Text="{Binding Book.TacGia, StringFormat='Tác giả: {0}'}"
+                                                        <TextBlock Text="{Binding Book.Tacgia, StringFormat='Tác giả: {0}'}"
                                                                    FontSize="12"
                                                                    Foreground="{StaticResource MutedTextBrush}"
                                                                    Margin="0,2,0,4"/>
                                                         <Border HorizontalAlignment="Left"
                                                                 CornerRadius="4"
                                                                 Padding="6,2"
-                                                                Background="{Binding Book.SoLuongTon, Converter={StaticResource StockBadgeBackgroundConverter}}">
+                                                                Background="{Binding Book.Soluongton, Converter={StaticResource StockBadgeBackgroundConverter}}">
                                                             <TextBlock Text="{Binding Book.StockStatusText}"
                                                                        FontSize="11"
                                                                        FontWeight="SemiBold"
-                                                                       Foreground="{Binding Book.SoLuongTon, Converter={StaticResource StockBadgeForegroundConverter}}"/>
+                                                                       Foreground="{Binding Book.Soluongton, Converter={StaticResource StockBadgeForegroundConverter}}"/>
                                                         </Border>
                                                     </StackPanel>
 

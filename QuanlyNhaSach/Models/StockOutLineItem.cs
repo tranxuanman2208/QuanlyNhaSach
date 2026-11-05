@@ -1,15 +1,14 @@
-using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace QuanlyNhaSach.Models
 {
     public partial class StockOutLineItem : ObservableObject
     {
-        private readonly Book? _sharedBook;
+        private SACH? _sharedBook;
 
         public int MaDH { get; }
-        public string OrderCode => $"#{MaDH}";
-        public int MaSach { get; }
+        public string OrderCode => $"#DH{MaDH:D4}";
+        public string MaSach { get; }
         public string TenSach { get; }
         public string TacGia { get; }
         public decimal DonGia { get; }
@@ -24,7 +23,7 @@ namespace QuanlyNhaSach.Models
         [NotifyPropertyChangedFor(nameof(AvailabilityDetailText))]
         private bool _isAlreadyIssued;
 
-        public int CurrentStock => _sharedBook?.SoLuongTon ?? 0;
+        public int CurrentStock => _sharedBook?.Soluongton ?? 0;
 
         public bool IsInsufficientStock => !IsAlreadyIssued && CurrentStock < IssueQuantity;
         public bool IsSufficientStock => IsAlreadyIssued || CurrentStock >= IssueQuantity;
@@ -58,30 +57,42 @@ namespace QuanlyNhaSach.Models
             }
         }
 
-        public StockOutLineItem(int maDH, OrderItem item, Book? sharedBook, bool isAlreadyIssued)
+        public StockOutLineItem(int maDH, CHITIETDONHANG item, SACH? sharedBook, bool isAlreadyIssued)
         {
             MaDH = maDH;
-            MaSach = item.MaSach;
-            TenSach = item.TenSach;
-            TacGia = item.TacGia;
-            DonGia = item.DonGia;
-            OrderedQuantity = item.SoLuongMua;
-            IssueQuantity = item.SoLuongMua;
+            MaSach = item?.MaSach ?? sharedBook?.MaSach ?? string.Empty;
+            TenSach = !string.IsNullOrWhiteSpace(item?.TenSach)
+                ? item.TenSach
+                : (sharedBook?.Tensach ?? $"Sách #{MaSach}");
+            TacGia = !string.IsNullOrWhiteSpace(item?.TacGia)
+                ? item.TacGia
+                : (sharedBook?.Tacgia ?? string.Empty);
+            DonGia = item?.DonGia ?? (sharedBook?.Giaban ?? 0m);
+            OrderedQuantity = item?.SoLuongMua ?? 0;
+            IssueQuantity = item?.SoLuongMua ?? 0;
+
             _sharedBook = sharedBook;
             _isAlreadyIssued = isAlreadyIssued;
-
-            if (_sharedBook != null)
-            {
-                PropertyChangedEventManager.AddHandler(_sharedBook, OnBookPropertyChanged, string.Empty);
-            }
         }
 
-        private void OnBookPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        public StockOutLineItem(int maDH, SACH? sharedBook, bool isAlreadyIssued)
         {
-            if (e.PropertyName == nameof(Book.SoLuongTon) || string.IsNullOrEmpty(e.PropertyName))
-            {
-                RefreshStockState();
-            }
+            MaDH = maDH;
+            MaSach = sharedBook?.MaSach ?? string.Empty;
+            TenSach = sharedBook?.Tensach ?? string.Empty;
+            TacGia = sharedBook?.Tacgia ?? string.Empty;
+            DonGia = sharedBook?.Giaban ?? 0m;
+            OrderedQuantity = 0;
+            IssueQuantity = 0;
+
+            _sharedBook = sharedBook;
+            _isAlreadyIssued = isAlreadyIssued;
+        }
+
+        public void UpdateBookSnapshot(SACH? updatedBook)
+        {
+            _sharedBook = updatedBook;
+            RefreshStockState();
         }
 
         public void RefreshStockState()

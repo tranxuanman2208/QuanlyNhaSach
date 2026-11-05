@@ -11,10 +11,9 @@ namespace QuanlyNhaSach.ViewModels.Manager
     public partial class SupplierManagementViewModel : ObservableObject, INavigationAware
     {
         private readonly SupplierService _supplierService;
-        private readonly MockDataStore _dataStore;
         private readonly IDialogService _dialogService;
 
-        public ObservableCollection<Supplier> DisplayedSuppliers { get; } = new();
+        public ObservableCollection<NHACUNGCAP> DisplayedSuppliers { get; } = new();
 
         [ObservableProperty]
         private string _searchKeyword = string.Empty;
@@ -30,7 +29,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
         private bool _isEditMode;
 
         [ObservableProperty]
-        private int _editingSupplierId;
+        private string _editingSupplierId = string.Empty;
 
         [ObservableProperty]
         private string _dialogTitle = "Thêm nhà cung cấp mới";
@@ -58,14 +57,11 @@ namespace QuanlyNhaSach.ViewModels.Manager
 
         public SupplierManagementViewModel(
             SupplierService supplierService,
-            MockDataStore dataStore,
             IDialogService dialogService)
         {
             _supplierService = supplierService ?? throw new ArgumentNullException(nameof(supplierService));
-            _dataStore = dataStore ?? throw new ArgumentNullException(nameof(dataStore));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
 
-            _dataStore.DataChanged += (_, _) => RefreshSuppliers();
             _supplierService.SuppliersChanged += (_, _) => RefreshSuppliers();
 
             RefreshSuppliers();
@@ -106,7 +102,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
         public void OpenAddSupplierDialog()
         {
             IsEditMode = false;
-            EditingSupplierId = 0;
+            EditingSupplierId = string.Empty;
             DialogTitle = "Thêm nhà cung cấp mới (UC12)";
             FormTenNCC = string.Empty;
             FormSDT = string.Empty;
@@ -118,7 +114,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
         }
 
         [RelayCommand]
-        public void OpenEditSupplierDialog(Supplier? supplier)
+        public void OpenEditSupplierDialog(NHACUNGCAP? supplier)
         {
             if (supplier == null)
             {
@@ -128,9 +124,9 @@ namespace QuanlyNhaSach.ViewModels.Manager
             IsEditMode = true;
             EditingSupplierId = supplier.MaNCC;
             DialogTitle = $"Chỉnh sửa nhà cung cấp {supplier.SupplierCode}";
-            FormTenNCC = supplier.TenNCC;
-            FormSDT = supplier.SDT;
-            FormEmail = supplier.Email;
+            FormTenNCC = supplier.TenNCC ?? string.Empty;
+            FormSDT = supplier.SDT ?? string.Empty;
+            FormEmail = supplier.Email ?? string.Empty;
             FormDiaChi = supplier.DiaChi;
             FormIsActive = supplier.IsActive;
             FormErrorMessage = string.Empty;
@@ -149,7 +145,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
         {
             FormErrorMessage = string.Empty;
 
-            OperationResult<Supplier> result = IsEditMode
+            OperationResult<NHACUNGCAP> result = IsEditMode
                 ? _supplierService.UpdateSupplier(
                     EditingSupplierId,
                     FormTenNCC,
@@ -175,7 +171,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
         }
 
         [RelayCommand]
-        public void ToggleSupplierStatus(Supplier? supplier)
+        public void ToggleSupplierStatus(NHACUNGCAP? supplier)
         {
             if (supplier == null)
             {

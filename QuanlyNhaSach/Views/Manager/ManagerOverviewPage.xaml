@@ -407,11 +407,11 @@
                               Style="{StaticResource AdminDataGridStyle}"
                               MaxHeight="280">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Mã sách" Binding="{Binding BookCode}" Width="90"/>
-                            <DataGridTextColumn Header="Tên đầu sách" Binding="{Binding TenSach}" Width="2*"/>
-                            <DataGridTextColumn Header="Tác giả" Binding="{Binding TacGia}" Width="1.2*"/>
+                            <DataGridTextColumn Header="Mã sách" Binding="{Binding MaSach}" Width="90"/>
+                            <DataGridTextColumn Header="Tên đầu sách" Binding="{Binding Tensach}" Width="2*"/>
+                            <DataGridTextColumn Header="Tác giả" Binding="{Binding Tacgia}" Width="1.2*"/>
                             <DataGridTextColumn Header="Giá bán" Binding="{Binding FormattedPrice}" Width="130"/>
-                            <DataGridTextColumn Header="Tồn hiện tại" Binding="{Binding SoLuongTon}" Width="110"/>
+                            <DataGridTextColumn Header="Tồn hiện tại" Binding="{Binding Soluongton}" Width="110"/>
                             <DataGridTemplateColumn Header="Cảnh báo tồn kho" Width="150">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>

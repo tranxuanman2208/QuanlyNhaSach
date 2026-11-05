@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore;
 using QuanlyNhaSach.Models;
 using QuanlyNhaSach.Models.Enums;
 
@@ -9,37 +11,66 @@ namespace QuanlyNhaSach.Services
     public class OrderService
     {
         public const string AllFilterLabel = "Tất cả";
+        private const decimal MaxSqlDecimal10_2 = 99_999_999.99m;
 
-        private readonly MockDataService _mockDataService;
+        public event EventHandler<DONHANG?>? OrderUpdated;
 
-        public event EventHandler<Order?>? OrderUpdated;
-
-        public OrderService(MockDataService mockDataService)
+        public OrderService()
         {
-            _mockDataService = mockDataService ?? throw new ArgumentNullException(nameof(mockDataService));
         }
 
-        public IReadOnlyList<Order> GetAllOrders()
+        public IReadOnlyList<DONHANG> GetAllOrders()
         {
-            return _mockDataService.Orders
-                .OrderByDescending(o => o.NgayDat)
-                .ThenByDescending(o => o.MaDH)
-                .ToList();
+            try
+            {
+                using var db = new QuanlyNhaSachContext();
+                var orders = db.DONHANGs
+                    .AsNoTracking()
+                    .Include(o => o.MaKHNavigation)
+                    .Include(o => o.CHITIETDONHANGs)
+                        .ThenInclude(i => i.MaSachNavigation)
+                    .Include(o => o.PHIEUXUATs)
+                    .OrderByDescending(o => o.NgayTao)
+                    .ThenByDescending(o => o.MaDH)
+                    .ToList();
+
+                return orders;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi khi tải danh sách đơn hàng: {ex.Message}");
+                return Array.Empty<DONHANG>();
+            }
         }
 
-        public Order? GetOrderById(int maDH)
+        public DONHANG? GetOrderById(int maDH)
         {
-            return _mockDataService.GetOrderById(maDH);
+            try
+            {
+                using var db = new QuanlyNhaSachContext();
+                return db.DONHANGs
+                    .AsNoTracking()
+                    .Include(o => o.MaKHNavigation)
+                    .Include(o => o.CHITIETDONHANGs)
+                        .ThenInclude(i => i.MaSachNavigation)
+                    .Include(o => o.PHIEUXUATs)
+                    .FirstOrDefault(o => o.MaDH == maDH);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi khi tìm đơn hàng #{maDH}: {ex.Message}");
+                return null;
+            }
         }
 
-        public Order? FindOrderByCodeOrId(string? rawInput)
+        public DONHANG? FindOrderByCodeOrId(string? rawInput)
         {
             if (string.IsNullOrWhiteSpace(rawInput))
             {
                 return null;
             }
 
-            string cleaned = rawInput.Trim();
+            string cleaned = rawInput.Trim().TrimStart('#').Trim();
             if (cleaned.StartsWith("DH", StringComparison.OrdinalIgnoreCase))
             {
                 cleaned = cleaned.Substring(2).Trim();
@@ -54,7 +85,7 @@ namespace QuanlyNhaSach.Services
             return null;
         }
 
-        public IReadOnlyList<Order> GetOrdersByStatus(string? statusFilterLabel)
+        public IReadOnlyList<DONHANG> GetOrdersByStatus(string? statusFilterLabel)
         {
             var all = GetAllOrders();
             if (string.IsNullOrWhiteSpace(statusFilterLabel) ||
@@ -71,7 +102,7 @@ namespace QuanlyNhaSach.Services
             return all;
         }
 
-        public IReadOnlyList<Order> SearchOrders(string? keyword)
+        public IReadOnlyList<DONHANG> SearchOrders(string? keyword)
         {
             var all = GetAllOrders();
             if (string.IsNullOrWhiteSpace(keyword))
@@ -80,7 +111,7 @@ namespace QuanlyNhaSach.Services
             }
 
             string normalized = keyword.Trim();
-            string cleanedId = normalized;
+            string cleanedId = normalized.TrimStart('#').Trim();
             if (cleanedId.StartsWith("DH", StringComparison.OrdinalIgnoreCase))
             {
                 cleanedId = cleanedId.Substring(2).Trim();
@@ -93,55 +124,63 @@ namespace QuanlyNhaSach.Services
                 o.HoTenKhachHang.Contains(normalized, StringComparison.OrdinalIgnoreCase) ||
                 o.SDTKhachHang.Contains(normalized, StringComparison.OrdinalIgnoreCase) ||
                 o.TrangThai.Contains(normalized, StringComparison.OrdinalIgnoreCase) ||
-                (o.Items != null && o.Items.Any(i =>
+                (o.CHITIETDONHANGs != null && o.CHITIETDONHANGs.Any(i =>
                     i.TenSach.Contains(normalized, StringComparison.OrdinalIgnoreCase) ||
-                    i.MaSach.ToString().Equals(cleanedId, StringComparison.OrdinalIgnoreCase))))
+                    i.MaSach.Trim().Equals(cleanedId, StringComparison.OrdinalIgnoreCase))))
                 .ToList();
         }
 
-        public IReadOnlyList<Order> GetUrgentOrders()
+        public IReadOnlyList<DONHANG> GetUrgentOrders()
         {
-            return _mockDataService.Orders
+            return GetAllOrders()
                 .Where(o => o.Status != OrderStatus.Completed && o.Status != OrderStatus.Cancelled)
-                .OrderBy(o => o.Status switch
-                {
-                    OrderStatus.New => 0,
-                    OrderStatus.Confirmed when o.StockOutStatus == StockOutStatus.InsufficientStock => 1,
-                    OrderStatus.Confirmed => 2,
-                    OrderStatus.Shipping => 3,
-                    _ => 4
-                })
-                .ThenBy(o => o.NgayDat)
                 .ToList();
         }
 
         public DashboardStatistics GetDashboardStatistics()
         {
-            var orders = _mockDataService.Orders;
-            var books = _mockDataService.Books;
+            var orders = GetAllOrders();
+            int lowStockBooksCount = 0;
+
+            try
+            {
+                using var db = new QuanlyNhaSachContext();
+                lowStockBooksCount = db.SACHs
+                    .AsNoTracking()
+                    .Count(b => (b.Daxoa == null || b.Daxoa == false) && (b.Soluongton ?? 0) <= 5);
+            }
+            catch
+            {
+                lowStockBooksCount = 0;
+            }
+
+            int newCount = orders.Count(o => o.Status == OrderStatus.New);
+            int confirmedCount = orders.Count(o => o.Status == OrderStatus.Confirmed);
+            int shippingCount = orders.Count(o => o.Status == OrderStatus.Shipping);
+            int completedCount = orders.Count(o => o.Status == OrderStatus.Completed);
+            int cancelledCount = orders.Count(o => o.Status == OrderStatus.Cancelled);
+
+            decimal completedRevenue = orders
+                .Where(o => o.Status == OrderStatus.Completed && o.PaymentStatus == PaymentStatus.Paid)
+                .Sum(o => o.TongTien);
 
             return new DashboardStatistics
             {
-                NewOrdersCount = orders.Count(o => o.Status == OrderStatus.New),
-                ConfirmedOrdersCount = orders.Count(o => o.Status == OrderStatus.Confirmed),
-                ShippingOrdersCount = orders.Count(o => o.Status == OrderStatus.Shipping),
-                CompletedOrdersCount = orders.Count(o => o.Status == OrderStatus.Completed),
-                CancelledOrdersCount = orders.Count(o => o.Status == OrderStatus.Cancelled),
-                UrgentOrdersCount = orders.Count(o => o.Status != OrderStatus.Completed && o.Status != OrderStatus.Cancelled),
-                CompletedRevenue = GetRealizedRevenue(),
-                LowStockBooksCount = books.Count(b => b.IsActive && b.SoLuongTon < 10)
+                NewOrdersCount = newCount,
+                ConfirmedOrdersCount = confirmedCount,
+                ShippingOrdersCount = shippingCount,
+                CompletedOrdersCount = completedCount,
+                CancelledOrdersCount = cancelledCount,
+                UrgentOrdersCount = newCount + confirmedCount + shippingCount,
+                CompletedRevenue = completedRevenue,
+                LowStockBooksCount = lowStockBooksCount
             };
         }
 
-        /// <summary>
-        /// Eligible completed &amp; paid orders for realized revenue and sales rankings (UC13).
-        /// Excludes cancelled orders, pending/unpaid orders, and uncollected COD orders.
-        /// </summary>
-        public IReadOnlyList<Order> GetEligiblePaidCompletedOrders()
+        public IReadOnlyList<DONHANG> GetEligiblePaidCompletedOrders()
         {
-            return _mockDataService.Orders
-                .Where(o => o.Status == OrderStatus.Completed &&
-                            o.PaymentStatus == PaymentStatus.Paid)
+            return GetAllOrders()
+                .Where(o => o.Status == OrderStatus.Completed && o.PaymentStatus == PaymentStatus.Paid)
                 .GroupBy(o => o.MaDH)
                 .Select(g => g.First())
                 .ToList();
@@ -154,26 +193,54 @@ namespace QuanlyNhaSach.Services
 
         public int GetTotalOrdersCount()
         {
-            return _mockDataService.Orders.Count;
+            try
+            {
+                using var db = new QuanlyNhaSachContext();
+                return db.DONHANGs.AsNoTracking().Count();
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        public (int CompletedCount, int ProcessingCount, int CancelledCount) GetOrderStatusBreakdown()
+        {
+            var orders = GetAllOrders();
+            int completed = orders.Count(o => o.Status == OrderStatus.Completed);
+            int cancelled = orders.Count(o => o.Status == OrderStatus.Cancelled);
+            int processing = Math.Max(0, orders.Count - completed - cancelled);
+            return (completed, processing, cancelled);
         }
 
         public IReadOnlyList<BestSellingBookItem> GetTopSellingBooks(int topCount = 5)
         {
-            var eligibleOrders = GetEligiblePaidCompletedOrders();
+            if (topCount < 1)
+            {
+                topCount = 5;
+            }
 
-            var aggregated = eligibleOrders
-                .Where(o => o.Items != null)
-                .SelectMany(o => o.Items)
-                .GroupBy(i => i.MaSach)
+            var eligibleOrders = GetEligiblePaidCompletedOrders();
+            var lineItems = eligibleOrders
+                .Where(o => o.CHITIETDONHANGs != null)
+                .SelectMany(o => o.CHITIETDONHANGs)
+                .ToList();
+
+            if (lineItems.Count == 0)
+            {
+                return Array.Empty<BestSellingBookItem>();
+            }
+
+            var grouped = lineItems
+                .GroupBy(i => i.MaSach?.Trim() ?? string.Empty, StringComparer.OrdinalIgnoreCase)
                 .Select(g =>
                 {
-                    var latestBook = _mockDataService.GetBookById(g.Key);
-                    var firstItem = g.First();
+                    var sample = g.First();
                     return new
                     {
                         MaSach = g.Key,
-                        TenSach = latestBook?.TenSach ?? firstItem.TenSach,
-                        TacGia = latestBook?.TacGia ?? firstItem.TacGia,
+                        TenSach = sample.TenSach,
+                        TacGia = sample.TacGia,
                         QuantitySold = g.Sum(x => x.SoLuongMua),
                         RevenueGenerated = g.Sum(x => x.ThanhTien)
                     };
@@ -185,10 +252,10 @@ namespace QuanlyNhaSach.Services
                 .Take(topCount)
                 .ToList();
 
-            var result = new List<BestSellingBookItem>(aggregated.Count);
-            for (int idx = 0; idx < aggregated.Count; idx++)
+            var result = new List<BestSellingBookItem>(grouped.Count);
+            for (int idx = 0; idx < grouped.Count; idx++)
             {
-                var item = aggregated[idx];
+                var item = grouped[idx];
                 result.Add(new BestSellingBookItem
                 {
                     Rank = idx + 1,
@@ -267,7 +334,7 @@ namespace QuanlyNhaSach.Services
             return chartPoints;
         }
 
-        public IReadOnlyList<string> GetAllowedNextStatusLabels(Order? order)
+        public IReadOnlyList<string> GetAllowedNextStatusLabels(DONHANG? order)
         {
             if (order == null)
             {
@@ -294,369 +361,494 @@ namespace QuanlyNhaSach.Services
             };
         }
 
-        public OperationResult<Order> CreateCustomerOrder(
+        public OperationResult<DONHANG> CreateCustomerOrder(
             string hoTen,
             string sdt,
             string diaChi,
             string phuongThucThanhToan,
             IEnumerable<CartItem> cartItems,
-            int? authenticatedUserId = null)
+            int? authenticatedUserId)
         {
-            var result = _mockDataService.CreateOrder(
-                hoTen,
-                sdt,
-                diaChi,
-                phuongThucThanhToan,
-                cartItems,
-                authenticatedUserId);
-
-            if (result.IsSuccess && result.Data != null)
-            {
-                OrderUpdated?.Invoke(this, result.Data);
-            }
-
-            return result;
+            string? maKhHint = authenticatedUserId.HasValue ? $"KH{authenticatedUserId.Value:D3}" : null;
+            return CreateCustomerOrder(hoTen, sdt, diaChi, phuongThucThanhToan, cartItems, maKhHint);
         }
 
-        public OperationResult<Order> TransitionOrderStatusByLabel(int maDH, string? targetStatusLabel)
+        public OperationResult<DONHANG> CreateCustomerOrder(
+            string hoTen,
+            string sdt,
+            string diaChi,
+            string phuongThucThanhToan,
+            IEnumerable<CartItem> cartItems,
+            string? authenticatedCustomerMaND = null)
+        {
+            if (string.IsNullOrWhiteSpace(hoTen))
+            {
+                return OperationResult<DONHANG>.Failure("Vui lòng nhập họ và tên người nhận.");
+            }
+
+            if (string.IsNullOrWhiteSpace(sdt) || !Regex.IsMatch(sdt.Trim(), @"^\d{9,10}$"))
+            {
+                return OperationResult<DONHANG>.Failure("Số điện thoại người nhận không hợp lệ (gồm 9–10 chữ số).");
+            }
+
+            if (string.IsNullOrWhiteSpace(diaChi))
+            {
+                return OperationResult<DONHANG>.Failure("Vui lòng nhập địa chỉ giao hàng.");
+            }
+
+            var itemsList = cartItems?.ToList() ?? new List<CartItem>();
+            if (itemsList.Count == 0)
+            {
+                return OperationResult<DONHANG>.Failure("Giỏ hàng đang trống. Vui lòng chọn ít nhất 1 cuốn sách.");
+            }
+
+            string normalizedName = hoTen.Trim();
+            string normalizedPhone = sdt.Trim();
+            string normalizedAddress = diaChi.Trim();
+            PaymentMethod method = EnumExtensions.ParsePaymentMethod(phuongThucThanhToan);
+
+            try
+            {
+                using var db = new QuanlyNhaSachContext();
+                using var transaction = db.Database.BeginTransaction();
+
+                try
+                {
+                    // 1. Resolve or create NGUOIDUNG customer record to satisfy FK_DONHANG_NGUOIDUNG
+                    NGUOIDUNG? customer = null;
+                    if (!string.IsNullOrWhiteSpace(authenticatedCustomerMaND))
+                    {
+                        string key = authenticatedCustomerMaND.Trim();
+                        customer = db.NGUOIDUNGs.FirstOrDefault(u => u.MaND == key);
+                    }
+
+                    if (customer == null)
+                    {
+                        customer = db.NGUOIDUNGs.FirstOrDefault(u => u.SDT == normalizedPhone);
+                    }
+
+                    if (customer == null)
+                    {
+                        string newCustomerId = GenerateNextCustomerId(db);
+                        string loginKey = normalizedPhone.Length <= 10
+                            ? normalizedPhone
+                            : normalizedPhone.Substring(0, 10);
+
+                        if (db.NGUOIDUNGs.Any(u => u.Tendangnhap == loginKey))
+                        {
+                            loginKey = newCustomerId;
+                        }
+
+                        customer = new NGUOIDUNG
+                        {
+                            MaND = newCustomerId,
+                            Tendangnhap = loginKey,
+                            Matkhau = "123456",
+                            Hoten = normalizedName,
+                            SDT = normalizedPhone,
+                            Diachi = normalizedAddress,
+                            Vaitro = UserRole.Customer.ToVietnameseLabel(),
+                            Trangthai = AccountStatus.Active.ToVietnameseLabel()
+                        };
+                        db.NGUOIDUNGs.Add(customer);
+                        db.SaveChanges();
+                    }
+                    else
+                    {
+                        customer.Hoten = normalizedName;
+                        customer.SDT = normalizedPhone;
+                        customer.Diachi = normalizedAddress;
+                    }
+
+                    // 2. Validate books and compute totals
+                    decimal grandTotal = 0m;
+                    var validatedLines = new List<(SACH Book, int Qty, decimal LineTotal)>(itemsList.Count);
+
+                    foreach (var cartItem in itemsList)
+                    {
+                        if (cartItem.Book == null || string.IsNullOrWhiteSpace(cartItem.Book.MaSach))
+                        {
+                            transaction.Rollback();
+                            return OperationResult<DONHANG>.Failure("Phát hiện sản phẩm không hợp lệ trong giỏ hàng.");
+                        }
+
+                        if (cartItem.SoLuongMua < 1 || cartItem.SoLuongMua > byte.MaxValue)
+                        {
+                            transaction.Rollback();
+                            return OperationResult<DONHANG>.Failure($"Số lượng mua của sách \"{cartItem.Book.Tensach}\" không hợp lệ.");
+                        }
+
+                        string bookKey = cartItem.Book.MaSach.Trim();
+                        var dbBook = db.SACHs.FirstOrDefault(b => b.MaSach == bookKey && (b.Daxoa == null || b.Daxoa == false));
+                        if (dbBook == null)
+                        {
+                            transaction.Rollback();
+                            return OperationResult<DONHANG>.Failure($"Sách \"{cartItem.Book.Tensach}\" không còn tồn tại trong hệ thống.");
+                        }
+
+                        int availableStock = dbBook.Soluongton ?? 0;
+                        if (cartItem.SoLuongMua > availableStock)
+                        {
+                            transaction.Rollback();
+                            return OperationResult<DONHANG>.Failure(
+                                $"Sách \"{dbBook.Tensach}\" hiện chỉ còn {availableStock} cuốn trong kho (bạn đang chọn {cartItem.SoLuongMua} cuốn).");
+                        }
+
+                        decimal unitPrice = dbBook.Giaban ?? cartItem.Book.Giaban ?? 0m;
+                        decimal lineTotal = unitPrice * cartItem.SoLuongMua;
+                        if (lineTotal > MaxSqlDecimal10_2)
+                        {
+                            transaction.Rollback();
+                            return OperationResult<DONHANG>.Failure($"Thành tiền của sách \"{dbBook.Tensach}\" vượt quá giới hạn cho phép.");
+                        }
+
+                        grandTotal += lineTotal;
+                        validatedLines.Add((dbBook, cartItem.SoLuongMua, lineTotal));
+                    }
+
+                    if (grandTotal > MaxSqlDecimal10_2)
+                    {
+                        transaction.Rollback();
+                        return OperationResult<DONHANG>.Failure($"Tổng tiền đơn hàng ({grandTotal:N0} ₫) vượt quá giới hạn cho phép.");
+                    }
+
+                    // 3. Insert DONHANG header
+                    DateTime now = DateTime.Now;
+                    var order = new DONHANG
+                    {
+                        MaKH = customer.MaND,
+                        NgayTao = DateOnly.FromDateTime(now),
+                        NgayDat = now,
+                        Method = method,
+                        Status = OrderStatus.New,
+                        Dathanhtoan = false,
+                        Tongtien = grandTotal,
+                        HoTenKhachHang = normalizedName,
+                        SDTKhachHang = normalizedPhone,
+                        DiaChiGiaoHang = normalizedAddress
+                    };
+
+                    db.DONHANGs.Add(order);
+                    db.SaveChanges();
+
+                    // 4. Insert CHITIETDONHANG lines
+                    foreach (var (book, qty, lineTotal) in validatedLines)
+                    {
+                        var detail = new CHITIETDONHANG
+                        {
+                            MaDH = order.MaDH,
+                            MaSach = book.MaSach,
+                            Soluong = (byte)qty,
+                            Tong = lineTotal,
+                            TenSach = book.Tensach ?? string.Empty,
+                            TacGia = book.Tacgia ?? string.Empty
+                        };
+                        db.CHITIETDONHANGs.Add(detail);
+                    }
+
+                    db.SaveChanges();
+                    transaction.Commit();
+
+                    order.MaKHNavigation = customer;
+                    NotifyOrderUpdated(order);
+
+                    return OperationResult<DONHANG>.Success(
+                        order,
+                        $"Đặt hàng thành công! Mã đơn hàng của bạn là {order.OrderCode}.");
+                }
+                catch (Exception innerEx)
+                {
+                    transaction.Rollback();
+                    return OperationResult<DONHANG>.Failure(
+                        $"Lỗi giao dịch khi tạo đơn hàng: {innerEx.InnerException?.Message ?? innerEx.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                return OperationResult<DONHANG>.Failure(
+                    $"Không thể kết nối cơ sở dữ liệu để đặt hàng: {ex.InnerException?.Message ?? ex.Message}");
+            }
+        }
+
+        public OperationResult<DONHANG> TransitionOrderStatusByLabel(int maDH, string? targetStatusLabel)
         {
             if (string.IsNullOrWhiteSpace(targetStatusLabel) ||
                 !EnumExtensions.TryParseOrderStatusLabel(targetStatusLabel, out var targetStatus))
             {
-                return OperationResult<Order>.Failure("Trạng thái đích được chọn không hợp lệ.");
+                return OperationResult<DONHANG>.Failure("Trạng thái đích được chọn không hợp lệ.");
             }
 
             return TransitionOrderStatus(maDH, targetStatus);
         }
 
-        public OperationResult<Order> TransitionOrderStatus(int maDH, OrderStatus targetStatus)
+        public OperationResult<DONHANG> TransitionOrderStatus(int maDH, OrderStatus targetStatus)
         {
-            var order = GetOrderById(maDH);
-            if (order == null)
+            try
             {
-                return OperationResult<Order>.Failure($"Không tìm thấy đơn hàng #{maDH} trong hệ thống.");
-            }
+                using var db = new QuanlyNhaSachContext();
+                using var transaction = db.Database.BeginTransaction();
 
-            OrderStatus currentStatus = order.Status;
+                try
+                {
+                    var order = db.DONHANGs
+                        .Include(o => o.MaKHNavigation)
+                        .Include(o => o.CHITIETDONHANGs)
+                            .ThenInclude(i => i.MaSachNavigation)
+                        .Include(o => o.PHIEUXUATs)
+                        .FirstOrDefault(o => o.MaDH == maDH);
 
-            if (currentStatus == targetStatus)
-            {
-                return OperationResult<Order>.Failure(
-                    $"Đơn hàng #{order.MaDH} hiện đã ở trạng thái \"{currentStatus.ToVietnameseLabel()}\".");
-            }
-
-            // Rule 4: Cancelled order cannot re-enter active processing flow
-            if (currentStatus == OrderStatus.Cancelled)
-            {
-                return OperationResult<Order>.Failure(
-                    $"Đơn hàng #{order.MaDH} đã ở trạng thái \"Đã hủy\" và không thể khôi phục hay chuyển sang trạng thái khác.");
-            }
-
-            // Rule 5: Completed order cannot be reverted to an earlier status
-            if (currentStatus == OrderStatus.Completed)
-            {
-                return OperationResult<Order>.Failure(
-                    $"Đơn hàng #{order.MaDH} đã \"Hoàn tất\" và không được phép chuyển ngược về trạng thái trước đó.");
-            }
-
-            switch (currentStatus)
-            {
-                case OrderStatus.New:
-                    if (targetStatus == OrderStatus.Confirmed)
+                    if (order == null)
                     {
-                        order.Status = OrderStatus.Confirmed;
-                        order.NgayCapNhat = DateTime.Now;
-                        NotifyOrderUpdated(order);
-                        return OperationResult<Order>.Success(
-                            order,
-                            $"Đã xác nhận đơn hàng #{order.MaDH} (Mới → Đã xác nhận).");
+                        transaction.Rollback();
+                        return OperationResult<DONHANG>.Failure($"Không tìm thấy đơn hàng #{maDH} trong cơ sở dữ liệu.");
                     }
 
-                    if (targetStatus == OrderStatus.Cancelled)
+                    OrderStatus currentStatus = order.Status;
+                    if (currentStatus == targetStatus)
                     {
-                        if (order.PaymentStatus == PaymentStatus.Paid || order.StockOutStatus == StockOutStatus.Issued)
-                        {
-                            return OperationResult<Order>.Failure(
-                                $"Không thể hủy đơn hàng #{order.MaDH} vì đơn đã được thanh toán hoặc đã xuất kho.");
-                        }
-
-                        order.Status = OrderStatus.Cancelled;
-                        order.NgayCapNhat = DateTime.Now;
-                        NotifyOrderUpdated(order);
-                        return OperationResult<Order>.Success(
-                            order,
-                            $"Đã hủy đơn hàng #{order.MaDH}.");
+                        transaction.Rollback();
+                        return OperationResult<DONHANG>.Failure(
+                            $"Đơn hàng {order.OrderCode} hiện đã ở trạng thái \"{currentStatus.ToVietnameseLabel()}\".");
                     }
 
-                    return OperationResult<Order>.Failure(
-                        $"Chuyển trạng thái không hợp lệ: Đơn hàng #{order.MaDH} đang ở trạng thái \"Mới\" phải được chuyển sang \"Đã xác nhận\" trước khi giao hàng hoặc hoàn tất.");
+                    if (currentStatus == OrderStatus.Completed || currentStatus == OrderStatus.Cancelled)
+                    {
+                        transaction.Rollback();
+                        return OperationResult<DONHANG>.Failure(
+                            $"Đơn hàng {order.OrderCode} đã ở trạng thái kết thúc ({currentStatus.ToVietnameseLabel()}), không thể chuyển sang trạng thái khác.");
+                    }
 
-                case OrderStatus.Confirmed:
+                    // Validate allowed workflow transitions
+                    if (targetStatus == OrderStatus.Confirmed && currentStatus != OrderStatus.New)
+                    {
+                        transaction.Rollback();
+                        return OperationResult<DONHANG>.Failure(
+                            $"Chỉ đơn hàng ở trạng thái \"Mới\" mới có thể chuyển sang \"Đã xác nhận\".");
+                    }
+
                     if (targetStatus == OrderStatus.Shipping)
                     {
-                        // Rule 10: Prevent advancing to Shipping until Stock-Out succeeds
+                        if (currentStatus != OrderStatus.Confirmed)
+                        {
+                            transaction.Rollback();
+                            return OperationResult<DONHANG>.Failure(
+                                $"Đơn hàng {order.OrderCode} phải ở trạng thái \"Đã xác nhận\" trước khi chuyển sang \"Đang giao\".");
+                        }
+
                         if (order.StockOutStatus != StockOutStatus.Issued)
                         {
-                            return OperationResult<Order>.Failure(
-                                $"Không thể chuyển đơn hàng #{order.MaDH} sang \"Đang giao\" vì đơn hàng chưa hoàn tất xuất kho ({order.TrangThaiXuatKho}).\n\n" +
-                                $"Vui lòng thực hiện nghiệp vụ Xuất kho (UC10) cho đơn hàng #{order.MaDH} trước khi giao hàng.");
+                            transaction.Rollback();
+                            return OperationResult<DONHANG>.Failure(
+                                $"Đơn hàng {order.OrderCode} chưa được xuất kho. Vui lòng thực hiện Xuất kho (UC10) trước khi chuyển sang \"Đang giao\".");
                         }
-
-                        order.Status = OrderStatus.Shipping;
-                        order.NgayCapNhat = DateTime.Now;
-                        NotifyOrderUpdated(order);
-                        return OperationResult<Order>.Success(
-                            order,
-                            $"Đơn hàng #{order.MaDH} đã chuyển sang trạng thái \"Đang giao\" (Đã xác nhận → Đang giao).");
                     }
 
-                    if (targetStatus == OrderStatus.Cancelled)
-                    {
-                        if (order.StockOutStatus == StockOutStatus.Issued)
-                        {
-                            return OperationResult<Order>.Failure(
-                                $"Không thể hủy đơn hàng #{order.MaDH} vì sách của đơn hàng đã được xuất kho.");
-                        }
-
-                        if (order.PaymentStatus == PaymentStatus.Paid)
-                        {
-                            return OperationResult<Order>.Failure(
-                                $"Không thể hủy đơn hàng #{order.MaDH} vì khách hàng đã thanh toán.");
-                        }
-
-                        order.Status = OrderStatus.Cancelled;
-                        order.NgayCapNhat = DateTime.Now;
-                        NotifyOrderUpdated(order);
-                        return OperationResult<Order>.Success(
-                            order,
-                            $"Đã hủy đơn hàng #{order.MaDH}.");
-                    }
-
-                    return OperationResult<Order>.Failure(
-                        $"Chuyển trạng thái không hợp lệ từ \"Đã xác nhận\" sang \"{targetStatus.ToVietnameseLabel()}\". Luồng hợp lệ tiếp theo là \"Đang giao\".");
-
-                case OrderStatus.Shipping:
                     if (targetStatus == OrderStatus.Completed)
                     {
-                        if (order.StockOutStatus != StockOutStatus.Issued)
+                        if (currentStatus != OrderStatus.Shipping)
                         {
-                            return OperationResult<Order>.Failure(
-                                $"Đơn hàng #{order.MaDH} chưa có xác nhận xuất kho hợp lệ nên không thể Hoàn tất.");
+                            transaction.Rollback();
+                            return OperationResult<DONHANG>.Failure(
+                                $"Đơn hàng {order.OrderCode} phải ở trạng thái \"Đang giao\" trước khi chuyển sang \"Hoàn tất\".");
                         }
 
                         if (order.PaymentStatus != PaymentStatus.Paid)
                         {
-                            return OperationResult<Order>.Failure(
-                                $"Không thể chuyển đơn hàng #{order.MaDH} sang \"Hoàn tất\" vì thanh toán chưa hoàn tất (Trạng thái thanh toán: {order.TrangThaiThanhToan}).\n\n" +
-                                $"Vui lòng vào mục \"Bán hàng\" (UC08) để ghi nhận thu tiền trước khi hoàn tất đơn hàng.");
+                            transaction.Rollback();
+                            return OperationResult<DONHANG>.Failure(
+                                $"Đơn hàng {order.OrderCode} chưa được thanh toán ({order.TrangThaiThanhToan}). Vui lòng ghi nhận Thu tiền (UC08) trước khi hoàn tất đơn hàng.");
                         }
-
-                        order.Status = OrderStatus.Completed;
-                        order.NgayCapNhat = DateTime.Now;
-                        NotifyOrderUpdated(order);
-                        return OperationResult<Order>.Success(
-                            order,
-                            $"Đơn hàng #{order.MaDH} đã được cập nhật sang trạng thái \"Hoàn tất\" (Đang giao → Hoàn tất).");
                     }
 
-                    return OperationResult<Order>.Failure(
-                        $"Đơn hàng #{order.MaDH} đang ở trạng thái \"Đang giao\" chỉ có thể chuyển tiếp sang \"Hoàn tất\" khi đủ điều kiện.");
+                    if (targetStatus == OrderStatus.Cancelled)
+                    {
+                        if (currentStatus == OrderStatus.Shipping)
+                        {
+                            transaction.Rollback();
+                            return OperationResult<DONHANG>.Failure(
+                                $"Đơn hàng {order.OrderCode} đang trong quá trình vận chuyển, không thể hủy trực tiếp.");
+                        }
 
-                default:
-                    return OperationResult<Order>.Failure("Trạng thái đơn hàng không hỗ trợ chuyển đổi.");
+                        // If stock was already issued for this order, restore stock and remove PHIEUXUAT
+                        if (order.PHIEUXUATs != null && order.PHIEUXUATs.Count > 0)
+                        {
+                            foreach (var line in order.CHITIETDONHANGs)
+                            {
+                                string bookKey = line.MaSach.Trim();
+                                var book = db.SACHs.FirstOrDefault(b => b.MaSach == bookKey);
+                                if (book != null)
+                                {
+                                    int restored = Math.Min(byte.MaxValue, (book.Soluongton ?? 0) + line.SoLuongMua);
+                                    book.Soluongton = (byte)restored;
+                                }
+                            }
+
+                            db.PHIEUXUATs.RemoveRange(order.PHIEUXUATs);
+                        }
+                    }
+
+                    order.Status = targetStatus;
+                    order.NgayCapNhat = DateTime.Now;
+
+                    db.SaveChanges();
+                    transaction.Commit();
+
+                    NotifyOrderUpdated(order);
+                    return OperationResult<DONHANG>.Success(
+                        order,
+                        $"Đã chuyển trạng thái đơn hàng {order.OrderCode} từ \"{currentStatus.ToVietnameseLabel()}\" sang \"{targetStatus.ToVietnameseLabel()}\" thành công.");
+                }
+                catch (Exception innerEx)
+                {
+                    transaction.Rollback();
+                    return OperationResult<DONHANG>.Failure(
+                        $"Lỗi khi cập nhật trạng thái đơn hàng: {innerEx.InnerException?.Message ?? innerEx.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                return OperationResult<DONHANG>.Failure(
+                    $"Không thể kết nối cơ sở dữ liệu: {ex.InnerException?.Message ?? ex.Message}");
             }
         }
 
-        public OperationResult<Order> RecordPayment(
+        public OperationResult<DONHANG> RecordPayment(
             int maDH,
             PaymentMethod selectedMethod,
             decimal? enteredAmount,
             bool confirmCodCollectionOnDelivery = false)
         {
-            var order = GetOrderById(maDH);
-            if (order == null)
+            try
             {
-                return OperationResult<Order>.Failure($"Không tìm thấy đơn hàng #{maDH} trong hệ thống.");
-            }
+                using var db = new QuanlyNhaSachContext();
+                using var transaction = db.Database.BeginTransaction();
 
-            if (order.Status == OrderStatus.Cancelled)
-            {
-                return OperationResult<Order>.Failure(
-                    $"Đơn hàng #{order.MaDH} đã hủy. Không thể ghi nhận thanh toán cho đơn hàng đã hủy.");
-            }
-
-            if (order.PaymentStatus == PaymentStatus.Paid)
-            {
-                return OperationResult<Order>.Failure(
-                    $"Đơn hàng #{order.MaDH} đã được ghi nhận thanh toán trước đó ({order.FormattedPaidAmount}). Hệ thống từ chối ghi nhận thanh toán trùng lặp.");
-            }
-
-            switch (selectedMethod)
-            {
-                case PaymentMethod.Cash:
+                try
                 {
-                    if (!enteredAmount.HasValue || enteredAmount.Value <= 0)
+                    var order = db.DONHANGs
+                        .Include(o => o.MaKHNavigation)
+                        .Include(o => o.CHITIETDONHANGs)
+                            .ThenInclude(i => i.MaSachNavigation)
+                        .Include(o => o.PHIEUXUATs)
+                        .FirstOrDefault(o => o.MaDH == maDH);
+
+                    if (order == null)
                     {
-                        return OperationResult<Order>.Failure("Vui lòng nhập số tiền mặt khách đưa hợp lệ (lớn hơn 0).");
+                        transaction.Rollback();
+                        return OperationResult<DONHANG>.Failure($"Không tìm thấy đơn hàng #{maDH} trong cơ sở dữ liệu.");
                     }
 
-                    if (enteredAmount.Value < order.TongTien)
+                    if (order.Status == OrderStatus.Cancelled)
                     {
-                        decimal shortage = order.TongTien - enteredAmount.Value;
-                        return OperationResult<Order>.Failure(
-                            $"Số tiền mặt khách đưa ({enteredAmount.Value:N0} ₫) nhỏ hơn tổng tiền đơn hàng ({order.FormattedTongTien}). Còn thiếu: {shortage:N0} ₫.");
+                        transaction.Rollback();
+                        return OperationResult<DONHANG>.Failure($"Đơn hàng {order.OrderCode} đã hủy, không thể ghi nhận thanh toán.");
                     }
 
-                    decimal change = enteredAmount.Value - order.TongTien;
-
-                    order.Method = PaymentMethod.Cash;
-                    order.PaymentStatus = PaymentStatus.Paid;
-                    order.PaidAmount = enteredAmount.Value;
-                    order.PaymentNote = change > 0
-                        ? $"Thu tiền mặt: {enteredAmount.Value:N0} ₫ (Tiền thừa trả khách: {change:N0} ₫)"
-                        : $"Thu đủ tiền mặt: {enteredAmount.Value:N0} ₫";
-                    order.NgayCapNhat = DateTime.Now;
-
-                    if (order.Status == OrderStatus.New)
+                    if (order.PaymentStatus == PaymentStatus.Paid)
                     {
-                        order.Status = OrderStatus.Confirmed;
-                    }
-                    else if (order.Status == OrderStatus.Shipping && order.StockOutStatus == StockOutStatus.Issued)
-                    {
-                        order.Status = OrderStatus.Completed;
+                        transaction.Rollback();
+                        return OperationResult<DONHANG>.Failure($"Đơn hàng {order.OrderCode} đã được thanh toán trước đó.");
                     }
 
-                    NotifyOrderUpdated(order);
+                    decimal requiredTotal = order.TongTien;
 
-                    string completionHint = order.Status == OrderStatus.Completed
-                        ? "Đơn hàng đã đủ điều kiện xuất kho & giao hàng nên được chuyển sang trạng thái 'Hoàn tất'."
-                        : $"Trạng thái đơn hàng hiện tại: '{order.TrangThai}' (Cần hoàn tất Xuất kho & Giao hàng để đóng đơn).";
-
-                    return OperationResult<Order>.Success(
-                        order,
-                        $"Đã ghi nhận thanh toán TIỀN MẶT cho đơn hàng #{order.MaDH}!\n" +
-                        $"• Số tiền khách đưa: {enteredAmount.Value:N0} ₫\n" +
-                        $"• Tổng tiền đơn: {order.FormattedTongTien}\n" +
-                        $"• Tiền thừa trả khách: {change:N0} ₫\n" +
-                        $"• Trạng thái thanh toán: {order.TrangThaiThanhToan}\n" +
-                        $"• {completionHint}");
-                }
-
-                case PaymentMethod.BankTransfer:
-                {
-                    if (!enteredAmount.HasValue || enteredAmount.Value <= 0)
+                    if (selectedMethod == PaymentMethod.COD && !confirmCodCollectionOnDelivery)
                     {
-                        return OperationResult<Order>.Failure("Vui lòng nhập số tiền chuyển khoản cần xác nhận.");
-                    }
-
-                    if (enteredAmount.Value < order.TongTien)
-                    {
-                        decimal shortage = order.TongTien - enteredAmount.Value;
-                        return OperationResult<Order>.Failure(
-                            $"Số tiền chuyển khoản xác nhận ({enteredAmount.Value:N0} ₫) nhỏ hơn số tiền cần thanh toán ({order.FormattedTongTien}). Còn thiếu: {shortage:N0} ₫.");
-                    }
-
-                    order.Method = PaymentMethod.BankTransfer;
-                    order.PaymentStatus = PaymentStatus.Paid;
-                    order.PaidAmount = enteredAmount.Value;
-                    order.PaymentNote = $"[Mô phỏng nội bộ]: Nhân viên xác nhận chuyển khoản {enteredAmount.Value:N0} ₫ (Không kết nối ngân hàng thực tế)";
-                    order.NgayCapNhat = DateTime.Now;
-
-                    if (order.Status == OrderStatus.New)
-                    {
-                        order.Status = OrderStatus.Confirmed;
-                    }
-                    else if (order.Status == OrderStatus.Shipping && order.StockOutStatus == StockOutStatus.Issued)
-                    {
-                        order.Status = OrderStatus.Completed;
-                    }
-
-                    NotifyOrderUpdated(order);
-
-                    string completionHint = order.Status == OrderStatus.Completed
-                        ? "Đơn hàng đã đủ điều kiện xuất kho & giao hàng nên được chuyển sang trạng thái 'Hoàn tất'."
-                        : $"Trạng thái đơn hàng hiện tại: '{order.TrangThai}' (Cần hoàn tất Xuất kho & Giao hàng để đóng đơn).";
-
-                    return OperationResult<Order>.Success(
-                        order,
-                        $"Đã ghi nhận xác nhận CHUYỂN KHOẢN (Mô phỏng) cho đơn hàng #{order.MaDH}!\n" +
-                        $"• Số tiền ghi nhận: {enteredAmount.Value:N0} ₫\n" +
-                        $"• Trạng thái thanh toán: {order.TrangThaiThanhToan}\n" +
-                        $"• Lưu ý: Đây là xác nhận nghiệp vụ mô phỏng của nhân viên trên dữ liệu In-Memory, không kiểm chứng giao dịch ngân hàng thực tế.\n" +
-                        $"• {completionHint}");
-                }
-
-                case PaymentMethod.COD:
-                {
-                    // Case 1: Staff is explicitly confirming COD cash collection upon delivery
-                    if (confirmCodCollectionOnDelivery)
-                    {
-                        if (order.StockOutStatus != StockOutStatus.Issued)
-                        {
-                            return OperationResult<Order>.Failure(
-                                $"Không thể xác nhận đã thu tiền COD khi giao hàng vì đơn hàng #{order.MaDH} chưa được xuất kho ({order.TrangThaiXuatKho}).");
-                        }
-
-                        if (order.Status != OrderStatus.Shipping)
-                        {
-                            return OperationResult<Order>.Failure(
-                                $"Chỉ có thể xác nhận thu tiền COD khi đơn hàng đang ở trạng thái \"Đang giao\" (Trạng thái hiện tại: \"{order.TrangThai}\").");
-                        }
-
-                        if (!enteredAmount.HasValue || enteredAmount.Value < order.TongTien)
-                        {
-                            return OperationResult<Order>.Failure(
-                                $"Số tiền thu hộ COD ({enteredAmount ?? 0:N0} ₫) không được nhỏ hơn tổng tiền đơn hàng ({order.FormattedTongTien}).");
-                        }
-
                         order.Method = PaymentMethod.COD;
-                        order.PaymentStatus = PaymentStatus.Paid;
-                        order.PaidAmount = enteredAmount.Value;
-                        order.PaymentNote = $"[Mô phỏng]: Đã thu tiền hộ COD ({enteredAmount.Value:N0} ₫) khi giao hàng thành công";
-                        order.Status = OrderStatus.Completed;
+                        order.Dathanhtoan = false;
+                        order.PaymentStatus = PaymentStatus.PayOnDelivery;
                         order.NgayCapNhat = DateTime.Now;
 
-                        NotifyOrderUpdated(order);
+                        db.SaveChanges();
+                        transaction.Commit();
 
-                        return OperationResult<Order>.Success(
+                        NotifyOrderUpdated(order);
+                        return OperationResult<DONHANG>.Success(
                             order,
-                            $"Đã xác nhận thu hộ COD và HOÀN TẤT đơn hàng #{order.MaDH}!\n" +
-                            $"• Số tiền thu hộ: {enteredAmount.Value:N0} ₫\n" +
-                            $"• Trạng thái thanh toán: {order.TrangThaiThanhToan}\n" +
-                            $"• Trạng thái đơn hàng: {order.TrangThai}");
+                            $"Đã cập nhật phương thức thanh toán đơn hàng {order.OrderCode} sang Thu hộ (COD).");
                     }
 
-                    // Case 2: Standard COD arrangement — record that payment is expected on delivery (do NOT mark Paid or Completed)
-                    order.Method = PaymentMethod.COD;
-                    order.PaymentStatus = PaymentStatus.PayOnDelivery;
-                    order.PaidAmount = 0m;
-                    order.PaymentNote = "Thanh toán thu hộ (COD) khi khách nhận hàng — chưa thu tiền trước";
+                    if (!enteredAmount.HasValue || enteredAmount.Value < requiredTotal)
+                    {
+                        transaction.Rollback();
+                        return OperationResult<DONHANG>.Failure(
+                            $"Số tiền thanh toán ({enteredAmount.GetValueOrDefault():N0} ₫) không được nhỏ hơn tổng tiền đơn hàng ({requiredTotal:N0} ₫).");
+                    }
+
+                    order.Method = selectedMethod;
+                    order.Dathanhtoan = true;
+                    order.PaymentStatus = PaymentStatus.Paid;
+                    order.PaidAmount = enteredAmount.Value;
                     order.NgayCapNhat = DateTime.Now;
 
-                    if (order.Status == OrderStatus.New)
+                    string extraStatusNote = string.Empty;
+                    if (confirmCodCollectionOnDelivery && order.Status == OrderStatus.Shipping)
                     {
-                        order.Status = OrderStatus.Confirmed;
+                        order.Status = OrderStatus.Completed;
+                        extraStatusNote = " Đơn hàng đã được chuyển sang trạng thái Hoàn tất.";
                     }
 
+                    db.SaveChanges();
+                    transaction.Commit();
+
+                    decimal changeAmount = Math.Max(0m, enteredAmount.Value - requiredTotal);
+                    string changeNote = changeAmount > 0m ? $" (Tiền thừa trả khách: {changeAmount:N0} ₫)." : ".";
+
                     NotifyOrderUpdated(order);
-
-                    return OperationResult<Order>.Success(
+                    return OperationResult<DONHANG>.Success(
                         order,
-                        $"Đã cập nhật phương thức thanh toán COD (Thu hộ khi giao hàng) cho đơn hàng #{order.MaDH}.\n" +
-                        $"• Trạng thái thanh toán: {order.TrangThaiThanhToan} (Chưa thu tiền)\n" +
-                        $"• Trạng thái đơn hàng: {order.TrangThai}\n" +
-                        $"• Lưu ý: Đơn hàng COD không được tính là 'Đã thanh toán' hay 'Hoàn tất' cho đến khi sách được xuất kho, giao tới khách hàng và xác nhận thu tiền thực tế.");
+                        $"Đã ghi nhận thanh toán {selectedMethod.ToVietnameseLabel()} cho đơn hàng {order.OrderCode} với số tiền {enteredAmount.Value:N0} ₫{changeNote}{extraStatusNote}");
                 }
-
-                default:
-                    return OperationResult<Order>.Failure("Phương thức thanh toán không được hỗ trợ.");
+                catch (Exception innerEx)
+                {
+                    transaction.Rollback();
+                    return OperationResult<DONHANG>.Failure(
+                        $"Lỗi giao dịch khi ghi nhận thanh toán: {innerEx.InnerException?.Message ?? innerEx.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                return OperationResult<DONHANG>.Failure(
+                    $"Không thể kết nối cơ sở dữ liệu: {ex.InnerException?.Message ?? ex.Message}");
             }
         }
 
-        private void NotifyOrderUpdated(Order order)
+        private static string GenerateNextCustomerId(QuanlyNhaSachContext db)
+        {
+            var existingIds = db.NGUOIDUNGs
+                .AsNoTracking()
+                .Select(u => u.MaND)
+                .ToList();
+
+            int maxNum = 0;
+            foreach (var id in existingIds)
+            {
+                if (string.IsNullOrWhiteSpace(id) || !id.StartsWith("KH", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                string digits = Regex.Replace(id, @"\D", "");
+                if (int.TryParse(digits, out int num) && num > maxNum)
+                {
+                    maxNum = num;
+                }
+            }
+
+            int next = maxNum + 1;
+            string candidate = $"KH{next:D3}";
+            while (existingIds.Any(x => string.Equals(x?.Trim(), candidate, StringComparison.OrdinalIgnoreCase)))
+            {
+                next++;
+                candidate = $"KH{next:D3}";
+            }
+
+            return candidate;
+        }
+
+        private void NotifyOrderUpdated(DONHANG order)
         {
             OrderUpdated?.Invoke(this, order);
-            _mockDataService.NotifyDataChanged();
         }
     }
 }

@@ -138,6 +138,23 @@ namespace QuanlyNhaSach.ViewModels
         }
 
         [RelayCommand]
+        private void ContinueAsGuest()
+        {
+            LoginErrorMessage = string.Empty;
+            LoginSuccessMessage = string.Empty;
+
+            var result = _authService.LoginAsGuest();
+            if (!result.IsSuccess || result.Data == null)
+            {
+                LoginErrorMessage = result.Message;
+                return;
+            }
+
+            LoginPassword = string.Empty;
+            _navigationService.RouteAuthenticatedUser(result.Data);
+        }
+
+        [RelayCommand]
         private void FillDemoCustomer()
         {
             IsLoginMode = true;
@@ -211,7 +228,7 @@ namespace QuanlyNhaSach.ViewModels
                 return;
             }
 
-            string registeredUsername = result.Data.Username;
+            string registeredUsername = result.Data.Username ?? string.Empty;
 
             // Reset registration form
             RegisterHoTen = string.Empty;

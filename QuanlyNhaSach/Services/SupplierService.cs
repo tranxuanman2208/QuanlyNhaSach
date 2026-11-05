@@ -2,44 +2,100 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore;
 using QuanlyNhaSach.Models;
 
 namespace QuanlyNhaSach.Services
 {
     public class SupplierService
     {
-        private static readonly Regex PhoneRegex = new(@"^\d{9,11}$", RegexOptions.Compiled);
+        // SQL Server column NHACUNGCAP.SDT is varchar(10)
+        private static readonly Regex PhoneRegex = new(@"^\d{9,10}$", RegexOptions.Compiled);
         private static readonly Regex EmailRegex = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled);
 
-        private readonly MockDataStore _dataStore;
+        // Session-level soft deactivation tracker for suppliers referenced by historical records
+        private static readonly HashSet<string> DeactivatedSupplierIds = new(StringComparer.OrdinalIgnoreCase);
 
         public event EventHandler? SuppliersChanged;
 
-        public SupplierService(MockDataStore dataStore)
+        public SupplierService()
         {
-            _dataStore = dataStore ?? throw new ArgumentNullException(nameof(dataStore));
         }
 
-        public IReadOnlyList<Supplier> GetAllSuppliers(bool includeInactive = true)
+        public IReadOnlyList<NHACUNGCAP> GetAllSuppliers(bool includeInactive = true)
         {
-            var query = includeInactive
-                ? _dataStore.Suppliers.AsEnumerable()
-                : _dataStore.Suppliers.Where(s => s.IsActive);
+            try
+            {
+                using var db = new QuanlyNhaSachContext();
+                var list = db.NHACUNGCAPs
+                    .AsNoTracking()
+                    .OrderBy(s => s.MaNCC)
+                    .ToList();
 
-            return query.OrderBy(s => s.MaNCC).ToList();
+                foreach (var supplier in list)
+                {
+                    supplier.MaNCC = supplier.MaNCC?.Trim() ?? string.Empty;
+                    supplier.TenNCC = supplier.TenNCC?.Trim() ?? string.Empty;
+                    supplier.SDT = supplier.SDT?.Trim() ?? string.Empty;
+                    supplier.Email = supplier.Email?.Trim() ?? string.Empty;
+                    supplier.Diachi = supplier.Diachi?.Trim() ?? string.Empty;
+                    supplier.IsActive = !DeactivatedSupplierIds.Contains(supplier.MaNCC);
+                }
+
+                if (!includeInactive)
+                {
+                    list = list.Where(s => s.IsActive).ToList();
+                }
+
+                return list;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi khi tải danh sách Nhà cung cấp: {ex.Message}");
+                return Array.Empty<NHACUNGCAP>();
+            }
         }
 
-        public IReadOnlyList<Supplier> GetActiveSuppliers()
+        public IReadOnlyList<NHACUNGCAP> GetActiveSuppliers()
         {
             return GetAllSuppliers(includeInactive: false);
         }
 
-        public Supplier? GetSupplierById(int maNCC)
+        public NHACUNGCAP? GetSupplierById(string? maNCC)
         {
-            return _dataStore.GetSupplierById(maNCC);
+            if (string.IsNullOrWhiteSpace(maNCC))
+            {
+                return null;
+            }
+
+            try
+            {
+                string key = maNCC.Trim();
+                using var db = new QuanlyNhaSachContext();
+                var supplier = db.NHACUNGCAPs
+                    .AsNoTracking()
+                    .FirstOrDefault(s => s.MaNCC == key);
+
+                if (supplier != null)
+                {
+                    supplier.MaNCC = supplier.MaNCC.Trim();
+                    supplier.TenNCC = supplier.TenNCC?.Trim() ?? string.Empty;
+                    supplier.SDT = supplier.SDT?.Trim() ?? string.Empty;
+                    supplier.Email = supplier.Email?.Trim() ?? string.Empty;
+                    supplier.Diachi = supplier.Diachi?.Trim() ?? string.Empty;
+                    supplier.IsActive = !DeactivatedSupplierIds.Contains(supplier.MaNCC);
+                }
+
+                return supplier;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi khi tìm Nhà cung cấp {maNCC}: {ex.Message}");
+                return null;
+            }
         }
 
-        public IReadOnlyList<Supplier> SearchSuppliers(string? keyword, bool includeInactive = true)
+        public IReadOnlyList<NHACUNGCAP> SearchSuppliers(string? keyword, bool includeInactive = true)
         {
             var all = GetAllSuppliers(includeInactive);
             if (string.IsNullOrWhiteSpace(keyword))
@@ -49,26 +105,18 @@ namespace QuanlyNhaSach.Services
 
             string kw = keyword.Trim();
             string cleanId = kw.TrimStart('#');
-            if (cleanId.StartsWith("NCC", StringComparison.OrdinalIgnoreCase) && cleanId.Length > 3)
-            {
-                cleanId = cleanId.Substring(3).TrimStart('0');
-                if (string.IsNullOrEmpty(cleanId))
-                {
-                    cleanId = "0";
-                }
-            }
 
             return all.Where(s =>
-                s.TenNCC.Contains(kw, StringComparison.OrdinalIgnoreCase) ||
-                s.SDT.Contains(kw, StringComparison.OrdinalIgnoreCase) ||
-                s.Email.Contains(kw, StringComparison.OrdinalIgnoreCase) ||
-                s.DiaChi.Contains(kw, StringComparison.OrdinalIgnoreCase) ||
+                (s.TenNCC?.Contains(kw, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.SDT?.Contains(kw, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.Email?.Contains(kw, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.DiaChi?.Contains(kw, StringComparison.OrdinalIgnoreCase) ?? false) ||
                 s.SupplierCode.Contains(kw, StringComparison.OrdinalIgnoreCase) ||
-                s.MaNCC.ToString().Equals(cleanId, StringComparison.OrdinalIgnoreCase))
+                s.MaNCC.Contains(cleanId, StringComparison.OrdinalIgnoreCase))
                 .ToList();
         }
 
-        public OperationResult<Supplier> AddSupplier(
+        public OperationResult<NHACUNGCAP> AddSupplier(
             string? tenNCC,
             string? sdt,
             string? email,
@@ -77,120 +125,249 @@ namespace QuanlyNhaSach.Services
             var validation = ValidateSupplierInput(tenNCC, sdt, email, diaChi);
             if (!validation.IsSuccess)
             {
-                return OperationResult<Supplier>.Failure(validation.Message);
+                return OperationResult<NHACUNGCAP>.Failure(validation.Message);
             }
 
             string normalizedName = tenNCC!.Trim();
             string normalizedPhone = sdt!.Trim();
             string normalizedEmail = email!.Trim();
+            string normalizedAddress = diaChi!.Trim();
 
-            bool duplicateExists = _dataStore.Suppliers.Any(s =>
-                s.TenNCC.Equals(normalizedName, StringComparison.OrdinalIgnoreCase) ||
-                s.Email.Equals(normalizedEmail, StringComparison.OrdinalIgnoreCase));
-
-            if (duplicateExists)
+            try
             {
-                return OperationResult<Supplier>.Failure(
-                    "Nhà cung cấp có cùng tên hoặc địa chỉ Email này đã tồn tại trong hệ thống.");
+                using var db = new QuanlyNhaSachContext();
+
+                bool duplicateExists = db.NHACUNGCAPs
+                    .AsNoTracking()
+                    .Any(s =>
+                        (s.TenNCC != null && s.TenNCC.ToLower() == normalizedName.ToLower()) ||
+                        (s.Email != null && s.Email.ToLower() == normalizedEmail.ToLower()));
+
+                if (duplicateExists)
+                {
+                    return OperationResult<NHACUNGCAP>.Failure(
+                        "Nhà cung cấp có cùng tên hoặc địa chỉ Email này đã tồn tại trong hệ thống.");
+                }
+
+                string newMaNCC = GenerateNextSupplierId(db);
+
+                var newSupplier = new NHACUNGCAP
+                {
+                    MaNCC = newMaNCC,
+                    TenNCC = normalizedName,
+                    SDT = normalizedPhone,
+                    Email = normalizedEmail,
+                    Diachi = normalizedAddress,
+                    IsActive = true
+                };
+
+                db.NHACUNGCAPs.Add(newSupplier);
+                db.SaveChanges();
+
+                NotifyChanged();
+                return OperationResult<NHACUNGCAP>.Success(
+                    newSupplier,
+                    $"Đã thêm nhà cung cấp \"{newSupplier.TenNCC}\" ({newSupplier.SupplierCode}) thành công.");
             }
-
-            var newSupplier = new Supplier
+            catch (Exception ex)
             {
-                MaNCC = _dataStore.GenerateNextSupplierId(),
-                TenNCC = normalizedName,
-                SDT = normalizedPhone,
-                Email = normalizedEmail,
-                DiaChi = diaChi!.Trim(),
-                IsActive = true
-            };
-
-            _dataStore.Suppliers.Add(newSupplier);
-            NotifyChanged();
-
-            return OperationResult<Supplier>.Success(
-                newSupplier,
-                $"Đã thêm nhà cung cấp \"{newSupplier.TenNCC}\" ({newSupplier.SupplierCode}) thành công.");
+                return OperationResult<NHACUNGCAP>.Failure(
+                    $"Không thể thêm nhà cung cấp vào cơ sở dữ liệu: {ex.InnerException?.Message ?? ex.Message}");
+            }
         }
 
-        public OperationResult<Supplier> UpdateSupplier(
-            int maNCC,
+        public OperationResult<NHACUNGCAP> UpdateSupplier(
+            string? maNCC,
             string? tenNCC,
             string? sdt,
             string? email,
             string? diaChi,
             bool isActive = true)
         {
-            var supplier = _dataStore.GetSupplierById(maNCC);
-            if (supplier == null)
+            if (string.IsNullOrWhiteSpace(maNCC))
             {
-                return OperationResult<Supplier>.Failure($"Không tìm thấy nhà cung cấp #{maNCC}.");
+                return OperationResult<NHACUNGCAP>.Failure("Mã nhà cung cấp không hợp lệ.");
             }
 
             var validation = ValidateSupplierInput(tenNCC, sdt, email, diaChi);
             if (!validation.IsSuccess)
             {
-                return OperationResult<Supplier>.Failure(validation.Message);
+                return OperationResult<NHACUNGCAP>.Failure(validation.Message);
             }
 
+            string key = maNCC.Trim();
             string normalizedName = tenNCC!.Trim();
+            string normalizedPhone = sdt!.Trim();
             string normalizedEmail = email!.Trim();
+            string normalizedAddress = diaChi!.Trim();
 
-            bool duplicateExists = _dataStore.Suppliers.Any(s =>
-                s.MaNCC != maNCC &&
-                (s.TenNCC.Equals(normalizedName, StringComparison.OrdinalIgnoreCase) ||
-                 s.Email.Equals(normalizedEmail, StringComparison.OrdinalIgnoreCase)));
-
-            if (duplicateExists)
+            try
             {
-                return OperationResult<Supplier>.Failure(
-                    "Tên nhà cung cấp hoặc Email đã được sử dụng bởi một nhà cung cấp khác.");
+                using var db = new QuanlyNhaSachContext();
+                var supplier = db.NHACUNGCAPs.FirstOrDefault(s => s.MaNCC == key);
+                if (supplier == null)
+                {
+                    return OperationResult<NHACUNGCAP>.Failure($"Không tìm thấy nhà cung cấp #{key}.");
+                }
+
+                bool duplicateExists = db.NHACUNGCAPs
+                    .AsNoTracking()
+                    .Any(s =>
+                        s.MaNCC != key &&
+                        ((s.TenNCC != null && s.TenNCC.ToLower() == normalizedName.ToLower()) ||
+                         (s.Email != null && s.Email.ToLower() == normalizedEmail.ToLower())));
+
+                if (duplicateExists)
+                {
+                    return OperationResult<NHACUNGCAP>.Failure(
+                        "Tên nhà cung cấp hoặc Email đã được sử dụng bởi một nhà cung cấp khác.");
+                }
+
+                supplier.TenNCC = normalizedName;
+                supplier.SDT = normalizedPhone;
+                supplier.Email = normalizedEmail;
+                supplier.Diachi = normalizedAddress;
+                supplier.IsActive = isActive;
+
+                if (isActive)
+                {
+                    DeactivatedSupplierIds.Remove(key);
+                }
+                else
+                {
+                    DeactivatedSupplierIds.Add(key);
+                }
+
+                db.SaveChanges();
+                NotifyChanged();
+
+                return OperationResult<NHACUNGCAP>.Success(
+                    supplier,
+                    $"Đã cập nhật thông tin nhà cung cấp \"{supplier.TenNCC}\" ({supplier.SupplierCode}) thành công.");
             }
-
-            // Update supplier in-place; historical ImportReceipt records retain their original TenNCC snapshot
-            supplier.TenNCC = normalizedName;
-            supplier.SDT = sdt!.Trim();
-            supplier.Email = normalizedEmail;
-            supplier.DiaChi = diaChi!.Trim();
-            supplier.IsActive = isActive;
-
-            NotifyChanged();
-
-            return OperationResult<Supplier>.Success(
-                supplier,
-                $"Đã cập nhật thông tin nhà cung cấp \"{supplier.TenNCC}\" ({supplier.SupplierCode}).");
+            catch (Exception ex)
+            {
+                return OperationResult<NHACUNGCAP>.Failure(
+                    $"Không thể cập nhật nhà cung cấp: {ex.InnerException?.Message ?? ex.Message}");
+            }
         }
 
-        public OperationResult ToggleOrDeactivateSupplier(int maNCC)
+        public OperationResult ToggleOrDeactivateSupplier(string? maNCC)
         {
-            var supplier = _dataStore.GetSupplierById(maNCC);
-            if (supplier == null)
+            if (string.IsNullOrWhiteSpace(maNCC))
             {
-                return OperationResult.Failure($"Không tìm thấy nhà cung cấp #{maNCC}.");
+                return OperationResult.Failure("Mã nhà cung cấp không hợp lệ.");
             }
 
-            bool referencedByReceipts = _dataStore.ImportReceipts.Any(r => r.MaNCC == maNCC);
+            string key = maNCC.Trim();
 
-            if (!supplier.IsActive)
+            try
             {
-                supplier.IsActive = true;
+                using var db = new QuanlyNhaSachContext();
+                var supplier = db.NHACUNGCAPs
+                    .AsNoTracking()
+                    .FirstOrDefault(s => s.MaNCC == key);
+
+                if (supplier == null)
+                {
+                    return OperationResult.Failure($"Không tìm thấy nhà cung cấp #{key}.");
+                }
+
+                bool currentlyActive = !DeactivatedSupplierIds.Contains(key);
+                if (currentlyActive)
+                {
+                    DeactivatedSupplierIds.Add(key);
+                    NotifyChanged();
+                    return OperationResult.Success(
+                        $"Đã chuyển nhà cung cấp \"{supplier.TenNCC}\" ({supplier.SupplierCode}) sang trạng thái Ngừng hợp tác. Các sách và phiếu nhập lịch sử vẫn được bảo toàn.");
+                }
+                else
+                {
+                    DeactivatedSupplierIds.Remove(key);
+                    NotifyChanged();
+                    return OperationResult.Success(
+                        $"Đã kích hoạt lại nhà cung cấp \"{supplier.TenNCC}\" ({supplier.SupplierCode}).");
+                }
+            }
+            catch (Exception ex)
+            {
+                return OperationResult.Failure(
+                    $"Không thể thay đổi trạng thái nhà cung cấp: {ex.InnerException?.Message ?? ex.Message}");
+            }
+        }
+
+        public OperationResult DeleteSupplier(string? maNCC)
+        {
+            if (string.IsNullOrWhiteSpace(maNCC))
+            {
+                return OperationResult.Failure("Mã nhà cung cấp không hợp lệ.");
+            }
+
+            string key = maNCC.Trim();
+
+            try
+            {
+                using var db = new QuanlyNhaSachContext();
+                var supplier = db.NHACUNGCAPs.FirstOrDefault(s => s.MaNCC == key);
+                if (supplier == null)
+                {
+                    return OperationResult.Failure($"Không tìm thấy nhà cung cấp #{key}.");
+                }
+
+                bool hasBooks = db.SACHs.AsNoTracking().Any(b => b.MaNCC == key);
+                bool hasReceipts = db.PHIEUNHAPs.AsNoTracking().Any(p => p.MaNCC == key);
+
+                if (hasBooks || hasReceipts)
+                {
+                    return OperationResult.Failure(
+                        $"Không thể xóa nhà cung cấp \"{supplier.TenNCC}\" vì đang có sách hoặc phiếu nhập tham chiếu đến mã {key}.");
+                }
+
+                db.NHACUNGCAPs.Remove(supplier);
+                db.SaveChanges();
+                DeactivatedSupplierIds.Remove(key);
+
                 NotifyChanged();
-                return OperationResult.Success(
-                    $"Đã kích hoạt lại trạng thái hợp tác với nhà cung cấp \"{supplier.TenNCC}\" ({supplier.SupplierCode}).");
+                return OperationResult.Success($"Đã xóa nhà cung cấp \"{supplier.TenNCC}\" khỏi cơ sở dữ liệu.");
             }
-
-            if (referencedByReceipts)
+            catch (Exception ex)
             {
-                supplier.IsActive = false;
-                NotifyChanged();
-                return OperationResult.Success(
-                    $"Nhà cung cấp \"{supplier.TenNCC}\" ({supplier.SupplierCode}) đang được tham chiếu trong lịch sử phiếu nhập hàng.\n\n" +
-                    $"Để bảo vệ toàn vẹn dữ liệu lịch sử, hệ thống đã chuyển nhà cung cấp sang trạng thái \"Ngừng hợp tác\" thay vì xóa vật lý.");
+                return OperationResult.Failure(
+                    $"Không thể xóa nhà cung cấp: {ex.InnerException?.Message ?? ex.Message}");
+            }
+        }
+
+        private static string GenerateNextSupplierId(QuanlyNhaSachContext db)
+        {
+            var existingIds = db.NHACUNGCAPs
+                .AsNoTracking()
+                .Select(s => s.MaNCC)
+                .ToList();
+
+            int maxNum = 0;
+            foreach (var id in existingIds)
+            {
+                if (string.IsNullOrWhiteSpace(id))
+                {
+                    continue;
+                }
+
+                string digits = Regex.Replace(id, @"\D", "");
+                if (int.TryParse(digits, out int num) && num > maxNum)
+                {
+                    maxNum = num;
+                }
             }
 
-            supplier.IsActive = false;
-            NotifyChanged();
-            return OperationResult.Success(
-                $"Đã chuyển trạng thái nhà cung cấp \"{supplier.TenNCC}\" ({supplier.SupplierCode}) sang \"Ngừng hợp tác\".");
+            int next = maxNum + 1;
+            string candidate = $"NCC{next:D4}";
+            while (existingIds.Any(x => string.Equals(x?.Trim(), candidate, StringComparison.OrdinalIgnoreCase)))
+            {
+                next++;
+                candidate = $"NCC{next:D4}";
+            }
+
+            return candidate;
         }
 
         private static OperationResult ValidateSupplierInput(
@@ -204,12 +381,17 @@ namespace QuanlyNhaSach.Services
                 return OperationResult.Failure("Vui lòng nhập tên nhà cung cấp.");
             }
 
-            if (string.IsNullOrWhiteSpace(sdt) || !PhoneRegex.IsMatch(sdt.Trim()))
+            if (tenNCC.Trim().Length > 100)
             {
-                return OperationResult.Failure("Số điện thoại nhà cung cấp không hợp lệ (vui lòng nhập từ 9 đến 11 chữ số).");
+                return OperationResult.Failure("Tên nhà cung cấp không được vượt quá 100 ký tự.");
             }
 
-            if (string.IsNullOrWhiteSpace(email) || !EmailRegex.IsMatch(email.Trim()))
+            if (string.IsNullOrWhiteSpace(sdt) || !PhoneRegex.IsMatch(sdt.Trim()))
+            {
+                return OperationResult.Failure("Số điện thoại nhà cung cấp không hợp lệ (vui lòng nhập 9 hoặc 10 chữ số).");
+            }
+
+            if (string.IsNullOrWhiteSpace(email) || !EmailRegex.IsMatch(email.Trim()) || email.Trim().Length > 100)
             {
                 return OperationResult.Failure("Địa chỉ Email nhà cung cấp không đúng định dạng (ví dụ: contact@nhaxuatban.vn).");
             }
@@ -219,13 +401,17 @@ namespace QuanlyNhaSach.Services
                 return OperationResult.Failure("Vui lòng nhập địa chỉ trụ sở nhà cung cấp.");
             }
 
+            if (diaChi.Trim().Length > 100)
+            {
+                return OperationResult.Failure("Địa chỉ nhà cung cấp không được vượt quá 100 ký tự.");
+            }
+
             return OperationResult.Success();
         }
 
         private void NotifyChanged()
         {
             SuppliersChanged?.Invoke(this, EventArgs.Empty);
-            _dataStore.NotifyDataChanged();
         }
     }
 }

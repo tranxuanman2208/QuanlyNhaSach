@@ -15,10 +15,9 @@ namespace QuanlyNhaSach.ViewModels.Manager
     {
         private readonly UserManagementService _userManagementService;
         private readonly AuthService _authService;
-        private readonly MockDataStore _dataStore;
         private readonly IDialogService _dialogService;
 
-        public ObservableCollection<User> DisplayedStaff { get; } = new();
+        public ObservableCollection<NGUOIDUNG> DisplayedStaff { get; } = new();
 
         public IReadOnlyList<string> StatusFilterOptions { get; } = new List<string>
         {
@@ -73,15 +72,12 @@ namespace QuanlyNhaSach.ViewModels.Manager
         public StaffManagementViewModel(
             UserManagementService userManagementService,
             AuthService authService,
-            MockDataStore dataStore,
             IDialogService dialogService)
         {
             _userManagementService = userManagementService ?? throw new ArgumentNullException(nameof(userManagementService));
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
-            _dataStore = dataStore ?? throw new ArgumentNullException(nameof(dataStore));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
 
-            _dataStore.DataChanged += (_, _) => RefreshStaff();
             _userManagementService.UsersChanged += (_, _) => RefreshStaff();
 
             RefreshStaff();
@@ -172,7 +168,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
         }
 
         [RelayCommand]
-        public void ToggleStaffLock(User? staffUser)
+        public void ToggleStaffLock(NGUOIDUNG? staffUser)
         {
             if (staffUser == null)
             {

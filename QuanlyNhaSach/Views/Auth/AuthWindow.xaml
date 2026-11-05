@@ -290,6 +290,15 @@
                             FontSize="15"
                             Padding="0,13"
                             HorizontalAlignment="Stretch"
+                            Margin="0,0,0,10"/>
+
+                    <!-- Guest Access Button -->
+                    <Button Content="Tiếp tục với tư cách Khách"
+                            Command="{Binding ContinueAsGuestCommand}"
+                            Style="{StaticResource SecondaryOutlineButtonStyle}"
+                            FontSize="14"
+                            Padding="0,11"
+                            HorizontalAlignment="Stretch"
                             Margin="0,0,0,18"/>
 
                     <Separator Background="{StaticResource BorderSubtleBrush}" Margin="0,4,0,18"/>

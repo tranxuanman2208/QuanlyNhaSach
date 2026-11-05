@@ -22,7 +22,7 @@ namespace QuanlyNhaSach.Models
     public class BestSellingBookItem
     {
         public int Rank { get; init; }
-        public int MaSach { get; init; }
+        public string MaSach { get; init; } = string.Empty;
         public string TenSach { get; init; } = string.Empty;
         public string TacGia { get; init; } = string.Empty;
         public int QuantitySold { get; init; }

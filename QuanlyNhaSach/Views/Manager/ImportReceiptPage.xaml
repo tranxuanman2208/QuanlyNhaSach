@@ -126,17 +126,17 @@
                                   Style="{StaticResource AdminDataGridStyle}"
                                   Height="390">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Mã" Binding="{Binding BookCode}" Width="62"/>
+                                <DataGridTextColumn Header="Mã" Binding="{Binding MaSach}" Width="62"/>
                                 <DataGridTemplateColumn Header="Đầu sách &amp; Tác giả" Width="*">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <StackPanel>
-                                                <TextBlock Text="{Binding TenSach}"
+                                                <TextBlock Text="{Binding Tensach}"
                                                            FontWeight="Bold"
                                                            FontSize="12.5"
                                                            Foreground="{StaticResource CharcoalTextBrush}"
                                                            TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Text="{Binding TacGia}"
+                                                <TextBlock Text="{Binding Tacgia}"
                                                            FontSize="11"
                                                            Foreground="{StaticResource MutedTextBrush}"
                                                            TextTrimming="CharacterEllipsis"/>
@@ -144,7 +144,7 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTextColumn Header="Tồn" Binding="{Binding SoLuongTon}" Width="58"/>
+                                <DataGridTextColumn Header="Tồn" Binding="{Binding Soluongton}" Width="58"/>
                                 <DataGridTemplateColumn Header="Chọn" Width="82">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>

@@ -1,8 +1,9 @@
-﻿using System.Windows;
+using System.Windows;
 using QuanlyNhaSach.Services;
 using QuanlyNhaSach.ViewModels;
 using QuanlyNhaSach.Views.Auth;
 using QuanlyNhaSach.Models;
+
 namespace QuanlyNhaSach
 {
     /// <summary>
@@ -10,8 +11,6 @@ namespace QuanlyNhaSach
     /// </summary>
     public partial class App : Application
     {
-        //public static MockDataStore MockDataStore { get; private set; } = null!;
-        //public static MockDataService MockDataService { get; private set; } = null!;
         public static AuthService AuthService { get; private set; } = null!;
         public static BookService BookService { get; private set; } = null!;
         public static UserManagementService UserManagementService { get; private set; } = null!;
@@ -27,22 +26,17 @@ namespace QuanlyNhaSach
         {
             base.OnStartup(e);
 
-            // 1. Instantiate shared application-level singleton services (100% In-Memory Mock State)
-            var sharedDataInstance = new MockDataService();
-            //MockDataStore = sharedDataInstance;
-            //MockDataService = sharedDataInstance;
-
-            /*AuthService = new AuthService(MockDataService);
-            BookService = new BookService(MockDataStore);
-            UserManagementService = new UserManagementService(MockDataStore);
-            SupplierService = new SupplierService(MockDataStore);
-            ImportService = new ImportService(MockDataStore);
-            CartService = new CartService(MockDataService);
-            OrderService = new OrderService(MockDataService);
-            InventoryService = new InventoryService(MockDataService);*/
+            // 1. Instantiate shared application-level singleton services (SQL Server EF Core Integrated)
+            AuthService = new AuthService();
+            BookService = new BookService();
+            UserManagementService = new UserManagementService();
+            SupplierService = new SupplierService();
+            ImportService = new ImportService();
+            CartService = new CartService(BookService);
+            OrderService = new OrderService();
+            InventoryService = new InventoryService();
             DialogService = new DialogService();
             NavigationService = new NavigationService(
-                //MockDataService,
                 AuthService,
                 CartService,
                 OrderService,

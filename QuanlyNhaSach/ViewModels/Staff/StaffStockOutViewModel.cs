@@ -12,20 +12,19 @@ namespace QuanlyNhaSach.ViewModels.Staff
 {
     public partial class StaffStockOutViewModel : ObservableObject, INavigationAware
     {
-        private readonly MockDataService _mockDataService;
         private readonly OrderService _orderService;
         private readonly InventoryService _inventoryService;
         private readonly INavigationService _navigationService;
         private readonly IDialogService _dialogService;
 
-        public ObservableCollection<Order> QuickOrdersList { get; } = new();
+        public ObservableCollection<DONHANG> QuickOrdersList { get; } = new();
         public ObservableCollection<StockOutLineItem> StockOutItems { get; } = new();
 
         [ObservableProperty]
         private string _searchOrderIdText = string.Empty;
 
-        private Order? _selectedOrder;
-        public Order? SelectedOrder
+        private DONHANG? _selectedOrder;
+        public DONHANG? SelectedOrder
         {
             get => _selectedOrder;
             set
@@ -71,19 +70,22 @@ namespace QuanlyNhaSach.ViewModels.Staff
             !HasInsufficientStock;
 
         public StaffStockOutViewModel(
-            MockDataService mockDataService,
             OrderService orderService,
             InventoryService inventoryService,
             INavigationService navigationService,
             IDialogService dialogService)
         {
-            _mockDataService = mockDataService ?? throw new ArgumentNullException(nameof(mockDataService));
             _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService));
             _inventoryService = inventoryService ?? throw new ArgumentNullException(nameof(inventoryService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
 
-            _mockDataService.DataChanged += (_, _) =>
+            _orderService.OrderUpdated += (_, _) =>
+            {
+                RefreshQuickOrdersList();
+                RefreshCurrentOrderItemsState();
+            };
+            _inventoryService.InventoryChanged += (_, _) =>
             {
                 RefreshQuickOrdersList();
                 RefreshCurrentOrderItemsState();
@@ -138,7 +140,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
             if (string.IsNullOrWhiteSpace(SearchOrderIdText))
             {
                 IsFeedbackSuccess = false;
-                FeedbackMessage = "Vui lòng nhập mã đơn hàng cần xuất kho (ví dụ: 1001, #1002 hoặc #1003).";
+                FeedbackMessage = "Vui lòng nhập mã đơn hàng cần xuất kho (ví dụ: 1, #DH0001).";
                 return;
             }
 
@@ -192,13 +194,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
                 return;
             }
 
-            foreach (var line in StockOutItems)
-            {
-                line.IsAlreadyIssued = SelectedOrder.StockOutStatus == StockOutStatus.Issued;
-                line.RefreshStockState();
-            }
-
-            EvaluateStockOutState();
+            LoadOrderStockOutItems();
         }
 
         private void EvaluateStockOutState()
@@ -260,6 +256,13 @@ namespace QuanlyNhaSach.ViewModels.Staff
                 return;
             }
 
+            if (result.Data != null)
+            {
+                _selectedOrder = result.Data;
+                OnPropertyChanged(nameof(SelectedOrder));
+            }
+
+            RefreshQuickOrdersList();
             RefreshCurrentOrderItemsState();
             IsFeedbackSuccess = true;
             FeedbackMessage = result.Message;
