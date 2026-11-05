@@ -1,31 +1,31 @@
-# ViewModel Synchronization Report — QuanlyNhaSach
+# Báo cáo Đồng bộ hóa ViewModel — QuanlyNhaSach
 
-Branch: `ViewmodlesFix` · Date: 2026-11-06 · SDK: .NET SDK 10.0.402 (project targets `net8.0-windows`)
+Nhánh (Branch): `ViewmodlesFix` · Ngày: 06-11-2026 · SDK: .NET SDK 10.0.402 (dự án nhắm mục tiêu `net8.0-windows`)
 
-## 1. Executive Summary
+## 1. Tóm tắt tổng quan
 
-The goal was to align the Presentation Layer (ViewModels and XAML bindings) with the real EF Core entities scaffolded from SQL Server, now that the Service Layer no longer uses mock data.
+Mục tiêu là đồng bộ Tầng Trình diễn (Presentation Layer - gồm ViewModels và các XAML bindings) với các thực thể EF Core thực tế được scaffold từ SQL Server, trong bối cảnh Tầng Dịch vụ (Service Layer) không còn sử dụng dữ liệu giả lập (mock data).
 
-**Main finding:** the C# side was already consistent. The baseline build had **0 errors**, and every ViewModel already used the real entity types, property names, and Service signatures. That is expected, because the C# compiler would have caught any mismatch there. The remaining risk was in **XAML bindings**, which the compiler does not check. A wrong binding path fails silently at runtime and leaves a cell or field blank.
+**Phát hiện chính:** Phía mã nguồn C# vốn dĩ đã có tính nhất quán cao. Bản build cơ sở ban đầu có **0 lỗi**, và toàn bộ các ViewModel đều đã sử dụng đúng các kiểu thực thể thực tế, tên thuộc tính chuẩn và đúng chữ ký của các Service. Điều này là bình thường vì trình biên dịch C# sẽ bắt ngay nếu có sự không khớp ở tầng mã lệnh. Rủi ro tiềm ẩn còn lại nằm ở **các liên kết XAML (XAML bindings)** – nơi mà trình biên dịch không thể kiểm tra. Một đường dẫn binding bị sai sẽ gặp lỗi ngầm trong lúc chạy (fails silently at runtime) và khiến ô bảng hoặc trường nhập liệu bị để trống.
 
-To find those, I wrote a scope-aware binding resolver. It maps each View to its ViewModel (from the code-behind constructor), resolves every `{Binding}` against the actual DataContext type, and follows dotted paths through property types. The DataContext types it handles are:
-- the page ViewModel
-- the element type of an `ItemsSource` collection, for DataGrid columns, cell templates, row styles, and item templates
-- `DataContext.X` reached through `RelativeSource AncestorType=Page`
-- an explicit `DataContext="{Binding …}"`
+Để tìm ra những lỗi đó, tôi đã xây dựng một bộ phân giải liên kết nhận biết ngữ cảnh (scope-aware binding resolver). Công cụ này ánh xạ từng View tới ViewModel tương ứng (từ hàm khởi tạo code-behind), phân giải từng `{Binding}` dựa trên kiểu DataContext thực tế và lần theo các đường dẫn phân cấp thuộc tính. Các kiểu DataContext mà công cụ xử lý gồm:
+- ViewModel của trang (page ViewModel)
+- Kiểu phần tử của tập hợp trong `ItemsSource`, áp dụng cho các cột DataGrid, cell template, row style và item template
+- `DataContext.X` được truy xuất qua `RelativeSource AncestorType=Page`
+- Thuộc tính tường minh `DataContext="{Binding …}"`
 
-I ran it over all 20 Views and `Resources/Templates.xaml`.
+Tôi đã quét qua toàn bộ 20 Views và file `Resources/Templates.xaml`.
 
-**Result:** 8 broken bindings and 1 Mock-Data leftover binding were found and fixed. Final build: **Build succeeded — 0 Errors, 2 unique warnings** (baseline had 3). The resolver now reports **0 unresolved bindings**.
+**Kết quả:** Đã phát hiện và sửa chữa 8 binding bị hỏng và 1 binding còn sót lại từ thời dùng mock-data. Bản build cuối cùng: **Build thành công — 0 Lỗi, 2 cảnh báo duy nhất** (bản ban đầu có 3 cảnh báo). Công cụ resolver hiện tại báo cáo **0 liên kết chưa được giải quyết (unresolved bindings)**.
 
-## 2. Real Entity Inventory
+## 2. Danh mục thực thể thực tế (Real Entity Inventory)
 
-All entities are in namespace `QuanlyNhaSach.Models` and live in `QuanlyNhaSach/Models/`. Columns are listed exactly as declared in the scaffold. Extended (`[NotMapped]`) members come from `*.Extended.cs`.
+Tất cả các thực thể nằm trong namespace `QuanlyNhaSach.Models` và được lưu tại thư mục `QuanlyNhaSach/Models/`. Các cột được liệt kê chính xác như khai báo từ quá trình scaffold. Các thành viên mở rộng (`[NotMapped]`) được định nghĩa trong các file `*.Extended.cs`.
 
-| Entity | Scaffolded (mapped) properties | Navigations | Key `[NotMapped]` presentation members |
+| Thực thể | Các thuộc tính scaffold (được ánh xạ DB) | Thuộc tính điều hướng (Navigations) | Các thành viên trình diễn `[NotMapped]` chính |
 |---|---|---|---|
 | `SACH` | `MaSach` (string, PK), `Tensach` string?, `Tacgia` string?, `NXB` string?, `Giaban` decimal?, `Soluongton` byte?, `Theloai` string?, `MaNCC` string?, `Daxoa` bool? | `MaNCCNavigation`, `CHITIETDONHANGs`, `CHITIETGIOHANGs`, `CHITIETPHIEUNHAPs` | `MauBia`, `AnhBia`, `MoTa`, `IsInStock`, `IsOutOfStock`, `FormattedPrice`, `StockStatusText`, `AdminStockStatusText` |
-| `NHACUNGCAP` | `MaNCC` (string, PK), `TenNCC`, `Email`, `SDT`, `Diachi` (all string?) | `PHIEUNHAPs`, `SACHs` | `SupplierCode`, `DiaChi` (wraps `Diachi`), `IsActive`, `StatusText`, `ToggleStatusActionText`, `DisplayName` |
+| `NHACUNGCAP` | `MaNCC` (string, PK), `TenNCC`, `Email`, `SDT`, `Diachi` (đều là string?) | `PHIEUNHAPs`, `SACHs` | `SupplierCode`, `DiaChi` (bọc `Diachi`), `IsActive`, `StatusText`, `ToggleStatusActionText`, `DisplayName` |
 | `DONHANG` | `MaDH` (int, PK), `MaKH` string?, `NgayTao` DateOnly, `Phuongthucthanhtoan` string?, `Trangthaigiaohang` string?, `Dathanhtoan` bool?, `Tongtien` decimal? | `MaKHNavigation`, `CHITIETDONHANGs`, `PHIEUXUATs` | `OrderCode`, `HoTenKhachHang`, `SDTKhachHang`, `DiaChiGiaoHang`, `NgayDat` DateTime, `TongTien` decimal, `Status`, `PaymentStatus`, `StockOutStatus`, `Items`, `TrangThai*`, `Formatted*`, `CanRecordPayment`, `CanTransitionStatus`, `RequiredActionText` |
 | `CHITIETDONHANG` | `MaDH` int, `MaSach` string (composite PK), `Soluong` byte?, `Tong` decimal? | `MaDHNavigation`, `MaSachNavigation` | `TenSach`, `TacGia`, `SoLuongMua`, `DonGia`, `ThanhTien`, `FormattedDonGia`, `FormattedThanhTien` |
 | `PHIEUNHAP` | `MaPN` (int, PK), `MaQly` string?, `MaNCC` string?, `NgayNhap` DateOnly, `Dathanhtoan` bool?, `Tongtien` decimal? | `MaNCCNavigation`, `MaQlyNavigation`, `CHITIETPHIEUNHAPs` | `ReceiptCode`, `TenNCC`, `SdtNCC`, `DiaChiNCC`, `NgayLap`, `TongTien`, `TrangThai`, `NguoiLapHoTen`, `Details`, `BooksSummary`, `FormattedTongTien`, `FormattedNgayLap`, `TrangThaiLabel` |
@@ -35,91 +35,91 @@ All entities are in namespace `QuanlyNhaSach.Models` and live in `QuanlyNhaSach/
 | `CHITIETGIOHANG` | `MaGH` int, `MaSach` string, `Soluong` byte?, `Tong` decimal? | `MaGHNavigation`, `MaSachNavigation` | — |
 | `PHIEUXUAT` | `MaPX` int, `MaDH` int?, `Ghichu` string?, `NgayXuat` DateOnly | `MaDHNavigation` | — |
 
-Non-entity presentation models used by ViewModels: `CartItem`, `StockOutLineItem`, `DashboardStatistics`, `RevenueChartPoint`, `BestSellingBookItem`, `OperationResult<T>`.
+Các model tầng trình diễn (không phải thực thể DB) được ViewModels sử dụng: `CartItem`, `StockOutLineItem`, `DashboardStatistics`, `RevenueChartPoint`, `BestSellingBookItem`, `OperationResult<T>`.
 
-**Naming caveat:** the scaffold uses lower-case second words on several columns (`Tensach`, `Tacgia`, `Giaban`, `Soluongton`, `Hoten`, `Diachi`, `Tendangnhap`). Some extended classes deliberately expose PascalCase aliases instead (`CHITIETDONHANG.TenSach`, `NHACUNGCAP.DiaChi`, `DONHANG.TongTien`). As a result, `TenSach` is valid against an order line but **not** against `SACH`, and `DiaChi` is valid against a supplier but **not** against `NGUOIDUNG`. Every broken binding found in this work came from this asymmetry.
+**Lưu ý quan trọng về cách đặt tên:** Bản scaffold tự động viết chữ thường cho từ thứ hai ở một số cột (`Tensach`, `Tacgia`, `Giaban`, `Soluongton`, `Hoten`, `Diachi`, `Tendangnhap`). Một số class mở rộng lại chủ đích cung cấp các bí danh theo chuẩn PascalCase (`CHITIETDONHANG.TenSach`, `NHACUNGCAP.DiaChi`, `DONHANG.TongTien`). Kết quả là `TenSach` hợp lệ khi binding trong chi tiết đơn hàng nhưng **không hợp lệ** đối với `SACH`, và `DiaChi` hợp lệ với nhà cung cấp nhưng **không hợp lệ** đối với `NGUOIDUNG`. Tất cả các binding bị hỏng được tìm thấy trong đợt này đều xuất phát từ sự bất đối xứng này.
 
-## 3. ViewModels Updated
+## 3. Các ViewModel đã cập nhật
 
-| ViewModel | Changes Made | Status |
+| ViewModel | Thay đổi đã thực hiện | Trạng thái |
 |---|---|---|
-| `ViewModels/Customer/CartCheckoutViewModel.cs` | Added the `EmailError` / `HasEmailError` properties that `CartCheckoutPage.xaml` already bound to, plus email validation in `UpdateFieldErrors`, `CanConfirmCheckout`, the submit guard, and `ResetFormFields`. The rule mirrors `OrderService.CreateCustomerOrder`: non-blank, ends with `@gmail.com`, has a local part, and contains no whitespace. | Completed |
+| `ViewModels/Customer/CartCheckoutViewModel.cs` | Bổ sung các thuộc tính `EmailError` / `HasEmailError` mà file `CartCheckoutPage.xaml` đã binding trước đó, kèm logic kiểm tra email trong `UpdateFieldErrors`, `CanConfirmCheckout`, bộ bảo vệ submit và `ResetFormFields`. Quy tắc kiểm tra đồng bộ với `OrderService.CreateCustomerOrder`: không được để trống, đuôi `@gmail.com`, có phần tên định danh trước @ và không chứa khoảng trắng. | Hoàn thành |
 
-I inspected all other ViewModels (18 files under `ViewModels/`). They already matched the entities and Service contracts, so they were left unchanged.
+Tôi đã kiểm tra toàn bộ các ViewModel khác (18 file trong thư mục `ViewModels/`). Tất cả đều đã khớp chuẩn với các thực thể và hợp đồng Service nên được giữ nguyên.
 
-## 4. Property and Data Type Changes
+## 4. Thay đổi về thuộc tính và kiểu dữ liệu
 
-| Location | Previous Reference | Correct Reference | Reason |
+| Vị trí | Tham chiếu trước đây | Tham chiếu chính xác | Lý do |
 |---|---|---|---|
-| CustomerManagementPage / StaffManagementPage (row type `NGUOIDUNG`) | `HoTen` | `Hoten` | Case-sensitive mismatch with the scaffolded column |
-| same | `Username` | `Tendangnhap` | No such member exists; the login name column is `Tendangnhap` |
-| same | `DiaChi` | `Diachi` | `NGUOIDUNG` has no `DiaChi` alias (only `NHACUNGCAP` has one) |
-| CartCheckoutPage (`CartCheckoutViewModel`) | `EmailError`, `HasEmailError` (missing) | Implemented as `[ObservableProperty]` plus a computed bool | The XAML bound to members that did not exist |
-| CustomerProfilePage order grid (row type `DONHANG`) | `MaDH` → `CustomerOrderTotalConverter` | `TongTien` (decimal) → same converter | Leftover from mock data. Passing the ID made the converter call `GetMockOrderTotal(maDh)`, which runs a DB query per uncached row. The real, already-loaded `decimal` total is now bound directly. |
+| CustomerManagementPage / StaffManagementPage (kiểu dòng `NGUOIDUNG`) | `HoTen` | `Hoten` | Lệch chữ hoa/thường so với tên cột được scaffold |
+| Tương tự | `Username` | `Tendangnhap` | Không tồn tại thành viên này; tên cột đăng nhập chuẩn là `Tendangnhap` |
+| Tương tự | `DiaChi` | `Diachi` | `NGUOIDUNG` không có bí danh `DiaChi` (chỉ `NHACUNGCAP` mới có) |
+| CartCheckoutPage (`CartCheckoutViewModel`) | `EmailError`, `HasEmailError` (bị thiếu) | Khai báo dạng `[ObservableProperty]` kèm thuộc tính bool tính toán | XAML đã liên kết tới các thành viên không tồn tại trong ViewModel |
+| CustomerProfilePage bảng đơn hàng (kiểu dòng `DONHANG`) | `MaDH` → `CustomerOrderTotalConverter` | `TongTien` (decimal) → cùng converter | Tồn dư từ thời dùng dữ liệu mẫu. Việc truyền ID khiến converter gọi hàm `GetMockOrderTotal(maDh)`, gây truy vấn DB riêng cho mỗi dòng không có cache. Giờ đây tổng tiền thực tế kiểu `decimal` đã được load sẵn và binding trực tiếp. |
 
-Data types: currency is `decimal`/`decimal?` everywhere; no ViewModel uses `double` for money. Dates stay `DateOnly`/`DateTime` and are formatted only through converters or `Formatted*` properties. Stock (`byte?`) is accepted by `StockBadge*Converter`, and `DateOnly` is accepted by `CustomerOrderDateConverter`.
+Kiểu dữ liệu: Tiền tệ luôn là `decimal`/`decimal?` ở mọi nơi; không có ViewModel nào dùng `double` cho số tiền. Ngày tháng giữ nguyên `DateOnly`/`DateTime` và chỉ được định dạng thông qua converter hoặc các thuộc tính `Formatted*`. Tồn kho (`byte?`) được hỗ trợ chuẩn bởi `StockBadge*Converter`, và `DateOnly` được hỗ trợ chuẩn bởi `CustomerOrderDateConverter`.
 
-## 5. XAML Files Modified
+## 5. Các file XAML đã chỉnh sửa
 
-- `Views/Manager/CustomerManagementPage.xaml`: full name (cell template), username, and address columns.
-- `Views/Manager/StaffManagementPage.xaml`: same three columns.
-- `Views/Customer/CustomerProfilePage.xaml`: order total column now binds `TongTien`.
-- `Views/Customer/CartCheckoutPage.xaml`: **not modified**. Its `EmailError` / `HasEmailError` bindings were correct; the ViewModel was missing the members.
+- `Views/Manager/CustomerManagementPage.xaml`: Sửa các cột họ tên (cell template), tên đăng nhập và địa chỉ.
+- `Views/Manager/StaffManagementPage.xaml`: Sửa 3 cột tương tự.
+- `Views/Customer/CustomerProfilePage.xaml`: Cột tổng tiền đơn hàng chuyển sang binding trực tiếp với `TongTien`.
+- `Views/Customer/CartCheckoutPage.xaml`: **Không chỉnh sửa**. Các binding `EmailError` / `HasEmailError` trong file này vốn đã viết đúng; nguyên nhân là do ViewModel trước đó bị thiếu thuộc tính.
 
-No ResourceDictionary needed changes. `Templates.xaml` (DataTypes `SACH` and `DONHANG`) already used the real names (`Tensach`, `Tacgia`, `Soluongton`, `Trangthaigiaohang`).
+Không có ResourceDictionary nào cần can thiệp. `Templates.xaml` (với DataType là `SACH` và `DONHANG`) vốn đã sử dụng các tên chuẩn (`Tensach`, `Tacgia`, `Soluongton`, `Trangthaigiaohang`).
 
-## 6. Service Contract Synchronization
+## 6. Đồng bộ hợp đồng dịch vụ (Service Contract Synchronization)
 
-The Services are concrete classes registered without interfaces (`BookService`, `SupplierService`, `OrderService`, `ImportService`, `InventoryService`, `UserManagementService`, `CartService`, `AuthService`). All are **synchronous** and return EF entities, `IReadOnlyList<T>`, `OperationResult` / `OperationResult<T>`, or presentation DTOs (`DashboardStatistics`, `RevenueChartPoint`, `BestSellingBookItem`, `StockOutLineItem`).
+Các Service là các class cụ thể được đăng ký trực tiếp không qua interface (`BookService`, `SupplierService`, `OrderService`, `ImportService`, `InventoryService`, `UserManagementService`, `CartService`, `AuthService`). Tất cả đều hoạt động **đồng bộ (synchronous)** và trả về các thực thể EF, `IReadOnlyList<T>`, `OperationResult` / `OperationResult<T>`, hoặc các DTO trình diễn (`DashboardStatistics`, `RevenueChartPoint`, `BestSellingBookItem`, `StockOutLineItem`).
 
-Every ViewModel collection matches its Service return element type, for example:
+Tất cả các collection trong ViewModel đều tương thích hoàn toàn với kiểu phần tử trả về từ Service tương ứng, ví dụ:
 - `ObservableCollection<SACH>` ← `BookService.SearchAndFilterBooks`
 - `ObservableCollection<NGUOIDUNG>` ← `UserManagementService.SearchAccounts`
 - `ObservableCollection<StockOutLineItem>` ← `InventoryService.GetStockOutLineItems`
 - `ObservableCollection<BestSellingBookItem>` ← `OrderService.GetTopSellingBooks`
 
-No Service was changed. No ViewModel blocks the UI thread with `.Result` or `.Wait()`. Because the Services are synchronous, no async conversion was required.
+Không có Service nào bị sửa đổi. Không có ViewModel nào gây nghẽn luồng UI bằng `.Result` hay `.Wait()`. Do bản thân các Service đã là đồng bộ nên không cần chuyển đổi bất đồng bộ.
 
-## 7. Build Results
+## 7. Kết quả Build
 
-Command: `dotnet restore QuanlyNhaSach.sln` then `dotnet build QuanlyNhaSach.sln` (a single project: `QuanlyNhaSach/QuanlyNhaSach.csproj`).
+Lệnh thực thi: `dotnet restore QuanlyNhaSach.sln` sau đó `dotnet build QuanlyNhaSach.sln` (dự án đơn nhất: `QuanlyNhaSach/QuanlyNhaSach.csproj`).
 
-| | Errors | Unique warnings |
+| | Lỗi (Errors) | Cảnh báo duy nhất (Unique warnings) |
 |---|---|---|
-| Baseline (before changes) | 0 | 3 — `CS8604` AuthService.cs:189, `CS8602` AuthService.cs:278, `CS0414` CartCheckoutViewModel.cs:29 |
-| After batch 1 (account grids) | 0 | 3 |
-| Final | **0** | **2** — the two pre-existing `AuthService` nullable warnings. `CS0414` was resolved because `_hasUserTouchedEmail` is now used. |
+| Cơ sở ban đầu (trước thay đổi) | 0 | 3 — `CS8604` AuthService.cs:189, `CS8602` AuthService.cs:278, `CS0414` CartCheckoutViewModel.cs:29 |
+| Sau đợt 1 (các bảng tài khoản) | 0 | 3 |
+| Kết quả cuối cùng | **0** | **2** — gồm hai cảnh báo nullable đã có từ trước trong `AuthService`. Cảnh báo `CS0414` đã được xử lý xong do biến `_hasUserTouchedEmail` nay đã được sử dụng. |
 
-MSBuild prints each warning twice because WPF compiles a temporary `*_wpftmp.csproj`, so the raw counts are 6 → 4.
+MSBuild ghi nhận mỗi cảnh báo hai lần do WPF tiến hành biên dịch một bản tạm thời `*_wpftmp.csproj`, do đó số đếm thô giảm từ 6 → 4.
 
-**Build succeeded — 0 Errors.**
+**Build thành công — 0 Lỗi.**
 
-## 8. Runtime Binding Verification
+## 8. Xác minh Binding tại thời điểm chạy (Runtime Verification)
 
-| Check | Status |
+| Hạng mục kiểm tra | Trạng thái |
 |---|---|
-| Static XAML inspection (scope-aware resolver over all Views and Templates.xaml) | **Done**: 0 unresolved paths after the fixes |
-| Command bindings (`*Command`, including `DataContext.*Command` via RelativeSource) | **Done statically**: all resolve to `[RelayCommand]`-generated commands on the owning ViewModel |
-| GUI launch, DataGrid population, command execution | **Not performed.** The app needs a live SQL Server and interactive navigation through every role (customer, staff, manager). This remains outstanding. |
-| WPF binding diagnostics in Debug output (`System.Windows.Data Error: 40`) | **Not performed.** Recommended: run under the Visual Studio debugger, open each page, and check the Output window. |
+| Kiểm tra XAML tĩnh (resolver nhận biết phạm vi trên toàn bộ Views và Templates.xaml) | **Đã hoàn thành**: 0 đường dẫn chưa giải quyết sau khi sửa lỗi |
+| Liên kết lệnh (Command bindings) (`*Command`, gồm cả `DataContext.*Command` qua RelativeSource) | **Đã hoàn thành tĩnh**: Tất cả đều liên kết chính xác tới các command được sinh tự động bởi `[RelayCommand]` trên ViewModel chủ quản |
+| Khởi chạy GUI, nạp dữ liệu DataGrid, thực thi lệnh | **Chưa thực hiện.** Ứng dụng yêu cầu có SQL Server đang chạy và cần thao tác tương tác qua từng vai trò (khách hàng, nhân viên, quản lý). Phần này vẫn còn tồn đọng. |
+| Chẩn đoán binding WPF trong đầu ra Debug (`System.Windows.Data Error: 40`) | **Chưa thực hiện.** Khuyến nghị: Chạy ứng dụng dưới chế độ gỡ lỗi (Debugger) của Visual Studio, mở từng trang và theo dõi cửa sổ Output. |
 
-Limits of the static resolver: it does not evaluate converters, `MultiBinding`, or `ElementName` bindings, and it treats `ComboBox` item templates over `string` collections as untyped. None of the views relies on these for entity data.
+Hạn chế của resolver tĩnh: Công cụ không đánh giá các bộ chuyển đổi (converter), `MultiBinding`, hoặc binding theo `ElementName`, và coi các item template của `ComboBox` liên kết với mảng `string` là chưa định kiểu. Không có view nào phụ thuộc vào các trường hợp này để hiển thị dữ liệu thực thể.
 
-## 9. Files Created or Modified
+## 9. Danh sách các file đã tạo hoặc chỉnh sửa
 
-- Modified `QuanlyNhaSach/ViewModels/Customer/CartCheckoutViewModel.cs`
-- Modified `QuanlyNhaSach/Views/Manager/CustomerManagementPage.xaml`
-- Modified `QuanlyNhaSach/Views/Manager/StaffManagementPage.xaml`
-- Modified `QuanlyNhaSach/Views/Customer/CustomerProfilePage.xaml`
-- Created `VIEWMODEL_SYNC_REPORT.md`
+- Đã sửa `QuanlyNhaSach/ViewModels/Customer/CartCheckoutViewModel.cs`
+- Đã sửa `QuanlyNhaSach/Views/Manager/CustomerManagementPage.xaml`
+- Đã sửa `QuanlyNhaSach/Views/Manager/StaffManagementPage.xaml`
+- Đã sửa `QuanlyNhaSach/Views/Customer/CustomerProfilePage.xaml`
+- Đã cập nhật `VIEWMODEL_SYNC_REPORT.md`
 
-Nothing was committed or pushed. No schema change, no migration, and no scaffold regeneration.
+Không có nội dung nào được commit hay push git. Không có thay đổi schema database, không có migration và không tạo lại scaffold.
 
-## 10. Remaining Issues
+## 10. Các vấn đề tồn đọng cần lưu ý
 
-1. **`CustomerProfileViewModel` accesses the database directly** (`new QuanlyNhaSachContext()` at three sites: profile/order load, `GetMockOrderTotal`, and `UpdateProfile`). This breaks the MVVM / Service-layer rule. It is the only ViewModel that does this. Moving the logic into a Service is a refactor beyond binding synchronization, so it was left unchanged.
-2. **Possible privacy bug in the same ViewModel:** when the signed-in customer has no orders, `LoadCustomerAndOrdersFromDatabase` falls back to showing the 10 most recent orders of *all* customers. It also substitutes hard-coded demo data (`KH001`, "Nguyễn Minh Anh") when no session user is found. These are business-logic issues and were not changed.
-3. `CustomerProfileViewModel.GetMockOrderTotal` is misnamed: it reads real totals from the DB. It is now only reached through the converter's fallback branches.
-4. Server-side email validation in `OrderService.CreateCustomerOrder` accepts the bare string `@gmail.com` (length ≥ 10) and does not trim the input. The new client-side rule is stricter, so valid submissions are unaffected.
-5. Two pre-existing nullable warnings in `AuthService.cs` (lines 189 and 278) remain. They are unrelated to this work.
-6. Runtime/GUI verification is still outstanding (see §8).
+1. **`CustomerProfileViewModel` truy cập trực tiếp cơ sở dữ liệu** (`new QuanlyNhaSachContext()` tại 3 vị trí: tải hồ sơ/đơn hàng, `GetMockOrderTotal`, và `UpdateProfile`). Việc này vi phạm mô hình phân tầng MVVM / Service. Đây là ViewModel duy nhất mắc lỗi này. Việc tách logic này sang Service thuộc phạm vi tái cấu trúc (refactoring) ngoài phạm vi đồng bộ hóa binding, nên hiện được giữ nguyên.
+2. **Khả năng lộ thông tin trong ViewModel nói trên:** Khi khách hàng đăng nhập chưa có đơn hàng nào, phương thức `LoadCustomerAndOrdersFromDatabase` lại tự động hiển thị 10 đơn hàng mới nhất của *toàn bộ* khách hàng khác. Ngoài ra phương thức này cũng tự thế dữ liệu mẫu hard-code (`KH001`, "Nguyễn Minh Anh") khi không tìm thấy phiên người dùng. Đây là các vấn đề về logic nghiệp vụ và chưa can thiệp trong đợt này.
+3. `CustomerProfileViewModel.GetMockOrderTotal` bị đặt tên sai lệch: Thực chất hàm này đọc tổng tiền thực từ database. Hiện tại hàm này chỉ được gọi khi converter rơi vào nhánh dự phòng (fallback).
+4. Logic kiểm tra email ở phía server trong `OrderService.CreateCustomerOrder` chấp nhận cả chuỗi trần `@gmail.com` (chỉ cần độ dài ≥ 10) và không loại bỏ khoảng trắng đầu/cuối. Quy tắc mới ở phía client chặt chẽ hơn, nên dữ liệu gửi lên hợp lệ vẫn được xử lý bình thường.
+5. Hai cảnh báo nullable có từ trước trong `AuthService.cs` (dòng 189 và 278) vẫn còn. Chúng không thuộc phạm vi công việc lần này.
+6. Việc kiểm thử runtime và giao diện người dùng thực tế (GUI) vẫn cần được hoàn thiện thêm (xem mục 8).
