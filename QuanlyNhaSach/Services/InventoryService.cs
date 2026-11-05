@@ -66,7 +66,7 @@ namespace QuanlyNhaSach.Services
                 if (currentStock < requestedQuantity)
                 {
                     return OperationResult.Failure(
-                        $"Sách \"{book.Tensach}\" hiện chỉ còn {currentStock} cuốn trong kho (yêu cầu: {requestedQuantity} cuốn).");
+                        $"Sách \"{book.Tensach}\" hiện chỉ còn {currentStock} cuốn.");
                 }
 
                 return OperationResult.Success();
@@ -137,13 +137,12 @@ namespace QuanlyNhaSach.Services
                 var dbOrder = db.DONHANGs
                     .AsNoTracking()
                     .Include(o => o.CHITIETDONHANGs)
-                        .ThenInclude(i => i.MaSachNavigation)
                     .Include(o => o.PHIEUXUATs)
                     .FirstOrDefault(o => o.MaDH == order.MaDH);
 
                 if (dbOrder == null)
                 {
-                    return OperationResult.Failure($"Không tìm thấy đơn hàng #{order.MaDH} trong cơ sở dữ liệu.");
+                    return OperationResult.Failure($"Không tìm thấy đơn hàng #{order.MaDH} trong hệ thống.");
                 }
 
                 if (dbOrder.Status == OrderStatus.Cancelled)
@@ -161,17 +160,20 @@ namespace QuanlyNhaSach.Services
                     return OperationResult.Failure($"Đơn hàng {dbOrder.OrderCode} không có chi tiết sách cần xuất.");
                 }
 
+                // Tải 1 lần toàn bộ sách trong đơn hàng (khử truy vấn N+1)
+                var bookKeys = dbOrder.CHITIETDONHANGs.Select(i => i.MaSach.Trim()).Distinct().ToList();
+                var booksMap = db.SACHs
+                    .AsNoTracking()
+                    .Where(b => bookKeys.Contains(b.MaSach) && (b.Daxoa == null || b.Daxoa == false))
+                    .ToDictionary(b => b.MaSach.Trim(), b => b, StringComparer.OrdinalIgnoreCase);
+
                 foreach (var item in dbOrder.CHITIETDONHANGs)
                 {
                     string bookKey = item.MaSach.Trim();
-                    var book = db.SACHs
-                        .AsNoTracking()
-                        .FirstOrDefault(b => b.MaSach == bookKey && (b.Daxoa == null || b.Daxoa == false));
-
-                    if (book == null)
+                    if (!booksMap.TryGetValue(bookKey, out var book))
                     {
                         return OperationResult.Failure(
-                            $"Sách \"{item.TenSach}\" (Mã #{bookKey}) không tồn tại hoặc đã ngừng kinh doanh.");
+                            $"Sách \"{item.TenSach}\" không tồn tại hoặc đã ngừng kinh doanh.");
                     }
 
                     int currentStock = book.Soluongton ?? 0;
@@ -179,7 +181,7 @@ namespace QuanlyNhaSach.Services
                     if (currentStock < requiredQty)
                     {
                         return OperationResult.Failure(
-                            $"Thiếu tồn kho cho sách \"{book.Tensach}\" (Mã #{book.MaSach}): Cần xuất {requiredQty} cuốn nhưng kho chỉ còn {currentStock} cuốn.");
+                            $"Thiếu sách \"{book.Tensach}\" (Mã #{book.MaSach}): Cần xuất {requiredQty} cuốn nhưng kho chỉ còn {currentStock} cuốn.");
                     }
                 }
 
@@ -194,25 +196,7 @@ namespace QuanlyNhaSach.Services
 
         public OperationResult<DONHANG> ExecuteStockOut(int maDH)
         {
-            try
-            {
-                using var db = new QuanlyNhaSachContext();
-                var order = db.DONHANGs
-                    .AsNoTracking()
-                    .FirstOrDefault(o => o.MaDH == maDH);
-
-                if (order == null)
-                {
-                    return OperationResult<DONHANG>.Failure($"Không tìm thấy đơn hàng #{maDH} trong cơ sở dữ liệu.");
-                }
-
-                return ExecuteStockOut(order);
-            }
-            catch (Exception ex)
-            {
-                return OperationResult<DONHANG>.Failure(
-                    $"Lỗi khi truy vấn đơn hàng #{maDH}: {ex.InnerException?.Message ?? ex.Message}");
-            }
+            return ExecuteStockOut(new DONHANG { MaDH = maDH });
         }
 
         public OperationResult<DONHANG> ExecuteStockOut(DONHANG? order)
@@ -251,7 +235,7 @@ namespace QuanlyNhaSach.Services
                     if (dbOrder.StockOutStatus == StockOutStatus.Issued)
                     {
                         transaction.Rollback();
-                        return OperationResult<DONHANG>.Failure($"Đơn hàng {dbOrder.OrderCode} đã được xuất kho trước đó (không trừ kho lặp lại).");
+                        return OperationResult<DONHANG>.Failure($"Đơn hàng {dbOrder.OrderCode} đã được xuất kho trước đó.");
                     }
 
                     if (dbOrder.CHITIETDONHANGs == null || dbOrder.CHITIETDONHANGs.Count == 0)
@@ -260,17 +244,21 @@ namespace QuanlyNhaSach.Services
                         return OperationResult<DONHANG>.Failure($"Đơn hàng {dbOrder.OrderCode} không có sách để xuất kho.");
                     }
 
+                    var bookKeys = dbOrder.CHITIETDONHANGs.Select(l => l.MaSach.Trim()).Distinct().ToList();
+                    var trackedBooks = db.SACHs
+                        .Where(b => bookKeys.Contains(b.MaSach) && (b.Daxoa == null || b.Daxoa == false))
+                        .ToDictionary(b => b.MaSach.Trim(), b => b, StringComparer.OrdinalIgnoreCase);
+
                     int totalIssuedBooks = 0;
 
                     foreach (var line in dbOrder.CHITIETDONHANGs)
                     {
                         string bookKey = line.MaSach.Trim();
-                        var book = db.SACHs.FirstOrDefault(b => b.MaSach == bookKey && (b.Daxoa == null || b.Daxoa == false));
-                        if (book == null)
+                        if (!trackedBooks.TryGetValue(bookKey, out var book))
                         {
                             transaction.Rollback();
                             return OperationResult<DONHANG>.Failure(
-                                $"Không tìm thấy sách \"{line.TenSach}\" (Mã #{bookKey}) trong kho.");
+                                $"Không tìm thấy sách \"{line.TenSach}\" trong kho.");
                         }
 
                         int currentStock = book.Soluongton ?? 0;
@@ -317,7 +305,7 @@ namespace QuanlyNhaSach.Services
 
                     return OperationResult<DONHANG>.Success(
                         dbOrder,
-                        $"Đã xác nhận xuất kho thành công cho đơn hàng {dbOrder.OrderCode} (Phiếu xuất #{phieuXuat.MaPX}, tổng {totalIssuedBooks} cuốn). Tồn kho đã được trừ tương ứng.");
+                        $"Đã xác nhận xuất kho thành công cho đơn hàng {dbOrder.OrderCode} (Phiếu xuất #{phieuXuat.MaPX}, tổng {totalIssuedBooks} cuốn).");
                 }
                 catch (Exception innerEx)
                 {

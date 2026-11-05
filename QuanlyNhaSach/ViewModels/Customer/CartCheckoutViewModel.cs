@@ -26,6 +26,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
 
         private bool _hasUserTouchedHoTen;
         private bool _hasUserTouchedSDT;
+        private bool _hasUserTouchedEmail;
         private bool _hasUserTouchedDiaChi;
         private bool _hasUserTouchedPayment;
 
@@ -77,7 +78,21 @@ namespace QuanlyNhaSach.ViewModels.Customer
                 }
             }
         }
-
+        private string _email = string.Empty;
+        [Required(ErrorMessage = "Email không được để trống.")]
+        public string Email
+        {
+            get => _email;
+            set
+            {
+                if(SetProperty(ref _email, value, true))
+                {
+                    _hasUserTouchedEmail = true;
+                    UpdateFieldErrors();
+                    ConfirmCheckoutCommand.NotifyCanExecuteChanged();
+                }
+            }
+        }
         private string _diaChi = string.Empty;
         [Required(ErrorMessage = "Địa chỉ nhận hàng không được để trống.")]
         public string DiaChi
@@ -195,9 +210,9 @@ namespace QuanlyNhaSach.ViewModels.Customer
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(_hoTen) && !string.IsNullOrWhiteSpace(currentUser.HoTen))
+            if (string.IsNullOrWhiteSpace(_hoTen) && !string.IsNullOrWhiteSpace(currentUser.Hoten))
             {
-                _hoTen = currentUser.HoTen;
+                _hoTen = currentUser.Hoten;
                 OnPropertyChanged(nameof(HoTen));
             }
 
@@ -207,9 +222,15 @@ namespace QuanlyNhaSach.ViewModels.Customer
                 OnPropertyChanged(nameof(SDT));
             }
 
-            if (string.IsNullOrWhiteSpace(_diaChi) && !string.IsNullOrWhiteSpace(currentUser.DiaChi))
+            if(string.IsNullOrWhiteSpace(_email) && !string.IsNullOrWhiteSpace(currentUser.Email)) 
             {
-                _diaChi = currentUser.DiaChi;
+                _email = currentUser.Email; 
+                OnPropertyChanged(nameof(Email)); 
+            }
+
+            if (string.IsNullOrWhiteSpace(_diaChi) && !string.IsNullOrWhiteSpace(currentUser.Diachi))
+            {
+                _diaChi = currentUser.Diachi;
                 OnPropertyChanged(nameof(DiaChi));
             }
         }
@@ -436,6 +457,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
                     ? _orderService.CreateCustomerOrder(
                         HoTen,
                         SDT,
+                        Email,
                         DiaChi,
                         SelectedPaymentMethod,
                         _cartService.Items.ToList(),
@@ -481,9 +503,9 @@ namespace QuanlyNhaSach.ViewModels.Customer
             _hasUserTouchedPayment = false;
 
             var currentUser = _authService?.CurrentUser;
-            _hoTen = currentUser?.HoTen ?? string.Empty;
+            _hoTen = currentUser?.Hoten ?? string.Empty;
             _sdt = currentUser?.SDT ?? string.Empty;
-            _diaChi = currentUser?.DiaChi ?? string.Empty;
+            _diaChi = currentUser?.Diachi ?? string.Empty;
             _selectedPaymentMethod = "COD — Thanh toán khi nhận hàng";
 
             ClearErrors();

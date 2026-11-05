@@ -16,8 +16,8 @@ namespace QuanlyNhaSach.ViewModels
         public string BrandName => "BookNest";
         public string PortalLabel => "CỔNG NHÂN VIÊN (STAFF PORTAL)";
 
-        public string StaffFullName => _authService.CurrentUser?.HoTen ?? "Nhân viên";
-        public string StaffUsername => _authService.CurrentUser?.Username ?? string.Empty;
+        public string StaffFullName => _authService.CurrentUser?.Hoten ?? "Nhân viên";
+        public string StaffUsername => _authService.CurrentUser?.Tendangnhap ?? string.Empty;
         public string StaffRoleLabel => _authService.CurrentUser?.RoleDisplayName ?? "Nhân viên";
 
         [ObservableProperty]

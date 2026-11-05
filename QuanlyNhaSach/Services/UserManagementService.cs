@@ -16,31 +16,54 @@ namespace QuanlyNhaSach.Services
 
         private static readonly Regex PhoneTenDigitsRegex = new(@"^\d{10}$", RegexOptions.Compiled);
 
+        private readonly object _cacheLock = new();
+        private List<NGUOIDUNG>? _usersCache;
+
         public event EventHandler? UsersChanged;
 
         public UserManagementService()
         {
         }
 
+        public void InvalidateCache()
+        {
+            lock (_cacheLock)
+            {
+                _usersCache = null;
+            }
+        }
+
+        private IReadOnlyList<NGUOIDUNG> GetAllUsersCached()
+        {
+            lock (_cacheLock)
+            {
+                if (_usersCache != null)
+                {
+                    return _usersCache;
+                }
+
+                try
+                {
+                    using var db = new QuanlyNhaSachContext();
+                    _usersCache = db.NGUOIDUNGs
+                        .AsNoTracking()
+                        .OrderBy(u => u.MaND)
+                        .ToList();
+                    return _usersCache;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Lỗi khi tải danh sách người dùng: {ex.Message}");
+                    return Array.Empty<NGUOIDUNG>();
+                }
+            }
+        }
+
         public IReadOnlyList<NGUOIDUNG> GetUsersByRole(UserRole role)
         {
-            try
-            {
-                using var db = new QuanlyNhaSachContext();
-                var allUsers = db.NGUOIDUNGs
-                    .AsNoTracking()
-                    .OrderBy(u => u.MaND)
-                    .ToList();
-
-                return allUsers
-                    .Where(u => u.Role == role)
-                    .ToList();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Lỗi khi tải danh sách người dùng theo vai trò {role}: {ex.Message}");
-                return Array.Empty<NGUOIDUNG>();
-            }
+            return GetAllUsersCached()
+                .Where(u => u.Role == role)
+                .ToList();
         }
 
         public IReadOnlyList<NGUOIDUNG> SearchAccounts(UserRole role, string? keyword, string? statusFilter = null)
@@ -66,8 +89,7 @@ namespace QuanlyNhaSach.Services
                 string cleanId = kw.TrimStart('#');
 
                 query = query.Where(u =>
-                    u.HoTen.Contains(kw, StringComparison.OrdinalIgnoreCase) ||
-                    u.Username.Contains(kw, StringComparison.OrdinalIgnoreCase) ||
+                    (u.Hoten?.Contains(kw, StringComparison.OrdinalIgnoreCase) ?? false) ||
                     (u.Tendangnhap?.Contains(kw, StringComparison.OrdinalIgnoreCase) ?? false) ||
                     (u.Email?.Contains(kw, StringComparison.OrdinalIgnoreCase) ?? false) ||
                     (u.SDT?.Contains(kw, StringComparison.OrdinalIgnoreCase) ?? false) ||
@@ -81,58 +103,36 @@ namespace QuanlyNhaSach.Services
         public OperationResult<NGUOIDUNG> AddStaffAccount(
             string? hoTen,
             string? sdt,
+            string? email,
             string? diaChi,
             string? username,
             string? password,
             string? confirmPassword = null)
         {
             if (string.IsNullOrWhiteSpace(hoTen))
-            {
                 return OperationResult<NGUOIDUNG>.Failure("Vui lòng nhập họ và tên nhân viên.");
-            }
-
             if (hoTen.Trim().Length > 100)
-            {
                 return OperationResult<NGUOIDUNG>.Failure("Họ và tên nhân viên không được vượt quá 100 ký tự.");
-            }
-
             if (string.IsNullOrWhiteSpace(sdt) || !PhoneTenDigitsRegex.IsMatch(sdt.Trim()))
-            {
                 return OperationResult<NGUOIDUNG>.Failure("Số điện thoại nhân viên không hợp lệ. Vui lòng nhập đúng 10 chữ số (0-9).");
-            }
-
+            if (string.IsNullOrWhiteSpace(email) || !email.EndsWith("@gmail.com") || email.Length < 10)
+                return OperationResult<NGUOIDUNG>.Failure("Vui lòng nhập email hợp lệ!");
             if (string.IsNullOrWhiteSpace(diaChi))
-            {
                 return OperationResult<NGUOIDUNG>.Failure("Vui lòng nhập địa chỉ liên hệ của nhân viên.");
-            }
-
             if (diaChi.Trim().Length > 100)
-            {
                 return OperationResult<NGUOIDUNG>.Failure("Địa chỉ nhân viên không được vượt quá 100 ký tự.");
-            }
-
             if (string.IsNullOrWhiteSpace(username) || username.Trim().Length < 3)
-            {
-                return OperationResult<NGUOIDUNG>.Failure("Tên đăng nhập / Email phải có ít nhất 3 ký tự.");
-            }
-
+                return OperationResult<NGUOIDUNG>.Failure("Tên đăng nhập phải có ít nhất 3 ký tự.");
             if (username.Trim().Contains(' '))
-            {
                 return OperationResult<NGUOIDUNG>.Failure("Tên đăng nhập không được chứa khoảng trắng.");
-            }
-
             if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
-            {
                 return OperationResult<NGUOIDUNG>.Failure("Mật khẩu khởi tạo phải có ít nhất 6 ký tự.");
-            }
-
             if (confirmPassword != null && !string.Equals(password, confirmPassword, StringComparison.Ordinal))
-            {
                 return OperationResult<NGUOIDUNG>.Failure("Mật khẩu xác nhận không khớp với mật khẩu khởi tạo.");
-            }
 
             string normalizedName = hoTen.Trim();
             string normalizedPhone = sdt.Trim();
+            string normalizeEmail = email.Trim();
             string normalizedAddress = diaChi.Trim();
             string normalizedInputUsername = username.Trim();
 
@@ -155,18 +155,15 @@ namespace QuanlyNhaSach.Services
 
                 string newMaND = GenerateNextUserId(db, "NV");
                 string loginKey = BuildUniqueShortLoginKey(db, normalizedInputUsername, newMaND);
-                string? emailValue = normalizedInputUsername.Contains('@') || normalizedInputUsername.Length > 10
-                    ? normalizedInputUsername
-                    : null;
 
                 var newStaff = new NGUOIDUNG
                 {
                     MaND = newMaND,
                     Tendangnhap = loginKey,
-                    Matkhau = password,
+                    Matkhau = BCrypt.Net.BCrypt.HashPassword(password),
                     Hoten = normalizedName,
                     SDT = normalizedPhone,
-                    Email = emailValue,
+                    Email = normalizeEmail,
                     Diachi = normalizedAddress,
                     Vaitro = UserRole.Staff.ToVietnameseLabel(),
                     Trangthai = AccountStatus.Active.ToVietnameseLabel()
@@ -175,15 +172,16 @@ namespace QuanlyNhaSach.Services
                 db.NGUOIDUNGs.Add(newStaff);
                 db.SaveChanges();
 
+                InvalidateCache();
                 NotifyChanged();
                 return OperationResult<NGUOIDUNG>.Success(
                     newStaff,
-                    $"Đã tạo tài khoản nhân viên \"{newStaff.HoTen}\" ({newStaff.UserCode} — {newStaff.Username}) thành công.");
+                    $"Đã tạo tài khoản nhân viên \"{newStaff.Hoten}\" ({newStaff.UserCode} — {newStaff.Tendangnhap}) thành công.");
             }
             catch (Exception ex)
             {
                 return OperationResult<NGUOIDUNG>.Failure(
-                    $"Không thể tạo tài khoản nhân viên trong cơ sở dữ liệu: {ex.InnerException?.Message ?? ex.Message}");
+                    $"Không thể tạo tài khoản: {ex.InnerException?.Message ?? ex.Message}");
             }
         }
 
@@ -200,7 +198,7 @@ namespace QuanlyNhaSach.Services
             if (!string.IsNullOrWhiteSpace(currentActorMaND) &&
                 string.Equals(targetKey, currentActorMaND.Trim(), StringComparison.OrdinalIgnoreCase))
             {
-                return OperationResult<NGUOIDUNG>.Failure("Bạn không thể tự khóa tài khoản Quản lý đang đăng nhập.");
+                return OperationResult<NGUOIDUNG>.Failure("Bạn không thể khóa tài khoản Quản lý đang đăng nhập.");
             }
 
             try
@@ -209,20 +207,18 @@ namespace QuanlyNhaSach.Services
                 var user = db.NGUOIDUNGs.FirstOrDefault(u => u.MaND == targetKey);
                 if (user == null)
                 {
-                    return OperationResult<NGUOIDUNG>.Failure($"Không tìm thấy tài khoản #{targetKey} trong cơ sở dữ liệu.");
+                    return OperationResult<NGUOIDUNG>.Failure($"Không tìm thấy tài khoản trong hệ thống.");
                 }
 
                 if (user.Role == UserRole.Manager && user.IsActive)
                 {
-                    int activeManagersCount = db.NGUOIDUNGs
-                        .AsNoTracking()
-                        .ToList()
+                    int activeManagersCount = GetAllUsersCached()
                         .Count(u => u.Role == UserRole.Manager && u.IsActive);
 
                     if (activeManagersCount <= 1)
                     {
                         return OperationResult<NGUOIDUNG>.Failure(
-                            "Không thể khóa tài khoản Quản lý duy nhất đang hoạt động trong hệ thống.");
+                            "Không thể khóa tài khoản Quản lý đang hoạt động trong hệ thống.");
                     }
                 }
 
@@ -230,12 +226,13 @@ namespace QuanlyNhaSach.Services
                 user.IsActive = nextActiveState;
 
                 db.SaveChanges();
+                InvalidateCache();
                 NotifyChanged();
 
                 string stateText = nextActiveState ? "Mở khóa (Hoạt động)" : "Khóa tài khoản";
                 return OperationResult<NGUOIDUNG>.Success(
                     user,
-                    $"Đã cập nhật trạng thái tài khoản \"{user.HoTen}\" ({user.UserCode}) thành: {stateText}.");
+                    $"Đã cập nhật trạng thái tài khoản \"{user.Hoten}\" ({user.UserCode}) thành: {stateText}.");
             }
             catch (Exception ex)
             {
@@ -263,17 +260,17 @@ namespace QuanlyNhaSach.Services
                 }
 
                 string tempPassword = $"NS@{Random.Shared.Next(1000, 9999)}";
-                customer.Matkhau = tempPassword;
+                customer.Matkhau = BCrypt.Net.BCrypt.HashPassword(tempPassword);
 
                 db.SaveChanges();
+                InvalidateCache();
                 NotifyChanged();
 
                 return OperationResult<string>.Success(
                     tempPassword,
-                    $"Đã cấp lại mật khẩu cho khách hàng \"{customer.HoTen}\" ({customer.UserCode}).\n\n" +
-                    $"• Tên đăng nhập: {customer.Username}\n" +
-                    $"• Mật khẩu mới: {tempPassword}\n\n" +
-                    $"Mật khẩu đã được lưu vào cơ sở dữ liệu.");
+                    $"Đã cấp lại mật khẩu cho khách hàng \"{customer.Hoten}\" ({customer.UserCode}).\n\n" +
+                    $"• Tên đăng nhập: {customer.Tendangnhap}\n" +
+                    $"• Mật khẩu mới: {tempPassword}\n\n");
             }
             catch (Exception ex)
             {
@@ -286,13 +283,14 @@ namespace QuanlyNhaSach.Services
         {
             var existingIds = db.NGUOIDUNGs
                 .AsNoTracking()
+                .Where(u => u.MaND.StartsWith(prefix))
                 .Select(u => u.MaND)
                 .ToList();
 
             int maxNum = 0;
             foreach (var id in existingIds)
             {
-                if (string.IsNullOrWhiteSpace(id) || !id.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                if (string.IsNullOrWhiteSpace(id))
                 {
                     continue;
                 }
@@ -336,12 +334,11 @@ namespace QuanlyNhaSach.Services
                 baseKey = fallbackMaND;
             }
 
-            var existingLogins = db.NGUOIDUNGs
+            bool exists = db.NGUOIDUNGs
                 .AsNoTracking()
-                .Select(u => u.Tendangnhap)
-                .ToList();
+                .Any(u => u.Tendangnhap == baseKey);
 
-            if (!existingLogins.Any(x => string.Equals(x?.Trim(), baseKey, StringComparison.OrdinalIgnoreCase)))
+            if (!exists)
             {
                 return baseKey;
             }

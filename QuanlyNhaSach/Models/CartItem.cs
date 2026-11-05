@@ -5,7 +5,7 @@ namespace QuanlyNhaSach.Models
 {
     public partial class CartItem : ObservableObject
     {
-        private SACH _book; // Dùng model SACH thật
+        private SACH _book;
         private int _soLuongMua = 1;
 
         public CartItem(SACH book, int soLuongMua = 1)

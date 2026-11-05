@@ -13,38 +13,63 @@ namespace QuanlyNhaSach.Services
         public const string AllFilterLabel = "Tất cả";
         private const decimal MaxSqlDecimal10_2 = 99_999_999.99m;
 
+        private readonly object _cacheLock = new();
+        private List<DONHANG>? _ordersCache;
+
         public event EventHandler<DONHANG?>? OrderUpdated;
 
         public OrderService()
         {
         }
 
+        public void InvalidateCache()
+        {
+            lock (_cacheLock)
+            {
+                _ordersCache = null;
+            }
+        }
+
         public IReadOnlyList<DONHANG> GetAllOrders()
         {
-            try
+            lock (_cacheLock)
             {
-                using var db = new QuanlyNhaSachContext();
-                var orders = db.DONHANGs
-                    .AsNoTracking()
-                    .Include(o => o.MaKHNavigation)
-                    .Include(o => o.CHITIETDONHANGs)
-                        .ThenInclude(i => i.MaSachNavigation)
-                    .Include(o => o.PHIEUXUATs)
-                    .OrderByDescending(o => o.NgayTao)
-                    .ThenByDescending(o => o.MaDH)
-                    .ToList();
+                if (_ordersCache != null)
+                {
+                    return _ordersCache;
+                }
 
-                return orders;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Lỗi khi tải danh sách đơn hàng: {ex.Message}");
-                return Array.Empty<DONHANG>();
+                try
+                {
+                    using var db = new QuanlyNhaSachContext();
+                    _ordersCache = db.DONHANGs
+                        .AsNoTracking()
+                        .Include(o => o.MaKHNavigation)
+                        .Include(o => o.CHITIETDONHANGs)
+                            .ThenInclude(i => i.MaSachNavigation)
+                        .Include(o => o.PHIEUXUATs)
+                        .OrderByDescending(o => o.NgayTao)
+                        .ThenByDescending(o => o.MaDH)
+                        .ToList();
+
+                    return _ordersCache;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Lỗi khi tải danh sách đơn hàng: {ex.Message}");
+                    return Array.Empty<DONHANG>();
+                }
             }
         }
 
         public DONHANG? GetOrderById(int maDH)
         {
+            var cached = GetAllOrders().FirstOrDefault(o => o.MaDH == maDH);
+            if (cached != null)
+            {
+                return cached;
+            }
+
             try
             {
                 using var db = new QuanlyNhaSachContext();
@@ -193,15 +218,7 @@ namespace QuanlyNhaSach.Services
 
         public int GetTotalOrdersCount()
         {
-            try
-            {
-                using var db = new QuanlyNhaSachContext();
-                return db.DONHANGs.AsNoTracking().Count();
-            }
-            catch
-            {
-                return 0;
-            }
+            return GetAllOrders().Count;
         }
 
         public (int CompletedCount, int ProcessingCount, int CancelledCount) GetOrderStatusBreakdown()
@@ -361,7 +378,7 @@ namespace QuanlyNhaSach.Services
             };
         }
 
-        public OperationResult<DONHANG> CreateCustomerOrder(
+        /*public OperationResult<DONHANG> CreateCustomerOrder(
             string hoTen,
             string sdt,
             string diaChi,
@@ -371,11 +388,12 @@ namespace QuanlyNhaSach.Services
         {
             string? maKhHint = authenticatedUserId.HasValue ? $"KH{authenticatedUserId.Value:D3}" : null;
             return CreateCustomerOrder(hoTen, sdt, diaChi, phuongThucThanhToan, cartItems, maKhHint);
-        }
+        }*/
 
         public OperationResult<DONHANG> CreateCustomerOrder(
             string hoTen,
             string sdt,
+            string email,
             string diaChi,
             string phuongThucThanhToan,
             IEnumerable<CartItem> cartItems,
@@ -390,7 +408,8 @@ namespace QuanlyNhaSach.Services
             {
                 return OperationResult<DONHANG>.Failure("Số điện thoại người nhận không hợp lệ (gồm 9–10 chữ số).");
             }
-
+            if (string.IsNullOrWhiteSpace(email) || !email.EndsWith("@gmail.com") || email.Length < 10)
+                return OperationResult<DONHANG>.Failure("Vui lòng nhập email người đặt hàng");
             if (string.IsNullOrWhiteSpace(diaChi))
             {
                 return OperationResult<DONHANG>.Failure("Vui lòng nhập địa chỉ giao hàng.");
@@ -402,9 +421,15 @@ namespace QuanlyNhaSach.Services
                 return OperationResult<DONHANG>.Failure("Giỏ hàng đang trống. Vui lòng chọn ít nhất 1 cuốn sách.");
             }
 
+            if (itemsList.Any(c => c.Book == null || string.IsNullOrWhiteSpace(c.Book.MaSach)))
+            {
+                return OperationResult<DONHANG>.Failure("Sản phẩm không hợp lệ.");
+            }
+
             string normalizedName = hoTen.Trim();
             string normalizedPhone = sdt.Trim();
             string normalizedAddress = diaChi.Trim();
+            string normalizedEmail = email.Trim();
             PaymentMethod method = EnumExtensions.ParsePaymentMethod(phuongThucThanhToan);
 
             try
@@ -414,7 +439,6 @@ namespace QuanlyNhaSach.Services
 
                 try
                 {
-                    // 1. Resolve or create NGUOIDUNG customer record to satisfy FK_DONHANG_NGUOIDUNG
                     NGUOIDUNG? customer = null;
                     if (!string.IsNullOrWhiteSpace(authenticatedCustomerMaND))
                     {
@@ -422,10 +446,7 @@ namespace QuanlyNhaSach.Services
                         customer = db.NGUOIDUNGs.FirstOrDefault(u => u.MaND == key);
                     }
 
-                    if (customer == null)
-                    {
-                        customer = db.NGUOIDUNGs.FirstOrDefault(u => u.SDT == normalizedPhone);
-                    }
+                    customer ??= db.NGUOIDUNGs.FirstOrDefault(u => u.SDT == normalizedPhone);
 
                     if (customer == null)
                     {
@@ -434,7 +455,7 @@ namespace QuanlyNhaSach.Services
                             ? normalizedPhone
                             : normalizedPhone.Substring(0, 10);
 
-                        if (db.NGUOIDUNGs.Any(u => u.Tendangnhap == loginKey))
+                        if (db.NGUOIDUNGs.AsNoTracking().Any(u => u.Tendangnhap == loginKey))
                         {
                             loginKey = newCustomerId;
                         }
@@ -443,9 +464,10 @@ namespace QuanlyNhaSach.Services
                         {
                             MaND = newCustomerId,
                             Tendangnhap = loginKey,
-                            Matkhau = "123456",
+                            Matkhau = BCrypt.Net.BCrypt.HashPassword("123456"),
                             Hoten = normalizedName,
                             SDT = normalizedPhone,
+                            Email = normalizedEmail,
                             Diachi = normalizedAddress,
                             Vaitro = UserRole.Customer.ToVietnameseLabel(),
                             Trangthai = AccountStatus.Active.ToVietnameseLabel()
@@ -460,27 +482,26 @@ namespace QuanlyNhaSach.Services
                         customer.Diachi = normalizedAddress;
                     }
 
-                    // 2. Validate books and compute totals
+                    // Lấy toàn bộ sách trong giỏ hàng chỉ bằng 1 câu truy vấn
+                    var bookKeys = itemsList.Select(c => c.Book.MaSach.Trim()).Distinct().ToList();
+                    var dbBooksMap = db.SACHs
+                        .AsNoTracking()
+                        .Where(b => bookKeys.Contains(b.MaSach) && (b.Daxoa == null || b.Daxoa == false))
+                        .ToDictionary(b => b.MaSach.Trim(), b => b, StringComparer.OrdinalIgnoreCase);
+
                     decimal grandTotal = 0m;
                     var validatedLines = new List<(SACH Book, int Qty, decimal LineTotal)>(itemsList.Count);
 
                     foreach (var cartItem in itemsList)
                     {
-                        if (cartItem.Book == null || string.IsNullOrWhiteSpace(cartItem.Book.MaSach))
-                        {
-                            transaction.Rollback();
-                            return OperationResult<DONHANG>.Failure("Phát hiện sản phẩm không hợp lệ trong giỏ hàng.");
-                        }
-
                         if (cartItem.SoLuongMua < 1 || cartItem.SoLuongMua > byte.MaxValue)
                         {
                             transaction.Rollback();
-                            return OperationResult<DONHANG>.Failure($"Số lượng mua của sách \"{cartItem.Book.Tensach}\" không hợp lệ.");
+                            return OperationResult<DONHANG>.Failure($"Số lượng sách \"{cartItem.Book.Tensach}\" không hợp lệ.");
                         }
 
                         string bookKey = cartItem.Book.MaSach.Trim();
-                        var dbBook = db.SACHs.FirstOrDefault(b => b.MaSach == bookKey && (b.Daxoa == null || b.Daxoa == false));
-                        if (dbBook == null)
+                        if (!dbBooksMap.TryGetValue(bookKey, out var dbBook))
                         {
                             transaction.Rollback();
                             return OperationResult<DONHANG>.Failure($"Sách \"{cartItem.Book.Tensach}\" không còn tồn tại trong hệ thống.");
@@ -491,7 +512,7 @@ namespace QuanlyNhaSach.Services
                         {
                             transaction.Rollback();
                             return OperationResult<DONHANG>.Failure(
-                                $"Sách \"{dbBook.Tensach}\" hiện chỉ còn {availableStock} cuốn trong kho (bạn đang chọn {cartItem.SoLuongMua} cuốn).");
+                                $"Sách \"{dbBook.Tensach}\" hiện chỉ còn {availableStock} cuốn.");
                         }
 
                         decimal unitPrice = dbBook.Giaban ?? cartItem.Book.Giaban ?? 0m;
@@ -509,10 +530,9 @@ namespace QuanlyNhaSach.Services
                     if (grandTotal > MaxSqlDecimal10_2)
                     {
                         transaction.Rollback();
-                        return OperationResult<DONHANG>.Failure($"Tổng tiền đơn hàng ({grandTotal:N0} ₫) vượt quá giới hạn cho phép.");
+                        return OperationResult<DONHANG>.Failure($"Tổng tiền đơn hàng {grandTotal:0} ₫ vượt quá giới hạn cho phép.");
                     }
 
-                    // 3. Insert DONHANG header
                     DateTime now = DateTime.Now;
                     var order = new DONHANG
                     {
@@ -531,7 +551,6 @@ namespace QuanlyNhaSach.Services
                     db.DONHANGs.Add(order);
                     db.SaveChanges();
 
-                    // 4. Insert CHITIETDONHANG lines
                     foreach (var (book, qty, lineTotal) in validatedLines)
                     {
                         var detail = new CHITIETDONHANG
@@ -549,6 +568,7 @@ namespace QuanlyNhaSach.Services
                     db.SaveChanges();
                     transaction.Commit();
 
+                    InvalidateCache();
                     order.MaKHNavigation = customer;
                     NotifyOrderUpdated(order);
 
@@ -560,13 +580,13 @@ namespace QuanlyNhaSach.Services
                 {
                     transaction.Rollback();
                     return OperationResult<DONHANG>.Failure(
-                        $"Lỗi giao dịch khi tạo đơn hàng: {innerEx.InnerException?.Message ?? innerEx.Message}");
+                        $"Lỗi giao dịch: {innerEx.InnerException?.Message ?? innerEx.Message}");
                 }
             }
             catch (Exception ex)
             {
                 return OperationResult<DONHANG>.Failure(
-                    $"Không thể kết nối cơ sở dữ liệu để đặt hàng: {ex.InnerException?.Message ?? ex.Message}");
+                    $"Không thể kết nối: {ex.InnerException?.Message ?? ex.Message}");
             }
         }
 
@@ -575,7 +595,7 @@ namespace QuanlyNhaSach.Services
             if (string.IsNullOrWhiteSpace(targetStatusLabel) ||
                 !EnumExtensions.TryParseOrderStatusLabel(targetStatusLabel, out var targetStatus))
             {
-                return OperationResult<DONHANG>.Failure("Trạng thái đích được chọn không hợp lệ.");
+                return OperationResult<DONHANG>.Failure("Trạng thái không hợp lệ.");
             }
 
             return TransitionOrderStatus(maDH, targetStatus);
@@ -615,10 +635,9 @@ namespace QuanlyNhaSach.Services
                     {
                         transaction.Rollback();
                         return OperationResult<DONHANG>.Failure(
-                            $"Đơn hàng {order.OrderCode} đã ở trạng thái kết thúc ({currentStatus.ToVietnameseLabel()}), không thể chuyển sang trạng thái khác.");
+                            $"Đơn hàng không thể chuyển sang trạng thái khác.");
                     }
 
-                    // Validate allowed workflow transitions
                     if (targetStatus == OrderStatus.Confirmed && currentStatus != OrderStatus.New)
                     {
                         transaction.Rollback();
@@ -632,14 +651,14 @@ namespace QuanlyNhaSach.Services
                         {
                             transaction.Rollback();
                             return OperationResult<DONHANG>.Failure(
-                                $"Đơn hàng {order.OrderCode} phải ở trạng thái \"Đã xác nhận\" trước khi chuyển sang \"Đang giao\".");
+                                $"Đơn hàng phải ở trạng thái \"Đã xác nhận\" trước khi chuyển sang \"Đang giao\".");
                         }
 
                         if (order.StockOutStatus != StockOutStatus.Issued)
                         {
                             transaction.Rollback();
                             return OperationResult<DONHANG>.Failure(
-                                $"Đơn hàng {order.OrderCode} chưa được xuất kho. Vui lòng thực hiện Xuất kho (UC10) trước khi chuyển sang \"Đang giao\".");
+                                $"Đơn hàng chưa được xuất kho. Vui lòng thực hiện Xuất kho trước khi chuyển sang \"Đang giao\".");
                         }
                     }
 
@@ -649,14 +668,14 @@ namespace QuanlyNhaSach.Services
                         {
                             transaction.Rollback();
                             return OperationResult<DONHANG>.Failure(
-                                $"Đơn hàng {order.OrderCode} phải ở trạng thái \"Đang giao\" trước khi chuyển sang \"Hoàn tất\".");
+                                $"Đơn hàng phải ở trạng thái \"Đang giao\" trước khi chuyển sang \"Hoàn tất\".");
                         }
 
                         if (order.PaymentStatus != PaymentStatus.Paid)
                         {
                             transaction.Rollback();
                             return OperationResult<DONHANG>.Failure(
-                                $"Đơn hàng {order.OrderCode} chưa được thanh toán ({order.TrangThaiThanhToan}). Vui lòng ghi nhận Thu tiền (UC08) trước khi hoàn tất đơn hàng.");
+                                $"Đơn hàng chưa được thanh toán. Vui lòng ghi nhận Thu tiền trước khi hoàn tất đơn hàng.");
                         }
                     }
 
@@ -669,14 +688,16 @@ namespace QuanlyNhaSach.Services
                                 $"Đơn hàng {order.OrderCode} đang trong quá trình vận chuyển, không thể hủy trực tiếp.");
                         }
 
-                        // If stock was already issued for this order, restore stock and remove PHIEUXUAT
-                        if (order.PHIEUXUATs != null && order.PHIEUXUATs.Count > 0)
+                        if (order.PHIEUXUATs != null && order.PHIEUXUATs.Count > 0 && order.CHITIETDONHANGs != null)
                         {
+                            var bookKeys = order.CHITIETDONHANGs.Select(l => l.MaSach.Trim()).Distinct().ToList();
+                            var trackedBooks = db.SACHs
+                                .Where(b => bookKeys.Contains(b.MaSach))
+                                .ToDictionary(b => b.MaSach.Trim(), b => b, StringComparer.OrdinalIgnoreCase);
+
                             foreach (var line in order.CHITIETDONHANGs)
                             {
-                                string bookKey = line.MaSach.Trim();
-                                var book = db.SACHs.FirstOrDefault(b => b.MaSach == bookKey);
-                                if (book != null)
+                                if (trackedBooks.TryGetValue(line.MaSach.Trim(), out var book))
                                 {
                                     int restored = Math.Min(byte.MaxValue, (book.Soluongton ?? 0) + line.SoLuongMua);
                                     book.Soluongton = (byte)restored;
@@ -693,6 +714,7 @@ namespace QuanlyNhaSach.Services
                     db.SaveChanges();
                     transaction.Commit();
 
+                    InvalidateCache();
                     NotifyOrderUpdated(order);
                     return OperationResult<DONHANG>.Success(
                         order,
@@ -702,13 +724,13 @@ namespace QuanlyNhaSach.Services
                 {
                     transaction.Rollback();
                     return OperationResult<DONHANG>.Failure(
-                        $"Lỗi khi cập nhật trạng thái đơn hàng: {innerEx.InnerException?.Message ?? innerEx.Message}");
+                        $"Lỗi giao dịch khi cập nhật trạng thái đơn hàng: {innerEx.InnerException?.Message ?? innerEx.Message}");
                 }
             }
             catch (Exception ex)
             {
                 return OperationResult<DONHANG>.Failure(
-                    $"Không thể kết nối cơ sở dữ liệu: {ex.InnerException?.Message ?? ex.Message}");
+                    $"Không thể kết nối hệ thống: {ex.InnerException?.Message ?? ex.Message}");
             }
         }
 
@@ -735,9 +757,8 @@ namespace QuanlyNhaSach.Services
                     if (order == null)
                     {
                         transaction.Rollback();
-                        return OperationResult<DONHANG>.Failure($"Không tìm thấy đơn hàng #{maDH} trong cơ sở dữ liệu.");
+                        return OperationResult<DONHANG>.Failure($"Không tìm thấy đơn hàng #{maDH} trong hệ thống.");
                     }
-
                     if (order.Status == OrderStatus.Cancelled)
                     {
                         transaction.Rollback();
@@ -762,6 +783,7 @@ namespace QuanlyNhaSach.Services
                         db.SaveChanges();
                         transaction.Commit();
 
+                        InvalidateCache();
                         NotifyOrderUpdated(order);
                         return OperationResult<DONHANG>.Success(
                             order,
@@ -772,7 +794,7 @@ namespace QuanlyNhaSach.Services
                     {
                         transaction.Rollback();
                         return OperationResult<DONHANG>.Failure(
-                            $"Số tiền thanh toán ({enteredAmount.GetValueOrDefault():N0} ₫) không được nhỏ hơn tổng tiền đơn hàng ({requiredTotal:N0} ₫).");
+                            $"Số tiền thanh toán không được nhỏ hơn tổng tiền đơn hàng.");
                     }
 
                     order.Method = selectedMethod;
@@ -785,15 +807,16 @@ namespace QuanlyNhaSach.Services
                     if (confirmCodCollectionOnDelivery && order.Status == OrderStatus.Shipping)
                     {
                         order.Status = OrderStatus.Completed;
-                        extraStatusNote = " Đơn hàng đã được chuyển sang trạng thái Hoàn tất.";
+                        extraStatusNote = "Đơn hàng đã được chuyển sang trạng thái Hoàn tất.";
                     }
 
                     db.SaveChanges();
                     transaction.Commit();
 
                     decimal changeAmount = Math.Max(0m, enteredAmount.Value - requiredTotal);
-                    string changeNote = changeAmount > 0m ? $" (Tiền thừa trả khách: {changeAmount:N0} ₫)." : ".";
+                    string changeNote = changeAmount > 0m ? $"Tiền thừa: {changeAmount:N0} ₫)." : ".";
 
+                    InvalidateCache();
                     NotifyOrderUpdated(order);
                     return OperationResult<DONHANG>.Success(
                         order,
@@ -809,7 +832,7 @@ namespace QuanlyNhaSach.Services
             catch (Exception ex)
             {
                 return OperationResult<DONHANG>.Failure(
-                    $"Không thể kết nối cơ sở dữ liệu: {ex.InnerException?.Message ?? ex.Message}");
+                    $"Không thể kết nối hệ thống: {ex.InnerException?.Message ?? ex.Message}");
             }
         }
 

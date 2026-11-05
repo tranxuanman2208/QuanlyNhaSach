@@ -332,8 +332,13 @@
                                 <TextBlock Text="{Binding SdtError}"
                                            Style="{StaticResource ValidationErrorTextStyle}"
                                            Visibility="{Binding HasSDTError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-
-                                <!-- 3. Delivery Address -->
+                                <!-- 3. Email -->
+                                <TextBlock Text="Email*" Style="{StaticResource FormFieldLabelStyle}" Margin="0,14,0,6"/>
+                                <TextBox Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FormTextBoxStyle}"/>
+                                <TextBlock Text="{Binding EmailError}"
+                                           Style="{StaticResource ValidationErrorTextStyle}"
+                                           Visibility="{Binding HasEmailError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                <!-- 4. Delivery Address -->
                                 <TextBlock Text="Địa chỉ nhận hàng *" Style="{StaticResource FormFieldLabelStyle}" Margin="0,14,0,6"/>
                                 <TextBox Text="{Binding DiaChi, UpdateSourceTrigger=PropertyChanged}"
                                          Style="{StaticResource FormTextBoxStyle}"
@@ -345,7 +350,7 @@
                                            Style="{StaticResource ValidationErrorTextStyle}"
                                            Visibility="{Binding HasDiaChiError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
-                                <!-- 4. Payment Method -->
+                                <!-- 5. Payment Method -->
                                 <TextBlock Text="Phương thức thanh toán *" Style="{StaticResource FormFieldLabelStyle}" Margin="0,14,0,6"/>
                                 <ComboBox ItemsSource="{Binding PaymentMethods}"
                                           SelectedItem="{Binding SelectedPaymentMethod, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"

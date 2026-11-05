@@ -16,7 +16,7 @@ namespace QuanlyNhaSach.Services
 
         public int TotalQuantity => Items.Sum(i => i.SoLuongMua);
         public decimal TotalAmount => Items.Sum(i => i.ThanhTien);
-        public string FormattedTotalAmount => $"{TotalAmount:N0} ₫";
+        public string FormattedTotalAmount => $"{TotalAmount:0} ₫";
         public bool IsEmpty => Items.Count == 0;
 
         public event EventHandler? CartChanged;
@@ -43,21 +43,20 @@ namespace QuanlyNhaSach.Services
                 return OperationResult.Failure("Số lượng thêm vào giỏ hàng phải lớn hơn hoặc bằng 1.");
             }
 
-            // Kiểm tra tồn kho
             var sharedBook = _bookService.GetBookById(maSach);
             if (sharedBook == null)
             {
                 return OperationResult.Failure("Sách không tồn tại trong hệ thống.");
             }
 
-            int tonKho = sharedBook.Soluongton ?? 0; // Xử lý null an toàn
+            int tonKho = sharedBook.Soluongton ?? 0;
 
             if (tonKho <= 0)
             {
                 return OperationResult.Failure($"Sách \"{sharedBook.Tensach}\" hiện đã hết hàng.");
             }
 
-            var existingItem = Items.FirstOrDefault(i => i.Book.MaSach == maSach);
+            var existingItem = Items.FirstOrDefault(i => string.Equals(i.Book.MaSach?.Trim(), maSach.Trim(), StringComparison.OrdinalIgnoreCase));
             int currentInCart = existingItem?.SoLuongMua ?? 0;
             int newTotalQuantity = currentInCart + quantity;
 
@@ -78,7 +77,6 @@ namespace QuanlyNhaSach.Services
                 Items.Add(newItem);
             }
 
-            NotifyTotalsChanged();
             return OperationResult.Success($"Đã thêm {quantity} cuốn \"{sharedBook.Tensach}\" vào giỏ hàng.");
         }
 
@@ -134,7 +132,6 @@ namespace QuanlyNhaSach.Services
             }
 
             item.SetValidatedQuantity(newQuantity);
-            NotifyTotalsChanged();
             return OperationResult.Success();
         }
 
@@ -147,7 +144,6 @@ namespace QuanlyNhaSach.Services
 
             if (Items.Remove(item))
             {
-                NotifyTotalsChanged();
                 return OperationResult.Success($"Đã xóa \"{item.Book.Tensach}\" khỏi giỏ hàng.");
             }
 
@@ -156,8 +152,10 @@ namespace QuanlyNhaSach.Services
 
         public void ClearCart()
         {
-            Items.Clear();
-            NotifyTotalsChanged();
+            if (Items.Count > 0)
+            {
+                Items.Clear();
+            }
         }
 
         private void OnItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

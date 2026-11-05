@@ -260,7 +260,7 @@
                     </Border>
 
                     <!-- Username Input -->
-                    <TextBlock Text="Tên đăng nhập / Email *" Style="{StaticResource FormFieldLabelStyle}"/>
+                    <TextBlock Text="Tên đăng nhập" Style="{StaticResource FormFieldLabelStyle}"/>
                     <TextBox x:Name="LoginUsernameTextBox"
                              Text="{Binding LoginUsername, UpdateSourceTrigger=PropertyChanged}"
                              Style="{StaticResource FormTextBoxStyle}"
@@ -319,7 +319,7 @@
                 </StackPanel>
 
                 <!-- B. CUSTOMER REGISTRATION VIEW (UC14) -->
-                <StackPanel Visibility="{Binding IsRegisterMode, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <StackPanel Visibility="{Binding IsRegisterMode, Converter={StaticResource BooleanToVisibilityConverter}}" d:IsHidden="True">
 
                     <Border Background="{StaticResource BrandOrangeLightBrush}"
                             BorderBrush="{StaticResource BrandOrangeBrush}"
@@ -377,8 +377,13 @@
                     <TextBlock Text="{Binding SdtError}"
                                Style="{StaticResource ValidationErrorTextStyle}"
                                Visibility="{Binding HasSdtError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-
-                    <!-- 3. Address -->
+                    <!-- 3. Email -->
+                    <TextBlock Text="Địa chỉ Email*" Style="{StaticResource FormFieldLabelStyle}" Margin="0,12,0,6"/>
+                    <TextBox Text="{Binding RegisterEmail, UpdateSourceTrigger=PropertyChanged}"
+                                Style="{StaticResource FormTextBoxStyle}"/>
+                    <TextBlock Text="{Binding EmailError}" Style="{StaticResource ValidationErrorTextStyle}"
+                                Visibility="{Binding HasEmailError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                    <!-- 4. Address -->
                     <TextBlock Text="Địa chỉ nhận hàng *" Style="{StaticResource FormFieldLabelStyle}" Margin="0,12,0,6"/>
                     <TextBox Text="{Binding RegisterDiaChi, UpdateSourceTrigger=PropertyChanged}"
                              Style="{StaticResource FormTextBoxStyle}"/>
@@ -386,15 +391,15 @@
                                Style="{StaticResource ValidationErrorTextStyle}"
                                Visibility="{Binding HasDiaChiError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
-                    <!-- 4. Username / Email -->
-                    <TextBlock Text="Tên đăng nhập / Email *" Style="{StaticResource FormFieldLabelStyle}" Margin="0,12,0,6"/>
+                    <!-- 5. Username -->
+                    <TextBlock Text="Tên đăng nhập" Style="{StaticResource FormFieldLabelStyle}" Margin="0,12,0,6"/>
                     <TextBox Text="{Binding RegisterUsername, UpdateSourceTrigger=PropertyChanged}"
                              Style="{StaticResource FormTextBoxStyle}"/>
                     <TextBlock Text="{Binding UsernameError}"
                                Style="{StaticResource ValidationErrorTextStyle}"
                                Visibility="{Binding HasUsernameError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
-                    <!-- 5. Password & Confirm Password -->
+                    <!-- 6. Password & Confirm Password -->
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>

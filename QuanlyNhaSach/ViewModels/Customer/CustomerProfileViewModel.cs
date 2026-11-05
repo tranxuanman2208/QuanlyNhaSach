@@ -129,7 +129,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
 
                 if (sessionUser != null)
                 {
-                    string? username = sessionUser.Username?.Trim();
+                    string? username = sessionUser.Tendangnhap?.Trim();
                     string? phone = sessionUser.SDT?.Trim();
 
                     dbUser = db.NGUOIDUNGs
@@ -144,10 +144,10 @@ namespace QuanlyNhaSach.ViewModels.Customer
                         {
                             MaND = $"KH{sessionUser.MaND:D3}",
                             Tendangnhap = username ?? "customer",
-                            Hoten = sessionUser.HoTen,
+                            Hoten = sessionUser.Hoten,
                             SDT = sessionUser.SDT,
                             Email = username,
-                            Diachi = sessionUser.DiaChi,
+                            Diachi = sessionUser.Diachi,
                             Vaitro = "Khách hàng",
                             Trangthai = "Hoạt động"
                         };

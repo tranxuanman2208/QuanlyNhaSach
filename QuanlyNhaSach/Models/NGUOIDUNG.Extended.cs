@@ -9,52 +9,7 @@ namespace QuanlyNhaSach.Models
         [NotMapped]
         public string UserCode => string.IsNullOrWhiteSpace(MaND) ? "ND0000" : MaND.Trim().ToUpperInvariant();
 
-        [NotMapped]
-        public string HoTen
-        {
-            get => Hoten ?? string.Empty;
-            set => Hoten = value;
-        }
-
-        [NotMapped]
-        public string DiaChi
-        {
-            get => Diachi ?? string.Empty;
-            set => Diachi = value;
-        }
-
-        [NotMapped]
-        public string Username
-        {
-            get => !string.IsNullOrWhiteSpace(Email) && Email.Contains('@') && Tendangnhap.Length >= 10
-                ? Email
-                : (Tendangnhap ?? string.Empty);
-            set
-            {
-                string val = value?.Trim() ?? string.Empty;
-                if (val.Length <= 10)
-                {
-                    Tendangnhap = val;
-                }
-                else
-                {
-                    Tendangnhap = val.Substring(0, 10);
-                    if (string.IsNullOrWhiteSpace(Email))
-                    {
-                        Email = val;
-                    }
-                }
-            }
-        }
-
-        [NotMapped]
-        public string Password
-        {
-            get => Matkhau ?? string.Empty;
-            set => Matkhau = value ?? string.Empty;
-        }
-
-        [NotMapped]
+        
         public UserRole Role
         {
             get

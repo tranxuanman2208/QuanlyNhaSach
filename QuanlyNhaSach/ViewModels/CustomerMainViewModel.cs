@@ -16,8 +16,8 @@ namespace QuanlyNhaSach.ViewModels
         public string BrandName => "BookNest";
         public string BrandTagline => "Nhà Sách Trực Tuyến";
 
-        public string CustomerFullName => _authService.CurrentUser?.HoTen ?? "Khách hàng";
-        public string CustomerUsername => _authService.CurrentUser?.Username ?? string.Empty;
+        public string CustomerFullName => _authService.CurrentUser?.Hoten ?? "Khách hàng";
+        public string CustomerUsername => _authService.CurrentUser?.Tendangnhap ?? string.Empty;
         public string CustomerRoleLabel => _authService.CurrentUser?.RoleDisplayName ?? "Khách hàng";
 
         [ObservableProperty]

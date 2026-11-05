@@ -16,9 +16,9 @@ namespace QuanlyNhaSach.ViewModels.Manager
         public string BrandHeaderTitle => "NHÀ SÁCH NHÓM 1";
         public string PortalHeaderSubtitle => "CỔNG QUẢN TRỊ";
 
-        public string ManagerFullName => _authService.CurrentUser?.HoTen ?? "Quản lý";
+        public string ManagerFullName => _authService.CurrentUser?.Hoten ?? "Quản lý";
         public string ManagerInitials => _authService.CurrentUser?.Initials ?? "QL";
-        public string ManagerUsername => _authService.CurrentUser?.Username ?? string.Empty;
+        public string ManagerUsername => _authService.CurrentUser?.Tendangnhap ?? string.Empty;
         public string ManagerRoleLabel => "Quản lý";
 
         [ObservableProperty]

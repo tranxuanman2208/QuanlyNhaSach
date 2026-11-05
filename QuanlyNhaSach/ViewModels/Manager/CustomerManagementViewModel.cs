@@ -105,7 +105,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
             string actionLabel = customer.IsActive ? "KHÓA" : "MỞ KHÓA";
             bool confirmed = _dialogService.ShowConfirmation(
                 $"Xác nhận {actionLabel} tài khoản khách hàng",
-                $"Bạn có chắc chắn muốn {actionLabel} tài khoản khách hàng \"{customer.HoTen}\" ({customer.UserCode} — {customer.Username}) không?\n\n" +
+                $"Bạn có chắc chắn muốn {actionLabel} tài khoản khách hàng \"{customer.Hoten}\" ({customer.UserCode} — {customer.Tendangnhap}) không?\n\n" +
                 $"Toàn bộ lịch sử đơn hàng của khách hàng vẫn được bảo toàn nguyên vẹn.");
 
             if (!confirmed)
@@ -139,8 +139,8 @@ namespace QuanlyNhaSach.ViewModels.Manager
                 "Xác nhận cấp lại mật khẩu",
                 $"Bạn có chắc chắn muốn cấp lại mật khẩu tạm thời cho tài khoản khách hàng:\n" +
                 $"• Mã KH: {customer.UserCode}\n" +
-                $"• Họ tên: {customer.HoTen}\n" +
-                $"• Tên đăng nhập: {customer.Username}\n\n" +
+                $"• Họ tên: {customer.Hoten}\n" +
+                $"• Tên đăng nhập: {customer.Tendangnhap}\n\n" +
                 $"Mật khẩu tạm thời mới sẽ được cập nhật vào cơ sở dữ liệu và hiển thị một lần sau khi xác nhận.");
 
             if (!confirmed)

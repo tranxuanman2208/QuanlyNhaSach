@@ -58,12 +58,19 @@ namespace QuanlyNhaSach.ViewModels
         private string _registerConfirmPassword = string.Empty;
 
         [ObservableProperty]
+        private string _registerEmail = string.Empty;
+
+        [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(HasHoTenError))]
         private string _hoTenError = string.Empty;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(HasSdtError))]
         private string _sdtError = string.Empty;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasEmailError))]
+        private string _emailError = string.Empty;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(HasDiaChiError))]
@@ -87,6 +94,7 @@ namespace QuanlyNhaSach.ViewModels
 
         public bool HasHoTenError => !string.IsNullOrWhiteSpace(HoTenError);
         public bool HasSdtError => !string.IsNullOrWhiteSpace(SdtError);
+        public bool HasEmailError => !string.IsNullOrWhiteSpace(EmailError);
         public bool HasDiaChiError => !string.IsNullOrWhiteSpace(DiaChiError);
         public bool HasUsernameError => !string.IsNullOrWhiteSpace(UsernameError);
         public bool HasPasswordError => !string.IsNullOrWhiteSpace(PasswordError);
@@ -120,12 +128,12 @@ namespace QuanlyNhaSach.ViewModels
         }
 
         [RelayCommand]
-        private void Login()
+        private async Task Login()
         {
             LoginErrorMessage = string.Empty;
             LoginSuccessMessage = string.Empty;
 
-            var result = _authService.Login(LoginUsername, LoginPassword);
+            var result = await _authService.LoginAsync(LoginUsername, LoginPassword);
             if (!result.IsSuccess || result.Data == null)
             {
                 LoginErrorMessage = result.Message;
@@ -160,7 +168,7 @@ namespace QuanlyNhaSach.ViewModels
             IsLoginMode = true;
             LoginErrorMessage = string.Empty;
             LoginSuccessMessage = "Đã điền tài khoản mẫu Khách hàng (Demo-Only). Nhấn 'Đăng nhập' để tiếp tục.";
-            LoginUsername = "customer@example.com";
+            LoginUsername = "customer";
             LoginPassword = "Customer123!";
         }
 
@@ -170,7 +178,7 @@ namespace QuanlyNhaSach.ViewModels
             IsLoginMode = true;
             LoginErrorMessage = string.Empty;
             LoginSuccessMessage = "Đã điền tài khoản mẫu Nhân viên (Demo-Only). Nhấn 'Đăng nhập' để tiếp tục.";
-            LoginUsername = "staff@example.com";
+            LoginUsername = "staff";
             LoginPassword = "Staff123!";
         }
 
@@ -180,7 +188,7 @@ namespace QuanlyNhaSach.ViewModels
             IsLoginMode = true;
             LoginErrorMessage = string.Empty;
             LoginSuccessMessage = "Đã điền tài khoản mẫu Quản lý / Admin (Demo-Only). Nhấn 'Đăng nhập' để tiếp tục.";
-            LoginUsername = "manager@example.com";
+            LoginUsername = "manager";
             LoginPassword = "Manager123!";
         }
 
@@ -217,6 +225,7 @@ namespace QuanlyNhaSach.ViewModels
             var result = _authService.RegisterCustomer(
                 RegisterHoTen,
                 RegisterSDT,
+                RegisterEmail,
                 RegisterDiaChi,
                 RegisterUsername,
                 RegisterPassword,
@@ -228,17 +237,18 @@ namespace QuanlyNhaSach.ViewModels
                 return;
             }
 
-            string registeredUsername = result.Data.Username ?? string.Empty;
+            string registeredUsername = result.Data.Tendangnhap ?? string.Empty;
 
             // Reset registration form
             RegisterHoTen = string.Empty;
             RegisterSDT = string.Empty;
+            RegisterEmail = string.Empty;
             RegisterDiaChi = string.Empty;
             RegisterUsername = string.Empty;
             RegisterPassword = string.Empty;
             RegisterConfirmPassword = string.Empty;
             ClearRegisterValidationErrors();
-
+            IsLoginMode = false;
             // Return to login mode with username pre-populated
             LoginUsername = registeredUsername;
             LoginPassword = string.Empty;
@@ -267,6 +277,16 @@ namespace QuanlyNhaSach.ViewModels
             else if (!PhoneTenDigitsRegex.IsMatch(RegisterSDT.Trim()))
             {
                 SdtError = "Số điện thoại phải gồm đúng 10 chữ số (0-9).";
+                valid = false;
+            }
+            if (string.IsNullOrWhiteSpace(RegisterEmail))
+            {
+                EmailError = "Vui lòng nhập email.";
+                valid = false;
+            }
+            else if (!RegisterEmail.EndsWith("@gmail.com") || RegisterEmail.Length < 10)
+            {
+                EmailError = "Vui lòng nhập đúng định dạng @gmail.com và độ dài lớn hơn hoặc bằng 10";
                 valid = false;
             }
 

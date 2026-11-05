@@ -178,7 +178,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
             string actionLabel = staffUser.IsActive ? "KHÓA" : "MỞ KHÓA";
             bool confirmed = _dialogService.ShowConfirmation(
                 $"Xác nhận {actionLabel} tài khoản nhân viên",
-                $"Bạn có chắc chắn muốn {actionLabel} tài khoản nhân viên \"{staffUser.HoTen}\" ({staffUser.UserCode} — {staffUser.Username}) không?");
+                $"Bạn có chắc chắn muốn {actionLabel} tài khoản nhân viên \"{staffUser.Hoten}\" ({staffUser.UserCode} — {staffUser.Tendangnhap}) không?");
 
             if (!confirmed)
             {

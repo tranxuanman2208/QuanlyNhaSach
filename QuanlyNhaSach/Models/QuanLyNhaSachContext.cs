@@ -1,11 +1,22 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace QuanlyNhaSach.Models;
 
 public partial class QuanlyNhaSachContext : DbContext
 {
+    private static readonly object _connLock = new();
+    private static string? _resolvedConnectionString;
+    private static DateTime _lastOfflineCheck = DateTime.MinValue;
+    private static bool _isDatabaseAvailable = true;
+
+    private static readonly string[] CandidateConnectionStrings =
+    {
+        "Data Source=.\\SQLEXPRESS;Initial Catalog=QuanlyNhaSach;Integrated Security=True;Trust Server Certificate=True;Encrypt=False;Connection Timeout=1;"
+    };
+
     public QuanlyNhaSachContext()
     {
     }
@@ -35,9 +46,57 @@ public partial class QuanlyNhaSachContext : DbContext
 
     public virtual DbSet<SACH> SACHs { get; set; }
 
+    private static string GetFastConnectionString()
+    {
+        lock (_connLock)
+        {
+            if (_resolvedConnectionString != null && _isDatabaseAvailable)
+            {
+                return _resolvedConnectionString;
+            }
+
+            // Nếu vừa phát hiện SQL Server bị tắt trong vòng 15 giây qua, trả lỗi tức thì (0ms) để không làm đơ UI
+            if (!_isDatabaseAvailable && (DateTime.UtcNow - _lastOfflineCheck).TotalSeconds < 15)
+            {
+                throw new InvalidOperationException("SQL Server đang ở chế độ chờ (Offline Fast-Fail).");
+            }
+
+            foreach (var candidate in CandidateConnectionStrings)
+            {
+                try
+                {
+                    using var conn = new SqlConnection(candidate);
+                    conn.Open();
+                    // Khi đã kết nối thành công, nâng Timeout lên 5s cho các truy vấn lớn và bật Pooling
+                    var builder = new SqlConnectionStringBuilder(candidate)
+                    {
+                        ConnectTimeout = 5,
+                        Pooling = true
+                    };
+                    _resolvedConnectionString = builder.ConnectionString;
+                    _isDatabaseAvailable = true;
+                    return _resolvedConnectionString;
+                }
+                catch
+                {
+                    // Thử tiếp cấu hình Server tiếp theo
+                }
+            }
+
+            _isDatabaseAvailable = false;
+            _lastOfflineCheck = DateTime.UtcNow;
+            throw new InvalidOperationException("Không thể kết nối đến Server.");
+        }
+    }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-     => optionsBuilder.UseSqlServer("Data Source=.\\SQLEXPRESS;Initial Catalog=QuanlyNhaSach;Integrated Security=True;Trust Server Certificate=True");
+    {
+        if (!optionsBuilder.IsConfigured)
+        {
+            optionsBuilder.UseSqlServer(GetFastConnectionString());
+        }
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<CHITIETDONHANG>(entity =>

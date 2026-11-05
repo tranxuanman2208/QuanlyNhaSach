@@ -13,86 +13,90 @@ namespace QuanlyNhaSach.Services
         public const string LowStockFilter = "Sắp hết (< 10)";
         public const string OutOfStockFilter = "Hết hàng (0)";
 
+        private readonly object _cacheLock = new();
+        private List<SACH>? _booksCache;
+        private List<NHACUNGCAP>? _suppliersCache;
+
         public event EventHandler? BooksChanged;
 
         public string LastErrorMessage { get; private set; } = string.Empty;
 
+        public void InvalidateCache()
+        {
+            lock (_cacheLock)
+            {
+                _booksCache = null;
+                _suppliersCache = null;
+            }
+        }
+
         public IReadOnlyList<NHACUNGCAP> GetAvailableSuppliers()
         {
-            try
+            lock (_cacheLock)
             {
-                using (var db = new QuanlyNhaSachContext())
+                if (_suppliersCache != null)
                 {
-                    return db.NHACUNGCAPs
-                             .AsNoTracking()
-                             .OrderBy(n => n.MaNCC)
-                             .ToList();
+                    return _suppliersCache;
                 }
-            }
-            catch (Exception ex)
-            {
-                LastErrorMessage = ex.Message;
-                return Array.Empty<NHACUNGCAP>();
+
+                try
+                {
+                    using var db = new QuanlyNhaSachContext();
+                    _suppliersCache = db.NHACUNGCAPs
+                        .AsNoTracking()
+                        .OrderBy(n => n.MaNCC)
+                        .ToList();
+                    return _suppliersCache;
+                }
+                catch (Exception ex)
+                {
+                    LastErrorMessage = ex.Message;
+                    return Array.Empty<NHACUNGCAP>();
+                }
             }
         }
 
         public IReadOnlyList<SACH> GetAllBooks()
         {
-            try
+            lock (_cacheLock)
             {
-                using (var db = new QuanlyNhaSachContext())
+                if (_booksCache != null)
                 {
-                    LastErrorMessage = string.Empty;
-                    return db.SACHs
-                             .AsNoTracking()
-                             .Where(s => s.Daxoa == false || s.Daxoa == null)
-                             .OrderBy(s => s.MaSach)
-                             .ToList();
+                    return _booksCache;
                 }
-            }
-            catch (Exception ex)
-            {
-                LastErrorMessage = ex.Message;
-                return Array.Empty<SACH>();
+
+                try
+                {
+                    using var db = new QuanlyNhaSachContext();
+                    LastErrorMessage = string.Empty;
+                    _booksCache = db.SACHs
+                        .AsNoTracking()
+                        .Where(s => s.Daxoa == false || s.Daxoa == null)
+                        .OrderBy(s => s.MaSach)
+                        .ToList();
+                    return _booksCache;
+                }
+                catch (Exception ex)
+                {
+                    LastErrorMessage = ex.Message;
+                    return Array.Empty<SACH>();
+                }
             }
         }
 
         public IReadOnlyList<SACH> GetLowStockBooks()
         {
-            try
-            {
-                using (var db = new QuanlyNhaSachContext())
-                {
-                    return db.SACHs
-                             .AsNoTracking()
-                             .Where(s => s.Soluongton < 10 && s.Soluongton > 0 && (s.Daxoa == false || s.Daxoa == null))
-                             .OrderBy(s => s.Soluongton).ThenBy(s => s.MaSach)
-                             .ToList();
-                }
-            }
-            catch (Exception ex)
-            {
-                LastErrorMessage = ex.Message;
-                return Array.Empty<SACH>();
-            }
+            return GetAllBooks()
+                .Where(s => s.Soluongton < 10 && s.Soluongton > 0)
+                .OrderBy(s => s.Soluongton)
+                .ThenBy(s => s.MaSach)
+                .ToList();
         }
 
         public int GetLowStockBookCount()
         {
-            try
-            {
-                using (var db = new QuanlyNhaSachContext())
-                {
-                    return db.SACHs
-                             .AsNoTracking()
-                             .Count(s => s.Soluongton < 10 && s.Soluongton > 0 && (s.Daxoa == false || s.Daxoa == null));
-                }
-            }
-            catch (Exception ex)
-            {
-                LastErrorMessage = ex.Message;
-                return 0;
-            }
+            return GetAllBooks()
+                .Count(s => s.Soluongton < 10 && s.Soluongton > 0);
         }
 
         public SACH? GetBookById(string maSach)
@@ -102,66 +106,35 @@ namespace QuanlyNhaSach.Services
                 return null;
             }
 
-            try
-            {
-                using (var db = new QuanlyNhaSachContext())
-                {
-                    // Tìm đúng mã sách
-                    return db.SACHs
-                             .AsNoTracking()
-                             .FirstOrDefault(s => s.MaSach == maSach && (s.Daxoa == false || s.Daxoa == null));
-                }
-            }
-            catch (Exception ex)
-            {
-                LastErrorMessage = ex.Message;
-                return null;
-            }
+            string key = maSach.Trim();
+            return GetAllBooks()
+                .FirstOrDefault(s => string.Equals(s.MaSach?.Trim(), key, StringComparison.OrdinalIgnoreCase));
         }
 
         public IReadOnlyList<SACH> SearchAndFilterBooks(string? keyword, string? stockFilter = null)
         {
-            try
+            IEnumerable<SACH> query = GetAllBooks();
+
+            if (!string.IsNullOrWhiteSpace(keyword))
             {
-                using (var db = new QuanlyNhaSachContext())
-                {
-                    LastErrorMessage = string.Empty;
-
-                    // Chặn sách đã xóa
-                    var query = db.SACHs
-                                  .AsNoTracking()
-                                  .Where(s => s.Daxoa == false || s.Daxoa == null);
-
-                    // Lọc theo từ khóa
-                    if (!string.IsNullOrWhiteSpace(keyword))
-                    {
-                        string kw = keyword.Trim();
-                        query = query.Where(s =>
-                            (s.Tensach != null && s.Tensach.Contains(kw)) ||
-                            (s.Tacgia != null && s.Tacgia.Contains(kw)) ||
-                            s.MaSach.Contains(kw));
-                    }
-
-                    // Lọc theo tồn kho
-                    if (!string.IsNullOrWhiteSpace(stockFilter) && stockFilter != AllStockFilter)
-                    {
-                        if (stockFilter == NormalStockFilter)
-                            query = query.Where(s => s.Soluongton >= 10);
-                        else if (stockFilter == LowStockFilter)
-                            query = query.Where(s => s.Soluongton < 10 && s.Soluongton > 0);
-                        else if (stockFilter == OutOfStockFilter)
-                            query = query.Where(s => s.Soluongton == 0 || s.Soluongton == null);
-                    }
-
-                    // Sắp xếp và thực thi
-                    return query.OrderBy(s => s.MaSach).ToList();
-                }
+                string kw = keyword.Trim();
+                query = query.Where(s =>
+                    (s.Tensach != null && s.Tensach.Contains(kw, StringComparison.OrdinalIgnoreCase)) ||
+                    (s.Tacgia != null && s.Tacgia.Contains(kw, StringComparison.OrdinalIgnoreCase)) ||
+                    (s.MaSach != null && s.MaSach.Contains(kw, StringComparison.OrdinalIgnoreCase)));
             }
-            catch (Exception ex)
+
+            if (!string.IsNullOrWhiteSpace(stockFilter) && stockFilter != AllStockFilter)
             {
-                LastErrorMessage = ex.Message;
-                return Array.Empty<SACH>();
+                if (stockFilter == NormalStockFilter)
+                    query = query.Where(s => s.Soluongton >= 10);
+                else if (stockFilter == LowStockFilter)
+                    query = query.Where(s => s.Soluongton < 10 && s.Soluongton > 0);
+                else if (stockFilter == OutOfStockFilter)
+                    query = query.Where(s => s.Soluongton == 0 || s.Soluongton == null);
             }
+
+            return query.OrderBy(s => s.MaSach).ToList();
         }
 
         public OperationResult<SACH> AddBook(
@@ -176,51 +149,52 @@ namespace QuanlyNhaSach.Services
 
             try
             {
-                using (var db = new QuanlyNhaSachContext())
+                using var db = new QuanlyNhaSachContext();
+
+                bool isIdExist = db.SACHs.AsNoTracking().Any(s => s.MaSach == maSachMoi);
+                if (isIdExist) return OperationResult<SACH>.Failure($"Mã sách \"{maSachMoi}\" đã bị trùng trong hệ thống!");
+
+                bool isDuplicate = db.SACHs.AsNoTracking().Any(s => (s.Daxoa == false || s.Daxoa == null) && s.Tensach == tenSach && s.Tacgia == tacGia);
+                if (isDuplicate) return OperationResult<SACH>.Failure("Sách có cùng tên và tác giả này đã tồn tại trong hệ thống!");
+
+                bool supplierExists = db.NHACUNGCAPs.AsNoTracking().Any(n => n.MaNCC == maNCC);
+                if (!supplierExists)
                 {
-                    bool isIdExist = db.SACHs.Any(s => s.MaSach == maSachMoi);
-                    if (isIdExist) return OperationResult<SACH>.Failure($"Mã sách \"{maSachMoi}\" đã bị trùng trong hệ thống!");
-
-                    bool isDuplicate = db.SACHs.Any(s => (s.Daxoa == false || s.Daxoa == null) && s.Tensach == tenSach && s.Tacgia == tacGia);
-                    if (isDuplicate) return OperationResult<SACH>.Failure("Sách có cùng tên và tác giả này đã tồn tại trong hệ thống!");
-
-                    bool supplierExists = db.NHACUNGCAPs.AsNoTracking().Any(n => n.MaNCC == maNCC);
-                    if (!supplierExists)
-                    {
-                        var existingCodes = db.NHACUNGCAPs.AsNoTracking().Select(n => n.MaNCC).Take(10).ToList();
-                        string hint = existingCodes.Count > 0
-                            ? $" Mã NCC hợp lệ hiện có: {string.Join(", ", existingCodes)}."
-                            : " Hiện bảng NHACUNGCAP chưa có dữ liệu nhà cung cấp. Vui lòng thêm nhà cung cấp vào bảng NHACUNGCAP trong SQL Server trước khi thêm sách.";
-                        return OperationResult<SACH>.Failure($"Mã nhà cung cấp \"{maNCC}\" không tồn tại trong bảng NHACUNGCAP (ràng buộc khóa ngoại fk_MaNCC).{hint}");
-                    }
-
-                    var newBook = new SACH
-                    {
-                        MaSach = maSachMoi,
-                        Tensach = tenSach,
-                        Tacgia = tacGia,
-                        Theloai = theLoai,
-                        NXB = nxb,
-                        MaNCC = maNCC,
-                        Giaban = giaBan,
-                        Soluongton = soLuongTon,
-                        Daxoa = false
-                    };
-
-                    db.SACHs.Add(newBook);
-                    db.SaveChanges();
-                    NotifyChanged();
-                    return OperationResult<SACH>.Success(newBook, "Đã thêm sách mới thành công.");
+                    var existingCodes = db.NHACUNGCAPs.AsNoTracking().Select(n => n.MaNCC).Take(10).ToList();
+                    string hint = existingCodes.Count > 0
+                        ? $"Mã NCC hợp lệ hiện có: {string.Join(", ", existingCodes)}."
+                        : "Hiện nhà cung cấp sách này chưa có trong hệ thống. Vui lòng thêm thông tin nhà cung cấp trước khi thêm sách!";
+                    return OperationResult<SACH>.Failure($"Mã nhà cung cấp \"{maNCC}\" này chưa tồn tại trong hệ thống.{hint}");
                 }
+
+                var newBook = new SACH
+                {
+                    MaSach = maSachMoi,
+                    Tensach = tenSach,
+                    Tacgia = tacGia,
+                    Theloai = theLoai,
+                    NXB = nxb,
+                    MaNCC = maNCC,
+                    Giaban = giaBan,
+                    Soluongton = soLuongTon,
+                    Daxoa = false
+                };
+
+                db.SACHs.Add(newBook);
+                db.SaveChanges();
+
+                InvalidateCache();
+                NotifyChanged();
+                return OperationResult<SACH>.Success(newBook, "Đã thêm sách mới thành công.");
             }
             catch (DbUpdateException dbEx)
             {
                 string detail = dbEx.InnerException?.Message ?? dbEx.Message;
-                return OperationResult<SACH>.Failure($"Không thể lưu sách vào cơ sở dữ liệu (lỗi ràng buộc SQL Server): {detail}");
+                return OperationResult<SACH>.Failure($"Không thể lưu sách vào hệ thống: {detail}");
             }
             catch (Exception ex)
             {
-                return OperationResult<SACH>.Failure($"Lỗi kết nối hoặc truy vấn SQL Server: {ex.Message}");
+                return OperationResult<SACH>.Failure($"Lỗi kết nối: {ex.Message}");
             }
         }
 
@@ -236,45 +210,46 @@ namespace QuanlyNhaSach.Services
 
             try
             {
-                using (var db = new QuanlyNhaSachContext())
+                using var db = new QuanlyNhaSachContext();
+
+                var existingBook = db.SACHs.FirstOrDefault(s => s.MaSach == maSach);
+                if (existingBook == null) return OperationResult<SACH>.Failure("Không tìm thấy sách.");
+
+                bool isDuplicate = db.SACHs.AsNoTracking().Any(b => b.MaSach != maSach && (b.Daxoa == false || b.Daxoa == null) && b.Tensach == tenSach && b.Tacgia == tacGia);
+                if (isDuplicate) return OperationResult<SACH>.Failure("Tên sách và tác giả này đã tồn tại ở mã khác.");
+
+                bool supplierExists = db.NHACUNGCAPs.AsNoTracking().Any(n => n.MaNCC == maNCC);
+                if (!supplierExists)
                 {
-                    var existingBook = db.SACHs.FirstOrDefault(s => s.MaSach == maSach);
-                    if (existingBook == null) return OperationResult<SACH>.Failure("Không tìm thấy sách.");
-
-                    bool isDuplicate = db.SACHs.Any(b => b.MaSach != maSach && (b.Daxoa == false || b.Daxoa == null) && b.Tensach == tenSach && b.Tacgia == tacGia);
-                    if (isDuplicate) return OperationResult<SACH>.Failure("Tên sách và tác giả này đã tồn tại ở mã khác.");
-
-                    bool supplierExists = db.NHACUNGCAPs.AsNoTracking().Any(n => n.MaNCC == maNCC);
-                    if (!supplierExists)
-                    {
-                        var existingCodes = db.NHACUNGCAPs.AsNoTracking().Select(n => n.MaNCC).Take(10).ToList();
-                        string hint = existingCodes.Count > 0
-                            ? $" Mã NCC hợp lệ hiện có: {string.Join(", ", existingCodes)}."
-                            : " Hiện bảng NHACUNGCAP chưa có dữ liệu nhà cung cấp.";
-                        return OperationResult<SACH>.Failure($"Mã nhà cung cấp \"{maNCC}\" không tồn tại trong bảng NHACUNGCAP (ràng buộc khóa ngoại fk_MaNCC).{hint}");
-                    }
-
-                    existingBook.Tensach = tenSach;
-                    existingBook.Tacgia = tacGia;
-                    existingBook.Theloai = theLoai;
-                    existingBook.NXB = nxb;
-                    existingBook.MaNCC = maNCC;
-                    existingBook.Giaban = giaBan;
-                    existingBook.Soluongton = soLuongTon;
-
-                    db.SaveChanges();
-                    NotifyChanged();
-                    return OperationResult<SACH>.Success(existingBook, "Cập nhật thành công.");
+                    var existingCodes = db.NHACUNGCAPs.AsNoTracking().Select(n => n.MaNCC).Take(10).ToList();
+                    string hint = existingCodes.Count > 0
+                        ? $" Mã NCC hợp lệ hiện có: {string.Join(", ", existingCodes)}."
+                        : " Hệ thống chưa có dữ liệu nhà cung cấp sách cần cập nhật.";
+                    return OperationResult<SACH>.Failure($"Mã nhà cung cấp \"{maNCC}\" không tồn tại trong hệ thống.{hint}");
                 }
+
+                existingBook.Tensach = tenSach;
+                existingBook.Tacgia = tacGia;
+                existingBook.Theloai = theLoai;
+                existingBook.NXB = nxb;
+                existingBook.MaNCC = maNCC;
+                existingBook.Giaban = giaBan;
+                existingBook.Soluongton = soLuongTon;
+
+                db.SaveChanges();
+
+                InvalidateCache();
+                NotifyChanged();
+                return OperationResult<SACH>.Success(existingBook, "Cập nhật thành công.");
             }
             catch (DbUpdateException dbEx)
             {
                 string detail = dbEx.InnerException?.Message ?? dbEx.Message;
-                return OperationResult<SACH>.Failure($"Không thể cập nhật sách vào cơ sở dữ liệu (lỗi ràng buộc SQL Server): {detail}");
+                return OperationResult<SACH>.Failure($"Không thể cập nhật sách vào hệ thống: {detail}");
             }
             catch (Exception ex)
             {
-                return OperationResult<SACH>.Failure($"Lỗi kết nối hoặc truy vấn SQL Server: {ex.Message}");
+                return OperationResult<SACH>.Failure($"Lỗi kết nối: {ex.Message}");
             }
         }
 
@@ -282,46 +257,42 @@ namespace QuanlyNhaSach.Services
         {
             try
             {
-                using (var db = new QuanlyNhaSachContext())
+                using var db = new QuanlyNhaSachContext();
+
+                var book = db.SACHs
+                    .Include(s => s.CHITIETDONHANGs)
+                    .Include(s => s.CHITIETPHIEUNHAPs)
+                    .Include(s => s.CHITIETGIOHANGs)
+                    .FirstOrDefault(s => s.MaSach == maSach);
+
+                if (book == null) return OperationResult.Failure("Không tìm thấy sách.");
+
+                bool hasHistory = book.CHITIETDONHANGs.Any() ||
+                                  book.CHITIETPHIEUNHAPs.Any() ||
+                                  book.CHITIETGIOHANGs.Any();
+
+                if (hasHistory)
                 {
-                    var book = db.SACHs
-                                 .Include(s => s.CHITIETDONHANGs)
-                                 .Include(s => s.CHITIETPHIEUNHAPs)
-                                 .Include(s => s.CHITIETGIOHANGs)
-                                 .FirstOrDefault(s => s.MaSach == maSach);
-
-                    if (book == null) return OperationResult.Failure("Không tìm thấy sách.");
-
-                    bool hasHistory = book.CHITIETDONHANGs.Any() ||
-                                      book.CHITIETPHIEUNHAPs.Any() ||
-                                      book.CHITIETGIOHANGs.Any();
-
-                    if (hasHistory)
-                    {
-                        // Xóa mềm
-                        book.Daxoa = true;
-                        db.SaveChanges();
-                        NotifyChanged();
-                        return OperationResult.Success("Đã xóa thành công!");
-                    }
-                    else
-                    {
-                        // Xóa cứng
-                        db.SACHs.Remove(book);
-                        db.SaveChanges();
-                        NotifyChanged();
-                        return OperationResult.Success("Đã xóa thành công!");
-                    }
+                    book.Daxoa = true;
                 }
+                else
+                {
+                    db.SACHs.Remove(book);
+                }
+
+                db.SaveChanges();
+                InvalidateCache();
+                NotifyChanged();
+                return OperationResult.Success("Đã xóa thành công!");
             }
             catch (DbUpdateException dbEx)
             {
                 string detail = dbEx.InnerException?.Message ?? dbEx.Message;
-                return OperationResult.Failure($"Không thể xóa sách do ràng buộc dữ liệu: {detail}");
+                return OperationResult.Failure($"Không thể xóa sách: {detail}");
             }
             catch (Exception ex)
             {
-                return OperationResult.Failure($"Lỗi kết nối hoặc truy vấn SQL Server: {ex.Message}");
+                return OperationResult.Failure($"Lỗi kết nối: {ex.Message}");
             }
         }
 
@@ -329,28 +300,15 @@ namespace QuanlyNhaSach.Services
         {
             if (string.IsNullOrWhiteSpace(keyword)) return new List<string?>();
 
-            try
-            {
-                string kw = keyword.Trim();
-                using (var db = new QuanlyNhaSachContext())
-                {
-                    return db.SACHs
-                             .AsNoTracking()
-                             .Where(s => (s.Daxoa == false || s.Daxoa == null)
-                                         && ((s.Tensach != null && s.Tensach.Contains(kw))
-                                             || s.MaSach.Contains(kw)
-                                             || (s.Tacgia != null && s.Tacgia.Contains(kw))))
-                             .Select(s => s.Tensach) // Chỉ lấy cột Tên sách
-                             .Distinct()             // Loại bỏ các tên bị trùng
-                             .Take(10)               // Chỉ lấy tối đa 10 gợi ý đầu tiên
-                             .ToList();
-                }
-            }
-            catch (Exception ex)
-            {
-                LastErrorMessage = ex.Message;
-                return new List<string?>();
-            }
+            string kw = keyword.Trim();
+            return GetAllBooks()
+                .Where(s => (s.Tensach != null && s.Tensach.Contains(kw, StringComparison.OrdinalIgnoreCase)) ||
+                            (s.MaSach != null && s.MaSach.Contains(kw, StringComparison.OrdinalIgnoreCase)) ||
+                            (s.Tacgia != null && s.Tacgia.Contains(kw, StringComparison.OrdinalIgnoreCase)))
+                .Select(s => s.Tensach)
+                .Distinct()
+                .Take(10)
+                .ToList();
         }
 
         private static string? ValidateBookFields(
@@ -360,7 +318,7 @@ namespace QuanlyNhaSach.Services
             if (string.IsNullOrWhiteSpace(maSach))
                 return "Vui lòng nhập mã sách.";
             if (maSach.Length > 10)
-                return "Mã sách không được vượt quá 10 ký tự (varchar(10)).";
+                return "Mã sách không được vượt quá 10 ký tự.";
 
             if (string.IsNullOrWhiteSpace(tenSach))
                 return "Vui lòng nhập tên đầu sách.";
@@ -383,10 +341,10 @@ namespace QuanlyNhaSach.Services
             if (string.IsNullOrWhiteSpace(maNCC))
                 return "Vui lòng nhập mã nhà cung cấp (MaNCC).";
             if (maNCC.Length > 10)
-                return "Mã nhà cung cấp không được vượt quá 10 ký tự (varchar(10)).";
+                return "Mã nhà cung cấp không được vượt quá 10 ký tự.";
 
             if (giaBan <= 0m || giaBan > 99_999_999.99m)
-                return "Giá bán phải lớn hơn 0 và không vượt quá 99,999,999.99 VNĐ (decimal(10,2)).";
+                return "Giá bán trong khoảng 1-100 triệu.";
 
             return null;
         }

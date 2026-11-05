@@ -1,6 +1,8 @@
 using System;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using QuanlyNhaSach.Models;
 using QuanlyNhaSach.Models.Enums;
 using QuanlyNhaSach.Navigation;
@@ -20,8 +22,6 @@ namespace QuanlyNhaSach.Services
         private Frame? _customerFrame;
         private Frame? _staffFrame;
         private Frame? _managerFrame;
-
-
 
         private readonly AuthService _authService;
         private readonly CartService _cartService;
@@ -93,7 +93,6 @@ namespace QuanlyNhaSach.Services
         public event Action<string>? ManagerNavigated;
 
         public NavigationService(
-
             AuthService authService,
             CartService cartService,
             OrderService orderService,
@@ -104,17 +103,58 @@ namespace QuanlyNhaSach.Services
             SupplierService? supplierService = null,
             ImportService? importService = null)
         {
-
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             _cartService = cartService ?? throw new ArgumentNullException(nameof(cartService));
             _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService));
             _inventoryService = inventoryService ?? throw new ArgumentNullException(nameof(inventoryService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
             _bookService = bookService ?? new BookService();
-
             _userManagementService = userManagementService ?? new UserManagementService();
             _supplierService = supplierService ?? new SupplierService();
             _importService = importService ?? new ImportService();
+
+            // Đồng bộ tự động làm mới Cache khi có thay đổi dữ liệu liên thông giữa các Service
+            _importService.ImportReceiptConfirmed += (_, _) => _bookService.InvalidateCache();
+            _inventoryService.InventoryChanged += (_, _) =>
+            {
+                _bookService.InvalidateCache();
+                _orderService.InvalidateCache();
+            };
+            _supplierService.SuppliersChanged += (_, _) => _bookService.InvalidateCache();
+            _orderService.OrderUpdated += (_, _) => _bookService.InvalidateCache();
+
+            WarmUpCachesInBackground();
+        }
+
+        private void WarmUpCachesInBackground()
+        {
+            Task.Run(() =>
+            {
+                try
+                {
+                    _ = _bookService.GetAllBooks();
+                    _ = _supplierService.GetAllSuppliers();
+                    _ = _orderService.GetAllOrders();
+                    _ = _importService.GetConfirmedReceipts();
+                }
+                catch
+                {
+                    // Bỏ qua nếu SQL Server chưa bật
+                }
+            });
+        }
+
+        private static void RunAfterFrameRender(Action action)
+        {
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher != null)
+            {
+                dispatcher.InvokeAsync(action, DispatcherPriority.Background);
+            }
+            else
+            {
+                action();
+            }
         }
 
         // ==================== CUSTOMER NAVIGATION ====================
@@ -127,135 +167,94 @@ namespace QuanlyNhaSach.Services
 
         public void NavigateToHome(string? searchKeyword = null)
         {
-            if (!EnsureCustomerAccess())
-            {
-                return;
-            }
+            if (!EnsureCustomerAccess()) return;
 
             CurrentPageKey = "Home";
-
-            if (_homeViewModel == null)
-            {
-                _homeViewModel = new HomeViewModel(_bookService, _cartService, this, _dialogService);
-            }
-
+            _homeViewModel ??= new HomeViewModel(_bookService, _cartService, this, _dialogService);
             if (_customerFrame != null && _homePage == null)
             {
                 _homePage = new HomePage(_homeViewModel);
-            }
-
-            if (_homeViewModel is INavigationAware aware)
-            {
-                aware.OnNavigatedTo(searchKeyword);
             }
 
             if (_homePage != null)
             {
                 NavigateFrame(_customerFrame, _homePage);
             }
-
             Navigated?.Invoke(CurrentPageKey);
+
+            if (_homeViewModel is INavigationAware aware)
+            {
+                RunAfterFrameRender(() => aware.OnNavigatedTo(searchKeyword));
+            }
         }
 
         public void NavigateToBookDetail(string maSach)
         {
-            if (!EnsureCustomerAccess())
-            {
-                return;
-            }
+            if (!EnsureCustomerAccess()) return;
 
             CurrentPageKey = "BookDetail";
-
-            if (_bookDetailViewModel == null)
-            {
-                _bookDetailViewModel = new BookDetailViewModel(_bookService, _cartService, this, _dialogService);
-            }
-
+            _bookDetailViewModel ??= new BookDetailViewModel(_bookService, _cartService, this, _dialogService);
             if (_customerFrame != null && _bookDetailPage == null)
             {
                 _bookDetailPage = new BookDetailPage(_bookDetailViewModel);
-            }
-
-            if (_bookDetailViewModel is INavigationAware aware)
-            {
-                aware.OnNavigatedTo(maSach);
             }
 
             if (_bookDetailPage != null)
             {
                 NavigateFrame(_customerFrame, _bookDetailPage);
             }
-
             Navigated?.Invoke(CurrentPageKey);
+
+            if (_bookDetailViewModel is INavigationAware aware)
+            {
+                RunAfterFrameRender(() => aware.OnNavigatedTo(maSach));
+            }
         }
 
         public void NavigateToCartCheckout()
         {
-            if (!EnsureCustomerAccess())
-            {
-                return;
-            }
+            if (!EnsureCustomerAccess()) return;
 
             CurrentPageKey = "CartCheckout";
-
-            if (_cartCheckoutViewModel == null)
-            {
-                _cartCheckoutViewModel = new CartCheckoutViewModel(
-                    _cartService,
-                    this,
-                    _dialogService,
-                    _authService,
-                    _orderService);
-            }
-
+            _cartCheckoutViewModel ??= new CartCheckoutViewModel(_cartService, this, _dialogService, _authService, _orderService);
             if (_customerFrame != null && _cartCheckoutPage == null)
             {
                 _cartCheckoutPage = new CartCheckoutPage(_cartCheckoutViewModel);
-            }
-
-            if (_cartCheckoutViewModel is INavigationAware aware)
-            {
-                aware.OnNavigatedTo(null);
             }
 
             if (_cartCheckoutPage != null)
             {
                 NavigateFrame(_customerFrame, _cartCheckoutPage);
             }
-
             Navigated?.Invoke(CurrentPageKey);
+
+            if (_cartCheckoutViewModel is INavigationAware aware)
+            {
+                RunAfterFrameRender(() => aware.OnNavigatedTo(null));
+            }
         }
 
         public void NavigateToCustomerProfile()
         {
-            if (!EnsureCustomerAccess())
-            {
-                return;
-            }
+            if (!EnsureCustomerAccess()) return;
 
             CurrentPageKey = "CustomerProfile";
-
-            if (_customerProfileViewModel == null)
-            {
-                _customerProfileViewModel = new CustomerProfileViewModel(this, _dialogService, _authService);
-            }
-
+            _customerProfileViewModel ??= new CustomerProfileViewModel(this, _dialogService, _authService);
             if (_customerFrame != null && _customerProfilePage == null)
             {
                 _customerProfilePage = new CustomerProfilePage(_customerProfileViewModel);
-            }
-
-            if (_customerProfileViewModel is INavigationAware aware)
-            {
-                aware.OnNavigatedTo(null);
             }
 
             if (_customerProfilePage != null)
             {
                 NavigateFrame(_customerFrame, _customerProfilePage);
             }
-
             Navigated?.Invoke(CurrentPageKey);
+
+            if (_customerProfileViewModel is INavigationAware aware)
+            {
+                RunAfterFrameRender(() => aware.OnNavigatedTo(null));
+            }
         }
 
         // ==================== STAFF NAVIGATION ====================
@@ -268,154 +267,107 @@ namespace QuanlyNhaSach.Services
 
         public void NavigateToStaffDashboard()
         {
-            if (!EnsureStaffAccess())
-            {
-                return;
-            }
+            if (!EnsureStaffAccess()) return;
 
             CurrentStaffPageKey = "Dashboard";
-
-            if (_staffDashboardViewModel == null)
-            {
-                _staffDashboardViewModel = new StaffDashboardViewModel(_orderService, this);
-            }
-
+            _staffDashboardViewModel ??= new StaffDashboardViewModel(_orderService, this);
             if (_staffFrame != null && _staffDashboardPage == null)
             {
                 _staffDashboardPage = new StaffDashboardPage(_staffDashboardViewModel);
             }
 
-            _staffDashboardViewModel.OnNavigatedTo(null);
-
             if (_staffDashboardPage != null)
             {
                 NavigateFrame(_staffFrame, _staffDashboardPage);
             }
-
             StaffNavigated?.Invoke(CurrentStaffPageKey);
+
+            var vm = _staffDashboardViewModel;
+            RunAfterFrameRender(() => vm.OnNavigatedTo(null));
         }
 
         public void NavigateToStaffLookup(string? initialKeyword = null)
         {
-            if (!EnsureStaffAccess())
-            {
-                return;
-            }
+            if (!EnsureStaffAccess()) return;
 
             CurrentStaffPageKey = "Lookup";
-
-            if (_staffLookupViewModel == null)
-            {
-                _staffLookupViewModel = new StaffLookupViewModel(_bookService, this, _orderService);
-            }
-
+            _staffLookupViewModel ??= new StaffLookupViewModel(_bookService, this, _orderService);
             if (_staffFrame != null && _staffLookupPage == null)
             {
                 _staffLookupPage = new StaffLookupPage(_staffLookupViewModel);
             }
 
-            _staffLookupViewModel.OnNavigatedTo(initialKeyword);
-
             if (_staffLookupPage != null)
             {
                 NavigateFrame(_staffFrame, _staffLookupPage);
             }
-
             StaffNavigated?.Invoke(CurrentStaffPageKey);
+
+            var vm = _staffLookupViewModel;
+            RunAfterFrameRender(() => vm.OnNavigatedTo(initialKeyword));
         }
 
         public void NavigateToStaffSales(int? orderId = null)
         {
-            if (!EnsureStaffAccess())
-            {
-                return;
-            }
+            if (!EnsureStaffAccess()) return;
 
             CurrentStaffPageKey = "Sales";
-
-            if (_staffSalesViewModel == null)
-            {
-                _staffSalesViewModel = new StaffSalesViewModel(_orderService, this, _dialogService);
-            }
-
+            _staffSalesViewModel ??= new StaffSalesViewModel(_orderService, this, _dialogService);
             if (_staffFrame != null && _staffSalesPage == null)
             {
                 _staffSalesPage = new StaffSalesPage(_staffSalesViewModel);
             }
 
-            _staffSalesViewModel.OnNavigatedTo(orderId);
-
             if (_staffSalesPage != null)
             {
                 NavigateFrame(_staffFrame, _staffSalesPage);
             }
-
             StaffNavigated?.Invoke(CurrentStaffPageKey);
+
+            var vm = _staffSalesViewModel;
+            RunAfterFrameRender(() => vm.OnNavigatedTo(orderId));
         }
 
         public void NavigateToStaffOrderProcessing(int? orderId = null)
         {
-            if (!EnsureStaffAccess())
-            {
-                return;
-            }
+            if (!EnsureStaffAccess()) return;
 
             CurrentStaffPageKey = "OrderProcessing";
-
-            if (_staffOrderProcessingViewModel == null)
-            {
-                _staffOrderProcessingViewModel = new StaffOrderProcessingViewModel(
-                    _orderService,
-                    this,
-                    _dialogService);
-            }
-
+            _staffOrderProcessingViewModel ??= new StaffOrderProcessingViewModel(_orderService, this, _dialogService);
             if (_staffFrame != null && _staffOrderProcessingPage == null)
             {
                 _staffOrderProcessingPage = new StaffOrderProcessingPage(_staffOrderProcessingViewModel);
             }
 
-            _staffOrderProcessingViewModel.OnNavigatedTo(orderId);
-
             if (_staffOrderProcessingPage != null)
             {
                 NavigateFrame(_staffFrame, _staffOrderProcessingPage);
             }
-
             StaffNavigated?.Invoke(CurrentStaffPageKey);
+
+            var vm = _staffOrderProcessingViewModel;
+            RunAfterFrameRender(() => vm.OnNavigatedTo(orderId));
         }
 
         public void NavigateToStaffStockOut(int? orderId = null)
         {
-            if (!EnsureStaffAccess())
-            {
-                return;
-            }
+            if (!EnsureStaffAccess()) return;
 
             CurrentStaffPageKey = "StockOut";
-
-            if (_staffStockOutViewModel == null)
-            {
-                _staffStockOutViewModel = new StaffStockOutViewModel(
-                    _orderService,
-                    _inventoryService,
-                    this,
-                    _dialogService);
-            }
-
+            _staffStockOutViewModel ??= new StaffStockOutViewModel(_orderService, _inventoryService, this, _dialogService);
             if (_staffFrame != null && _staffStockOutPage == null)
             {
                 _staffStockOutPage = new StaffStockOutPage(_staffStockOutViewModel);
             }
 
-            _staffStockOutViewModel.OnNavigatedTo(orderId);
-
             if (_staffStockOutPage != null)
             {
                 NavigateFrame(_staffFrame, _staffStockOutPage);
             }
-
             StaffNavigated?.Invoke(CurrentStaffPageKey);
+
+            var vm = _staffStockOutViewModel;
+            RunAfterFrameRender(() => vm.OnNavigatedTo(orderId));
         }
 
         // ==================== MANAGER NAVIGATION (7 ROUTES) ====================
@@ -428,226 +380,149 @@ namespace QuanlyNhaSach.Services
 
         public void NavigateToManagerOverview()
         {
-            if (!EnsureManagerAccess())
-            {
-                return;
-            }
+            if (!EnsureManagerAccess()) return;
 
             CurrentManagerPageKey = "Overview";
-
-            if (_managerOverviewViewModel == null)
-            {
-                _managerOverviewViewModel = new ManagerOverviewViewModel(
-                    _orderService,
-                    _bookService,
-                    this);
-            }
-
+            _managerOverviewViewModel ??= new ManagerOverviewViewModel(_orderService, _bookService, this);
             if (_managerFrame != null && _managerOverviewPage == null)
             {
                 _managerOverviewPage = new ManagerOverviewPage(_managerOverviewViewModel);
             }
 
-            _managerOverviewViewModel.OnNavigatedTo(null);
-
             if (_managerOverviewPage != null)
             {
                 NavigateFrame(_managerFrame, _managerOverviewPage);
             }
-
             ManagerNavigated?.Invoke(CurrentManagerPageKey);
+
+            var vm = _managerOverviewViewModel;
+            RunAfterFrameRender(() => vm.OnNavigatedTo(null));
         }
 
         public void NavigateToBookManagement()
         {
-            if (!EnsureManagerAccess())
-            {
-                return;
-            }
+            if (!EnsureManagerAccess()) return;
 
             CurrentManagerPageKey = "BookManagement";
-
-            if (_bookManagementViewModel == null)
-            {
-                _bookManagementViewModel = new BookManagementViewModel(
-                    _bookService,
-                    _dialogService);
-            }
-
+            _bookManagementViewModel ??= new BookManagementViewModel(_bookService, _dialogService);
             if (_managerFrame != null && _bookManagementPage == null)
             {
                 _bookManagementPage = new BookManagementPage(_bookManagementViewModel);
             }
 
-            _bookManagementViewModel.OnNavigatedTo(null);
-
             if (_bookManagementPage != null)
             {
                 NavigateFrame(_managerFrame, _bookManagementPage);
             }
-
             ManagerNavigated?.Invoke(CurrentManagerPageKey);
+
+            var vm = _bookManagementViewModel;
+            RunAfterFrameRender(() => vm.OnNavigatedTo(null));
         }
 
         public void NavigateToStaffManagement()
         {
-            if (!EnsureManagerAccess())
-            {
-                return;
-            }
+            if (!EnsureManagerAccess()) return;
 
             CurrentManagerPageKey = "StaffManagement";
-
-            if (_staffManagementViewModel == null)
-            {
-                _staffManagementViewModel = new StaffManagementViewModel(
-                    _userManagementService,
-                    _authService,
-                    _dialogService);
-            }
-
+            _staffManagementViewModel ??= new StaffManagementViewModel(_userManagementService, _authService, _dialogService);
             if (_managerFrame != null && _staffManagementPage == null)
             {
                 _staffManagementPage = new StaffManagementPage(_staffManagementViewModel);
             }
 
-            _staffManagementViewModel.OnNavigatedTo(null);
-
             if (_staffManagementPage != null)
             {
                 NavigateFrame(_managerFrame, _staffManagementPage);
             }
-
             ManagerNavigated?.Invoke(CurrentManagerPageKey);
+
+            var vm = _staffManagementViewModel;
+            RunAfterFrameRender(() => vm.OnNavigatedTo(null));
         }
 
         public void NavigateToCustomerManagement()
         {
-            if (!EnsureManagerAccess())
-            {
-                return;
-            }
+            if (!EnsureManagerAccess()) return;
 
             CurrentManagerPageKey = "CustomerManagement";
-
-            if (_customerManagementViewModel == null)
-            {
-                _customerManagementViewModel = new CustomerManagementViewModel(
-                    _userManagementService,
-                    _authService,
-                    _dialogService);
-            }
-
+            _customerManagementViewModel ??= new CustomerManagementViewModel(_userManagementService, _authService, _dialogService);
             if (_managerFrame != null && _customerManagementPage == null)
             {
                 _customerManagementPage = new CustomerManagementPage(_customerManagementViewModel);
             }
 
-            _customerManagementViewModel.OnNavigatedTo(null);
-
             if (_customerManagementPage != null)
             {
                 NavigateFrame(_managerFrame, _customerManagementPage);
             }
-
             ManagerNavigated?.Invoke(CurrentManagerPageKey);
+
+            var vm = _customerManagementViewModel;
+            RunAfterFrameRender(() => vm.OnNavigatedTo(null));
         }
 
         public void NavigateToSupplierManagement()
         {
-            if (!EnsureManagerAccess())
-            {
-                return;
-            }
+            if (!EnsureManagerAccess()) return;
 
             CurrentManagerPageKey = "SupplierManagement";
-
-            if (_supplierManagementViewModel == null)
-            {
-                _supplierManagementViewModel = new SupplierManagementViewModel(
-                    _supplierService,
-                    _dialogService);
-            }
-
+            _supplierManagementViewModel ??= new SupplierManagementViewModel(_supplierService, _dialogService);
             if (_managerFrame != null && _supplierManagementPage == null)
             {
                 _supplierManagementPage = new SupplierManagementPage(_supplierManagementViewModel);
             }
 
-            _supplierManagementViewModel.OnNavigatedTo(null);
-
             if (_supplierManagementPage != null)
             {
                 NavigateFrame(_managerFrame, _supplierManagementPage);
             }
-
             ManagerNavigated?.Invoke(CurrentManagerPageKey);
+
+            var vm = _supplierManagementViewModel;
+            RunAfterFrameRender(() => vm.OnNavigatedTo(null));
         }
 
         public void NavigateToImportReceipt()
         {
-            if (!EnsureManagerAccess())
-            {
-                return;
-            }
+            if (!EnsureManagerAccess()) return;
 
             CurrentManagerPageKey = "ImportReceipt";
-
-            if (_importReceiptViewModel == null)
-            {
-                _importReceiptViewModel = new ImportReceiptViewModel(
-                    _importService,
-                    _supplierService,
-                    _bookService,
-                    _authService,
-                    this,
-                    _dialogService);
-            }
-
+            _importReceiptViewModel ??= new ImportReceiptViewModel(_importService, _supplierService, _bookService, _authService, this, _dialogService);
             if (_managerFrame != null && _importReceiptPage == null)
             {
                 _importReceiptPage = new ImportReceiptPage(_importReceiptViewModel);
             }
 
-            _importReceiptViewModel.OnNavigatedTo(null);
-
             if (_importReceiptPage != null)
             {
                 NavigateFrame(_managerFrame, _importReceiptPage);
             }
-
             ManagerNavigated?.Invoke(CurrentManagerPageKey);
+
+            var vm = _importReceiptViewModel;
+            RunAfterFrameRender(() => vm.OnNavigatedTo(null));
         }
 
         public void NavigateToImportHistory()
         {
-            if (!EnsureManagerAccess())
-            {
-                return;
-            }
+            if (!EnsureManagerAccess()) return;
 
             CurrentManagerPageKey = "ImportHistory";
-
-            if (_importHistoryViewModel == null)
-            {
-                _importHistoryViewModel = new ImportHistoryViewModel(
-                    _importService,
-                    this);
-            }
-
+            _importHistoryViewModel ??= new ImportHistoryViewModel(_importService, this);
             if (_managerFrame != null && _importHistoryPage == null)
             {
                 _importHistoryPage = new ImportHistoryPage(_importHistoryViewModel);
             }
 
-            _importHistoryViewModel.OnNavigatedTo(null);
-
             if (_importHistoryPage != null)
             {
                 NavigateFrame(_managerFrame, _importHistoryPage);
             }
-
             ManagerNavigated?.Invoke(CurrentManagerPageKey);
+
+            var vm = _importHistoryViewModel;
+            RunAfterFrameRender(() => vm.OnNavigatedTo(null));
         }
 
         // ==================== ROLE ROUTING & WINDOW LIFECYCLE ====================
@@ -666,25 +541,27 @@ namespace QuanlyNhaSach.Services
                 return;
             }
 
+            WarmUpCachesInBackground();
+
             if (user.Role == UserRole.Customer)
             {
                 var customerVm = new CustomerMainViewModel(_authService, _cartService, this, _dialogService);
                 var customerWindow = new CustomerMainWindow(customerVm);
-                SwitchMainWindow(customerWindow);
+                SwitchMainWindow(customerWindow, maximize: true);
                 Initialize(customerWindow.NavigationFrame);
             }
             else if (user.Role == UserRole.Staff)
             {
                 var staffVm = new StaffMainViewModel(_authService, this, _dialogService);
                 var staffWindow = new StaffMainWindow(staffVm);
-                SwitchMainWindow(staffWindow);
+                SwitchMainWindow(staffWindow, maximize: true);
                 InitializeStaffFrame(staffWindow.NavigationFrame);
             }
             else if (user.Role == UserRole.Manager)
             {
                 var managerVm = new ManagerMainViewModel(_authService, this, _dialogService);
                 var managerWindow = new ManagerMainWindow(managerVm);
-                SwitchMainWindow(managerWindow);
+                SwitchMainWindow(managerWindow, maximize: true);
                 InitializeManagerFrame(managerWindow.NavigationFrame);
             }
             else
@@ -708,10 +585,10 @@ namespace QuanlyNhaSach.Services
 
             var authVm = new AuthViewModel(_authService, this, _dialogService);
             var authWindow = new AuthWindow(authVm);
-            SwitchMainWindow(authWindow);
+            SwitchMainWindow(authWindow, maximize: false);
         }
 
-        private static void SwitchMainWindow(Window newWindow)
+        private static void SwitchMainWindow(Window newWindow, bool maximize = false)
         {
             var app = Application.Current;
             if (app == null)
@@ -721,8 +598,11 @@ namespace QuanlyNhaSach.Services
 
             var previousWindow = app.MainWindow;
 
-            // Prevent application from terminating while replacing the active window
             app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            if (maximize)
+            {
+                newWindow.WindowState = WindowState.Maximized;
+            }
             app.MainWindow = newWindow;
             newWindow.Show();
 
@@ -731,7 +611,6 @@ namespace QuanlyNhaSach.Services
                 previousWindow.Close();
             }
 
-            // Restore normal shutdown behavior so closing the active window terminates the app
             app.ShutdownMode = ShutdownMode.OnMainWindowClose;
         }
 
@@ -767,7 +646,7 @@ namespace QuanlyNhaSach.Services
             {
                 _dialogService.ShowError(
                     "Không có quyền truy cập",
-                    "Cổng Quản trị (Manager Portal) chỉ dành cho tài khoản Quản lý hợp lệ.");
+                    "Cổng Quản trị chỉ dành cho tài khoản Quản lý.");
                 LogoutToAuthWindow();
                 return false;
             }
