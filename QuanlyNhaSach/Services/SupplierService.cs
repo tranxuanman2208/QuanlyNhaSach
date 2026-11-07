@@ -290,48 +290,6 @@ namespace QuanlyNhaSach.Services
             }
         }
 
-        public OperationResult DeleteSupplier(string? maNCC)
-        {
-            if (string.IsNullOrWhiteSpace(maNCC))
-            {
-                return OperationResult.Failure("Mã nhà cung cấp không hợp lệ.");
-            }
-
-            string key = maNCC.Trim();
-
-            try
-            {
-                using var db = new QuanlyNhaSachContext();
-                var supplier = db.NHACUNGCAPs.FirstOrDefault(s => s.MaNCC == key);
-                if (supplier == null)
-                {
-                    return OperationResult.Failure($"Không tìm thấy nhà cung cấp #{key}.");
-                }
-
-                bool hasBooks = db.SACHs.AsNoTracking().Any(b => b.MaNCC == key);
-                bool hasReceipts = db.PHIEUNHAPs.AsNoTracking().Any(p => p.MaNCC == key);
-
-                if (hasBooks || hasReceipts)
-                {
-                    return OperationResult.Failure(
-                        $"Không thể xóa nhà cung cấp \"{supplier.TenNCC}\".");
-                }
-
-                db.NHACUNGCAPs.Remove(supplier);
-                db.SaveChanges();
-                DeactivatedSupplierIds.Remove(key);
-
-                InvalidateCache();
-                NotifyChanged();
-                return OperationResult.Success($"Đã xóa nhà cung cấp \"{supplier.TenNCC}\" khỏi hệ thống.");
-            }
-            catch (Exception ex)
-            {
-                return OperationResult.Failure(
-                    $"Không thể xóa nhà cung cấp: {ex.InnerException?.Message ?? ex.Message}");
-            }
-        }
-
         private static string GenerateNextSupplierId(QuanlyNhaSachContext db)
         {
             var existingIds = db.NHACUNGCAPs

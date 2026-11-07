@@ -1,0 +1,14 @@
+{
+    // Cấu hình tài khoản ngân hàng cá nhân nhận tiền chuyển khoản (VietQR).
+    // BankId: Mã ngân hàng theo chuẩn VietQR (VD: MB, VCB, TCB, ACB, ICB, BIDV, TPB, VPB, STB, HDB...)
+    "BankId": "MB",
+    "BankName": "Ngân hàng TMCP Quân Đội (MB Bank)",
+    "AccountNo": "", //Số tài khoản
+    "AccountName": "" //Tên chủ tài khoản,
+    "Template": "compact2",
+
+    // Nếu bạn có sẵn file ảnh QR cá nhân lưu trong thư mục Img (ví dụ: "Img/qr_ca_nhan.png"),
+    // hãy điền đường dẫn vào CustomQrImagePath bên dưới.
+    // Để trống "" hệ thống sẽ tự động sinh mã QR VietQR chuẩn NAPAS với đúng số tiền & nội dung đơn hàng.
+    "CustomQrImagePath": ""
+}

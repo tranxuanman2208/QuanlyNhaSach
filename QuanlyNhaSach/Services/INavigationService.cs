@@ -19,7 +19,7 @@ namespace QuanlyNhaSach.Services
         void NavigateToHome(string? searchKeyword = null);
         void NavigateToBookDetail(string maSach);
         void NavigateToCartCheckout();
-        void NavigateToCustomerProfile();
+        void NavigateToCustomerProfile(string? tab = null);
 
         // Staff Frame Navigation
         void InitializeStaffFrame(Frame frame);

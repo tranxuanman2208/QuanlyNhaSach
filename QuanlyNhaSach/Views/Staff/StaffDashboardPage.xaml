@@ -168,10 +168,12 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- Urgent Orders DataGrid -->
-                    <DataGrid ItemsSource="{Binding UrgentOrders}"
-                              Style="{StaticResource AdminDataGridStyle}"
-                              Visibility="{Binding HasUrgentOrders, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <!-- Urgent Orders DataGrid: DataGrid tự cuộn ngang (không bọc ScrollViewer vì chiều rộng vô hạn làm cột * co về 0 và hàng không hiển thị) -->
+                    <Grid Margin="0,4,0,0">
+                        <DataGrid ItemsSource="{Binding UrgentOrders}"
+                                  Style="{StaticResource AdminDataGridStyle}"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  Visibility="{Binding HasUrgentOrders, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <DataGrid.Columns>
                             <!-- Order ID -->
                             <DataGridTextColumn Header="Mã ĐH" Binding="{Binding OrderCode}" Width="85">
@@ -185,7 +187,7 @@
                             </DataGridTextColumn>
 
                             <!-- Customer -->
-                            <DataGridTemplateColumn Header="Khách hàng" Width="1.2*">
+                            <DataGridTemplateColumn Header="Khách hàng" Width="1.2*" MinWidth="160">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel>
@@ -241,7 +243,7 @@
                             </DataGridTemplateColumn>
 
                             <!-- Required Action -->
-                            <DataGridTextColumn Header="Hành động cần thực hiện" Binding="{Binding RequiredActionText}" Width="1.5*">
+                            <DataGridTextColumn Header="Hành động cần thực hiện" Binding="{Binding RequiredActionText}" Width="1.5*" MinWidth="200">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="FontWeight" Value="SemiBold"/>
@@ -276,6 +278,7 @@
                             </DataGridTemplateColumn>
                         </DataGrid.Columns>
                     </DataGrid>
+                    </Grid>
 
                     <!-- Empty Urgent Orders State -->
                     <Border Background="{StaticResource SubtleSurfaceBrush}"

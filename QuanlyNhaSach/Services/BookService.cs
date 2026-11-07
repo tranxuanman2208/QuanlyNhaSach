@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using QuanlyNhaSach.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -111,6 +112,43 @@ namespace QuanlyNhaSach.Services
                 .FirstOrDefault(s => string.Equals(s.MaSach?.Trim(), key, StringComparison.OrdinalIgnoreCase));
         }
 
+        public string GenerateNextBookId()
+        {
+            try
+            {
+                using var db = new QuanlyNhaSachContext();
+                var existingIds = db.SACHs
+                    .AsNoTracking()
+                    .Select(s => s.MaSach)
+                    .ToList();
+
+                int maxNum = 0;
+                foreach (var id in existingIds)
+                {
+                    if (string.IsNullOrWhiteSpace(id)) continue;
+                    string digits = Regex.Replace(id, @"\D", "");
+                    if (int.TryParse(digits, out int num) && num > maxNum)
+                    {
+                        maxNum = num;
+                    }
+                }
+
+                int next = maxNum + 1;
+                string candidate = $"MS{next:D3}";
+                while (existingIds.Any(x => string.Equals(x?.Trim(), candidate, StringComparison.OrdinalIgnoreCase)))
+                {
+                    next++;
+                    candidate = $"MS{next:D3}";
+                }
+
+                return candidate;
+            }
+            catch
+            {
+                return "MS001";
+            }
+        }
+
         public IReadOnlyList<SACH> SearchAndFilterBooks(string? keyword, string? stockFilter = null)
         {
             IEnumerable<SACH> query = GetAllBooks();
@@ -139,8 +177,14 @@ namespace QuanlyNhaSach.Services
 
         public OperationResult<SACH> AddBook(
             string maSachMoi, string tenSach, string tacGia, string theLoai,
-            string nxb, string maNCC, decimal giaBan, byte soLuongTon)
+            string nxb, string maNCC, decimal giaBan, byte soLuongTon,
+            string? hinhAnh = null)
         {
+            if (string.IsNullOrWhiteSpace(maSachMoi))
+            {
+                maSachMoi = GenerateNextBookId();
+            }
+
             var validationError = ValidateBookFields(maSachMoi, tenSach, tacGia, theLoai, nxb, maNCC, giaBan);
             if (validationError != null)
             {
@@ -152,7 +196,10 @@ namespace QuanlyNhaSach.Services
                 using var db = new QuanlyNhaSachContext();
 
                 bool isIdExist = db.SACHs.AsNoTracking().Any(s => s.MaSach == maSachMoi);
-                if (isIdExist) return OperationResult<SACH>.Failure($"Mã sách \"{maSachMoi}\" đã bị trùng trong hệ thống!");
+                if (isIdExist)
+                {
+                    maSachMoi = GenerateNextBookId();
+                }
 
                 bool isDuplicate = db.SACHs.AsNoTracking().Any(s => (s.Daxoa == false || s.Daxoa == null) && s.Tensach == tenSach && s.Tacgia == tacGia);
                 if (isDuplicate) return OperationResult<SACH>.Failure("Sách có cùng tên và tác giả này đã tồn tại trong hệ thống!");
@@ -177,6 +224,7 @@ namespace QuanlyNhaSach.Services
                     MaNCC = maNCC,
                     Giaban = giaBan,
                     Soluongton = soLuongTon,
+                    Hinhanh = hinhAnh,
                     Daxoa = false
                 };
 
@@ -185,7 +233,7 @@ namespace QuanlyNhaSach.Services
 
                 InvalidateCache();
                 NotifyChanged();
-                return OperationResult<SACH>.Success(newBook, "Đã thêm sách mới thành công.");
+                return OperationResult<SACH>.Success(newBook, $"Đã thêm sách mới thành công với mã #{newBook.MaSach}.");
             }
             catch (DbUpdateException dbEx)
             {
@@ -200,7 +248,8 @@ namespace QuanlyNhaSach.Services
 
         public OperationResult<SACH> UpdateBook(
             string maSach, string tenSach, string tacGia, string theLoai,
-            string nxb, string maNCC, decimal giaBan, byte soLuongTon)
+            string nxb, string maNCC, decimal giaBan, byte soLuongTon,
+            string? hinhAnh = null)
         {
             var validationError = ValidateBookFields(maSach, tenSach, tacGia, theLoai, nxb, maNCC, giaBan);
             if (validationError != null)
@@ -235,6 +284,7 @@ namespace QuanlyNhaSach.Services
                 existingBook.MaNCC = maNCC;
                 existingBook.Giaban = giaBan;
                 existingBook.Soluongton = soLuongTon;
+                existingBook.Hinhanh = hinhAnh;
 
                 db.SaveChanges();
 
@@ -294,21 +344,6 @@ namespace QuanlyNhaSach.Services
             {
                 return OperationResult.Failure($"Lỗi kết nối: {ex.Message}");
             }
-        }
-
-        public List<string?> GetBookSuggestions(string keyword)
-        {
-            if (string.IsNullOrWhiteSpace(keyword)) return new List<string?>();
-
-            string kw = keyword.Trim();
-            return GetAllBooks()
-                .Where(s => (s.Tensach != null && s.Tensach.Contains(kw, StringComparison.OrdinalIgnoreCase)) ||
-                            (s.MaSach != null && s.MaSach.Contains(kw, StringComparison.OrdinalIgnoreCase)) ||
-                            (s.Tacgia != null && s.Tacgia.Contains(kw, StringComparison.OrdinalIgnoreCase)))
-                .Select(s => s.Tensach)
-                .Distinct()
-                .Take(10)
-                .ToList();
         }
 
         private static string? ValidateBookFields(

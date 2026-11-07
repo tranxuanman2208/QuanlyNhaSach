@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:conv="clr-namespace:QuanlyNhaSach.Converters"
+        xmlns:ctrl="clr-namespace:QuanlyNhaSach.Controls"
         mc:Ignorable="d"
         Title="BookNest — Đăng Nhập &amp; Xác Thực Hệ Thống Nhà Sách"
         Height="740" Width="1120"
@@ -13,7 +14,7 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <!-- Left Panel: Branding, XAML Bookstore Illustration & Demo Credentials -->
+            <!-- Left Panel: Branding & XAML Bookstore Illustration -->
             <ColumnDefinition Width="1.05*"/>
             <!-- Right Panel: Login (UC01) & Customer Registration (UC14) Form -->
             <ColumnDefinition Width="1.15*"/>
@@ -123,79 +124,12 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Bottom Demo Credentials Box (Clearly labelled as Demo-Only) -->
-                <Border Grid.Row="2"
-                        Background="#122240"
-                        BorderBrush="#2A4374"
-                        BorderThickness="1"
-                        CornerRadius="12"
-                        Padding="18,14">
-                    <StackPanel>
-                        <Grid Margin="0,0,0,8">
-                            <TextBlock Text="TÀI KHOẢN MẪU KIỂM THỬ (DEMO-ONLY / IN-MEMORY)"
-                                       FontSize="11"
-                                       FontWeight="Bold"
-                                       Foreground="#FDBA74"
-                                       VerticalAlignment="Center"/>
-                        </Grid>
-
-                        <TextBlock Text="Dữ liệu xác thực dưới đây chỉ phục vụ chạy thử nghiệm giao diện trên bộ nhớ RAM, không kết nối máy chủ thực tế:"
-                                   FontSize="11.5"
-                                   Foreground="#94A3B8"
-                                   TextWrapping="Wrap"
-                                   Margin="0,0,0,10"/>
-
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Demo Customer Quick-Fill Button -->
-                            <Button Grid.Column="0"
-                                    Command="{Binding FillDemoCustomerCommand}"
-                                    Style="{StaticResource HeaderNavButtonStyle}"
-                                    Background="#1E3A8A"
-                                    Padding="8,8"
-                                    Margin="0,0,4,0"
-                                    ToolTip="Điền nhanh thông tin tài khoản Khách hàng mẫu">
-                                <StackPanel>
-                                    <TextBlock Text="TK Khách Hàng" Foreground="White" FontWeight="Bold" FontSize="11.5" HorizontalAlignment="Center"/>
-                                    <TextBlock Text="customer@example.com" Foreground="#BFDBFE" FontSize="9.5" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                                </StackPanel>
-                            </Button>
-
-                            <!-- Demo Staff Quick-Fill Button -->
-                            <Button Grid.Column="1"
-                                    Command="{Binding FillDemoStaffCommand}"
-                                    Style="{StaticResource HeaderNavButtonStyle}"
-                                    Background="#0F766E"
-                                    Padding="8,8"
-                                    Margin="4,0,4,0"
-                                    ToolTip="Điền nhanh thông tin tài khoản Nhân viên mẫu">
-                                <StackPanel>
-                                    <TextBlock Text="TK Nhân Viên" Foreground="White" FontWeight="Bold" FontSize="11.5" HorizontalAlignment="Center"/>
-                                    <TextBlock Text="staff@example.com" Foreground="#CCFBF1" FontSize="9.5" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                                </StackPanel>
-                            </Button>
-
-                            <!-- Demo Manager Quick-Fill Button -->
-                            <Button Grid.Column="2"
-                                    Command="{Binding FillDemoManagerCommand}"
-                                    Style="{StaticResource HeaderNavButtonStyle}"
-                                    Background="#E85D22"
-                                    Padding="8,8"
-                                    Margin="4,0,0,0"
-                                    ToolTip="Điền nhanh thông tin tài khoản Quản lý mẫu">
-                                <StackPanel>
-                                    <TextBlock Text="TK Quản Lý" Foreground="White" FontWeight="Bold" FontSize="11.5" HorizontalAlignment="Center"/>
-                                    <TextBlock Text="manager@example.com" Foreground="#FFEDD5" FontSize="9.5" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                                </StackPanel>
-                            </Button>
-                        </Grid>
-                    </StackPanel>
-                </Border>
+                <!-- Bottom Info Footer -->
+                <TextBlock Grid.Row="2"
+                           Text="© BookNest System • Phiên bản 1.0"
+                           FontSize="12"
+                           Foreground="#64748B"
+                           HorizontalAlignment="Center"/>
             </Grid>
         </Border>
 
@@ -273,15 +207,10 @@
 
                     <!-- Password Input -->
                     <TextBlock Text="Mật khẩu *" Style="{StaticResource FormFieldLabelStyle}"/>
-                    <PasswordBox x:Name="LoginPasswordBox"
-                                 Style="{StaticResource FormPasswordBoxStyle}"
-                                 conv:PasswordBoxHelper.BoundPassword="{Binding LoginPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                 Margin="0,0,0,24">
-                        <PasswordBox.InputBindings>
-                            <KeyBinding Key="Return" Command="{Binding LoginCommand}"/>
-                            <KeyBinding Key="Enter" Command="{Binding LoginCommand}"/>
-                        </PasswordBox.InputBindings>
-                    </PasswordBox>
+                    <ctrl:TogglePasswordBox x:Name="LoginPasswordBox"
+                                            Password="{Binding LoginPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            EnterCommand="{Binding LoginCommand}"
+                                            Margin="0,0,0,24"/>
 
                     <!-- Primary Login Button (#E85D22) -->
                     <Button Content="Đăng nhập hệ thống"
@@ -290,16 +219,7 @@
                             FontSize="15"
                             Padding="0,13"
                             HorizontalAlignment="Stretch"
-                            Margin="0,0,0,10"/>
-
-                    <!-- Guest Access Button -->
-                    <Button Content="Tiếp tục với tư cách Khách"
-                            Command="{Binding ContinueAsGuestCommand}"
-                            Style="{StaticResource SecondaryOutlineButtonStyle}"
-                            FontSize="14"
-                            Padding="0,11"
-                            HorizontalAlignment="Stretch"
-                            Margin="0,0,0,18"/>
+                            Margin="0,0,0,16"/>
 
                     <Separator Background="{StaticResource BorderSubtleBrush}" Margin="0,4,0,18"/>
 
@@ -318,7 +238,7 @@
 
                 </StackPanel>
 
-                <!-- B. CUSTOMER REGISTRATION VIEW (UC14) -->
+                <!-- B. REGISTRATION VIEW (UC14) -->
                 <StackPanel Visibility="{Binding IsRegisterMode, Converter={StaticResource BooleanToVisibilityConverter}}" d:IsHidden="True">
 
                     <Border Background="{StaticResource BrandOrangeLightBrush}"
@@ -334,13 +254,13 @@
                                    FontSize="11.5"/>
                     </Border>
 
-                    <TextBlock Text="Tạo tài khoản Khách hàng"
+                    <TextBlock Text="Tạo tài khoản khách hàng"
                                FontSize="26"
                                FontWeight="Bold"
                                Foreground="{StaticResource CharcoalTextBrush}"
                                Margin="0,0,0,4"/>
 
-                    <TextBlock Text="Điền thông tin cá nhân để tạo tài khoản mua sách trực tuyến (Mặc định phân quyền Khách hàng)."
+                    <TextBlock Text="Điền đầy đủ thông tin cá nhân bên dưới để tạo tài khoản mua sắm sách trực tuyến."
                                FontSize="13"
                                Foreground="{StaticResource MutedTextBrush}"
                                TextWrapping="Wrap"
@@ -362,7 +282,7 @@
                     </Border>
 
                     <!-- 1. Full Name -->
-                    <TextBlock Text="Họ và tên khách hàng *" Style="{StaticResource FormFieldLabelStyle}"/>
+                    <TextBlock Text="Họ và tên *" Style="{StaticResource FormFieldLabelStyle}"/>
                     <TextBox Text="{Binding RegisterHoTen, UpdateSourceTrigger=PropertyChanged}"
                              Style="{StaticResource FormTextBoxStyle}"/>
                     <TextBlock Text="{Binding HoTenError}"
@@ -377,14 +297,44 @@
                     <TextBlock Text="{Binding SdtError}"
                                Style="{StaticResource ValidationErrorTextStyle}"
                                Visibility="{Binding HasSdtError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                    <!-- 3. Email -->
-                    <TextBlock Text="Địa chỉ Email*" Style="{StaticResource FormFieldLabelStyle}" Margin="0,12,0,6"/>
-                    <TextBox Text="{Binding RegisterEmail, UpdateSourceTrigger=PropertyChanged}"
-                                Style="{StaticResource FormTextBoxStyle}"/>
+
+                    <!-- 3. Email + nút gửi mã xác thực -->
+                    <TextBlock Text="Địa chỉ Email *" Style="{StaticResource FormFieldLabelStyle}" Margin="0,12,0,6"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding RegisterEmail, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource FormTextBoxStyle}"/>
+                        <Button Grid.Column="1"
+                                Content="{Binding SendCodeButtonText}"
+                                Command="{Binding SendVerificationCodeCommand}"
+                                Style="{StaticResource SecondaryOutlineButtonStyle}"
+                                Padding="14,0"
+                                MinWidth="96"
+                                Margin="8,0,0,0"/>
+                    </Grid>
                     <TextBlock Text="{Binding EmailError}" Style="{StaticResource ValidationErrorTextStyle}"
                                 Visibility="{Binding HasEmailError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                    <TextBlock Text="{Binding VerificationInfoMessage}"
+                               Foreground="#15803D"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0"
+                               Visibility="{Binding HasVerificationInfo, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                    <!-- 3b. Mã xác thực -->
+                    <TextBlock Text="Mã xác thực (gửi tới email) *" Style="{StaticResource FormFieldLabelStyle}" Margin="0,12,0,6"/>
+                    <TextBox Text="{Binding RegisterVerificationCode, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="10"
+                             Style="{StaticResource FormTextBoxStyle}"/>
+                    <TextBlock Text="{Binding VerificationCodeError}" Style="{StaticResource ValidationErrorTextStyle}"
+                               Visibility="{Binding HasVerificationCodeError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
                     <!-- 4. Address -->
-                    <TextBlock Text="Địa chỉ nhận hàng *" Style="{StaticResource FormFieldLabelStyle}" Margin="0,12,0,6"/>
+                    <TextBlock Text="Địa chỉ liên hệ *" Style="{StaticResource FormFieldLabelStyle}" Margin="0,12,0,6"/>
                     <TextBox Text="{Binding RegisterDiaChi, UpdateSourceTrigger=PropertyChanged}"
                              Style="{StaticResource FormTextBoxStyle}"/>
                     <TextBlock Text="{Binding DiaChiError}"
@@ -392,7 +342,7 @@
                                Visibility="{Binding HasDiaChiError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
                     <!-- 5. Username -->
-                    <TextBlock Text="Tên đăng nhập" Style="{StaticResource FormFieldLabelStyle}" Margin="0,12,0,6"/>
+                    <TextBlock Text="Tên đăng nhập (3 - 10 ký tự) *" Style="{StaticResource FormFieldLabelStyle}" Margin="0,12,0,6"/>
                     <TextBox Text="{Binding RegisterUsername, UpdateSourceTrigger=PropertyChanged}"
                              Style="{StaticResource FormTextBoxStyle}"/>
                     <TextBlock Text="{Binding UsernameError}"
@@ -408,8 +358,7 @@
 
                         <StackPanel Grid.Column="0" Margin="0,0,8,0">
                             <TextBlock Text="Mật khẩu (>= 6 ký tự) *" Style="{StaticResource FormFieldLabelStyle}"/>
-                            <PasswordBox Style="{StaticResource FormPasswordBoxStyle}"
-                                         conv:PasswordBoxHelper.BoundPassword="{Binding RegisterPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <ctrl:TogglePasswordBox Password="{Binding RegisterPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="{Binding PasswordError}"
                                        Style="{StaticResource ValidationErrorTextStyle}"
                                        Visibility="{Binding HasPasswordError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
@@ -417,8 +366,7 @@
 
                         <StackPanel Grid.Column="1" Margin="8,0,0,0">
                             <TextBlock Text="Xác nhận mật khẩu *" Style="{StaticResource FormFieldLabelStyle}"/>
-                            <PasswordBox Style="{StaticResource FormPasswordBoxStyle}"
-                                         conv:PasswordBoxHelper.BoundPassword="{Binding RegisterConfirmPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <ctrl:TogglePasswordBox Password="{Binding RegisterConfirmPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="{Binding ConfirmPasswordError}"
                                        Style="{StaticResource ValidationErrorTextStyle}"
                                        Visibility="{Binding HasConfirmPasswordError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
@@ -426,7 +374,7 @@
                     </Grid>
 
                     <!-- Primary Register Button -->
-                    <Button Content="Hoàn tất đăng ký Khách hàng"
+                    <Button Content="{Binding RegisterButtonText}"
                             Command="{Binding RegisterCommand}"
                             Style="{StaticResource PrimaryCtaButtonStyle}"
                             FontSize="14.5"

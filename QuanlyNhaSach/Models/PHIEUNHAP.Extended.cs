@@ -11,7 +11,6 @@ namespace QuanlyNhaSach.Models
     {
         private string? _tenNCC;
         private string? _sdtNCC;
-        private string? _emailNCC;
         private string? _diaChiNCC;
         private DateTime? _ngayLap;
         private string? _nguoiLapHoTen;
@@ -35,15 +34,6 @@ namespace QuanlyNhaSach.Models
                 ? _sdtNCC
                 : (MaNCCNavigation?.SDT ?? "N/A");
             set => _sdtNCC = value;
-        }
-
-        [NotMapped]
-        public string EmailNCC
-        {
-            get => !string.IsNullOrWhiteSpace(_emailNCC)
-                ? _emailNCC
-                : (MaNCCNavigation?.Email ?? "N/A");
-            set => _emailNCC = value;
         }
 
         [NotMapped]
@@ -94,9 +84,6 @@ namespace QuanlyNhaSach.Models
 
         [NotMapped]
         public List<CHITIETPHIEUNHAP> Details => CHITIETPHIEUNHAPs?.ToList() ?? new List<CHITIETPHIEUNHAP>();
-
-        [NotMapped]
-        public int DistinctBookCount => CHITIETPHIEUNHAPs?.Count ?? 0;
 
         [NotMapped]
         public int TotalImportedQuantity => CHITIETPHIEUNHAPs?.Sum(d => d.SoLuongNhap) ?? 0;

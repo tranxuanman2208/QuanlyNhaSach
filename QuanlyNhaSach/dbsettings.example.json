@@ -1,0 +1,7 @@
+{
+    // Cấu hình mẫu kết nối Cơ sở dữ liệu Đám mây (PostgreSQL - Aiven / Neon / Supabase)
+    // Sao chép file này thành dbsettings.json và điền thông tin ServiceUri hoặc ConnectionString của bạn
+    "Provider": "PostgreSQL",
+    "ServiceUri": "postgres://username:password@your-host.aivencloud.com:15379/defaultdb?sslmode=require",
+    "ConnectionString": ""
+}

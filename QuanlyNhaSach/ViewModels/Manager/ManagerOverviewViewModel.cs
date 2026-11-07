@@ -14,6 +14,8 @@ namespace QuanlyNhaSach.ViewModels.Manager
     {
         public const string Period7Days = "7 ngày gần nhất";
         public const string Period14Days = "14 ngày gần nhất";
+        public const string Period30Days = "30 ngày gần nhất";
+        public const string Period12Months = "12 tháng gần nhất";
 
         private readonly OrderService _orderService;
         private readonly BookService _bookService;
@@ -26,7 +28,9 @@ namespace QuanlyNhaSach.ViewModels.Manager
         public IReadOnlyList<string> ReportingPeriods { get; } = new List<string>
         {
             Period7Days,
-            Period14Days
+            Period14Days,
+            Period30Days,
+            Period12Months
         };
 
         [ObservableProperty]
@@ -153,8 +157,40 @@ namespace QuanlyNhaSach.ViewModels.Manager
             LowStockSubtext = $"{outOfStockCount} hết hàng (0 cuốn) • {warningCount} sắp hết (1–9 cuốn)";
 
             // 5. Revenue Bar Chart
-            int days = SelectedPeriod == Period14Days ? 14 : 7;
-            var points = _orderService.GetRevenueChartPoints(days, maxBarPixelHeight: 170.0);
+            const double maxBarHeight = 170.0;
+            IReadOnlyList<RevenueChartPoint> points;
+            string periodDescription;
+            switch (SelectedPeriod)
+            {
+                case Period12Months:
+                    points = _orderService.GetMonthlyRevenueChartPoints(12, maxBarPixelHeight: maxBarHeight);
+                    periodDescription = "12 tháng";
+                    break;
+                case Period30Days:
+                    points = _orderService.GetRevenueChartPoints(30, maxBarPixelHeight: maxBarHeight);
+                    periodDescription = "30 ngày";
+                    break;
+                case Period14Days:
+                    points = _orderService.GetRevenueChartPoints(14, maxBarPixelHeight: maxBarHeight);
+                    periodDescription = "14 ngày";
+                    break;
+                default:
+                    points = _orderService.GetRevenueChartPoints(7, maxBarPixelHeight: maxBarHeight);
+                    periodDescription = "7 ngày";
+                    break;
+            }
+
+            // Khi có nhiều cột (30 ngày), ẩn nhãn giá trị trên cột (xem qua tooltip)
+            // và chỉ hiện nhãn ngày cách quãng để tránh chữ chồng lên nhau.
+            bool isDense = points.Count > 14;
+            const int axisLabelStep = 5;
+            for (int i = 0; i < points.Count; i++)
+            {
+                var pt = points[i];
+                pt.ShowValueLabel = !isDense;
+                pt.ShowAxisLabel = !isDense || (points.Count - 1 - i) % axisLabelStep == 0;
+            }
+
             RevenueChartPoints.Clear();
             foreach (var pt in points)
             {
@@ -162,7 +198,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
             }
 
             decimal periodSum = points.Sum(p => p.Revenue);
-            ChartPeriodTotalText = $"Tổng doanh thu kỳ hiển thị ({days} ngày): {periodSum:N0} ₫";
+            ChartPeriodTotalText = $"Tổng doanh thu kỳ hiển thị ({periodDescription}): {periodSum:N0} ₫";
         }
 
         [RelayCommand]

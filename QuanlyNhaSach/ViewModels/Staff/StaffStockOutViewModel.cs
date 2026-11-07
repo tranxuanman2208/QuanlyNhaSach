@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -24,20 +24,47 @@ namespace QuanlyNhaSach.ViewModels.Staff
         private string _searchOrderIdText = string.Empty;
 
         private DONHANG? _selectedOrder;
+
+        // Cờ chặn ComboBox đẩy null về SelectedOrder khi QuickOrdersList đang được làm mới (Clear/Add)
+        private bool _isRefreshingQuickOrders;
+
         public DONHANG? SelectedOrder
         {
             get => _selectedOrder;
             set
             {
-                if (SetProperty(ref _selectedOrder, value))
+                if (_isRefreshingQuickOrders)
                 {
-                    if (_selectedOrder != null)
-                    {
-                        SearchOrderIdText = $"#{_selectedOrder.MaDH}";
-                    }
-                    LoadOrderStockOutItems();
+                    return;
                 }
+
+                SetSelectedOrderAndLoad(value, forceReload: false);
             }
+        }
+
+        private void SetSelectedOrderAndLoad(DONHANG? order, bool forceReload)
+        {
+            bool changed = SetProperty(ref _selectedOrder, order, nameof(SelectedOrder));
+            if (!changed && !forceReload)
+            {
+                return;
+            }
+
+            if (_selectedOrder != null)
+            {
+                SearchOrderIdText = $"#{_selectedOrder.MaDH}";
+            }
+
+            LoadOrderStockOutItems();
+            NotifySelectionStateChanged();
+        }
+
+        private void NotifySelectionStateChanged()
+        {
+            OnPropertyChanged(nameof(HasSelectedOrder));
+            OnPropertyChanged(nameof(IsNoOrderLoaded));
+            OnPropertyChanged(nameof(CanConfirmStockOut));
+            ConfirmStockOutCommand.NotifyCanExecuteChanged();
         }
 
         [ObservableProperty]
@@ -58,7 +85,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
         [ObservableProperty]
         private bool _isFeedbackSuccess = true;
 
-        public bool HasSelectedOrder => IsOrderFound && SelectedOrder != null;
+        public bool HasSelectedOrder => SelectedOrder != null;
         public bool IsNoOrderLoaded => !HasSelectedOrder;
         public bool HasFeedback => !string.IsNullOrWhiteSpace(FeedbackMessage);
 
@@ -119,17 +146,29 @@ namespace QuanlyNhaSach.ViewModels.Staff
         {
             int? currentId = _selectedOrder?.MaDH;
             var all = _orderService.GetAllOrders();
-            QuickOrdersList.Clear();
-            foreach (var order in all)
+
+            _isRefreshingQuickOrders = true;
+            try
             {
-                QuickOrdersList.Add(order);
+                QuickOrdersList.Clear();
+                foreach (var order in all)
+                {
+                    QuickOrdersList.Add(order);
+                }
+
+                if (currentId.HasValue)
+                {
+                    // Dùng instance mới nhất trong danh sách để ComboBox chọn đúng phần tử
+                    _selectedOrder = QuickOrdersList.FirstOrDefault(o => o.MaDH == currentId.Value) ?? _selectedOrder;
+                }
+            }
+            finally
+            {
+                _isRefreshingQuickOrders = false;
             }
 
-            if (currentId.HasValue)
-            {
-                _selectedOrder = QuickOrdersList.FirstOrDefault(o => o.MaDH == currentId.Value);
-                OnPropertyChanged(nameof(SelectedOrder));
-            }
+            OnPropertyChanged(nameof(SelectedOrder));
+            NotifySelectionStateChanged();
         }
 
         [RelayCommand]
@@ -155,12 +194,14 @@ namespace QuanlyNhaSach.ViewModels.Staff
                 InsufficientStockWarningMessage = string.Empty;
                 IsFeedbackSuccess = false;
                 FeedbackMessage = $"Không tìm thấy đơn hàng nào có mã \"{SearchOrderIdText.Trim()}\". Vui lòng kiểm tra lại.";
-                OnPropertyChanged(nameof(CanConfirmStockOut));
-                ConfirmStockOutCommand.NotifyCanExecuteChanged();
+                NotifySelectionStateChanged();
                 return;
             }
 
-            SelectedOrder = foundOrder;
+            // Ưu tiên instance có trong QuickOrdersList để ComboBox hiển thị đồng bộ;
+            // luôn tải lại chi tiết kể cả khi đơn tìm được trùng với đơn đang chọn.
+            var orderInList = QuickOrdersList.FirstOrDefault(o => o.MaDH == foundOrder.MaDH) ?? foundOrder;
+            SetSelectedOrderAndLoad(orderInList, forceReload: true);
         }
 
         private void LoadOrderStockOutItems()

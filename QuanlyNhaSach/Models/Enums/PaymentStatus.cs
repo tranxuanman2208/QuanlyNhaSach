@@ -5,6 +5,7 @@ namespace QuanlyNhaSach.Models.Enums
         Pending = 0,
         Paid = 1,
         PayOnDelivery = 2,
-        Failed = 3
+        Failed = 3,
+        Refunded = 4
     }
 }

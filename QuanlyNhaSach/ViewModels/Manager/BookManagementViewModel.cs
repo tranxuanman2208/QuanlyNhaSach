@@ -17,6 +17,10 @@ namespace QuanlyNhaSach.ViewModels.Manager
 
         public ObservableCollection<SACH> DisplayedBooks { get; } = new();
         public ObservableCollection<NHACUNGCAP> AvailableSuppliers { get; } = new();
+        public ObservableCollection<string> BookTitleSuggestions { get; } = new();
+
+        [ObservableProperty]
+        private bool _isBookSuggestionsOpen;
 
         public IReadOnlyList<string> StockFilterOptions { get; } = new List<string>
         {
@@ -24,18 +28,6 @@ namespace QuanlyNhaSach.ViewModels.Manager
             BookService.NormalStockFilter,
             BookService.LowStockFilter,
             BookService.OutOfStockFilter
-        };
-
-        public IReadOnlyList<string> CoverColorPresets { get; } = new List<string>
-        {
-            "#1E3A8A",
-            "#0F766E",
-            "#B45309",
-            "#4338CA",
-            "#7C2D12",
-            "#1D4ED8",
-            "#991B1B",
-            "#065F46"
         };
 
         [ObservableProperty]
@@ -88,6 +80,16 @@ namespace QuanlyNhaSach.ViewModels.Manager
         private string _formSoLuongTonText = "10";
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasFormImagePreview))]
+        private string _formHinhAnh = string.Empty;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasFormImagePreview))]
+        private string _formHinhAnhPreview = string.Empty;
+
+        public bool HasFormImagePreview => !string.IsNullOrWhiteSpace(FormHinhAnhPreview);
+
+        [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(HasFormError))]
         private string _formErrorMessage = string.Empty;
 
@@ -110,7 +112,49 @@ namespace QuanlyNhaSach.ViewModels.Manager
 
         partial void OnSearchKeywordChanged(string value)
         {
+            UpdateBookSuggestions(value);
             RefreshBooks();
+        }
+
+        private void UpdateBookSuggestions(string keyword)
+        {
+            BookTitleSuggestions.Clear();
+            if (string.IsNullOrWhiteSpace(keyword) || keyword.Trim().Length < 1)
+            {
+                IsBookSuggestionsOpen = false;
+                return;
+            }
+
+            string term = keyword.Trim().ToLowerInvariant();
+            var allBooks = _bookService.GetAllBooks();
+            var matches = allBooks
+                .Where(b => (!string.IsNullOrWhiteSpace(b.Tensach) && b.Tensach.ToLowerInvariant().Contains(term)) ||
+                            (!string.IsNullOrWhiteSpace(b.MaSach) && b.MaSach.ToLowerInvariant().Contains(term)))
+                .Select(b => b.Tensach!.Trim())
+                .Distinct()
+                .Take(6)
+                .ToList();
+
+            foreach (var title in matches)
+            {
+                BookTitleSuggestions.Add(title);
+            }
+
+            IsBookSuggestionsOpen = BookTitleSuggestions.Count > 0;
+        }
+
+        [RelayCommand]
+        public void SelectSuggestion(string title)
+        {
+            if (string.IsNullOrWhiteSpace(title)) return;
+            SearchKeyword = title;
+            IsBookSuggestionsOpen = false;
+        }
+
+        [RelayCommand]
+        public void CloseSuggestions()
+        {
+            IsBookSuggestionsOpen = false;
         }
 
         partial void OnSelectedStockFilterChanged(string value)
@@ -181,14 +225,16 @@ namespace QuanlyNhaSach.ViewModels.Manager
             IsEditMode = false;
             EditingBookId = string.Empty;
             DialogTitle = "Thêm đầu sách mới (UC09)";
-            FormMaSach = string.Empty;
+            FormMaSach = _bookService.GenerateNextBookId();
             FormTenSach = string.Empty;
             FormTacGia = string.Empty;
-            FormTheLoai = "Văn học & Kỹ năng";
+            FormTheLoai = string.Empty;
             FormNXB = string.Empty;
             FormMaNCC = AvailableSuppliers.Count > 0 ? AvailableSuppliers[0].MaNCC : string.Empty;
-            FormGiaBanText = "120000";
-            FormSoLuongTonText = "15";
+            FormGiaBanText = string.Empty;
+            FormSoLuongTonText = string.Empty;
+            FormHinhAnh = string.Empty;
+            FormHinhAnhPreview = string.Empty;
             FormErrorMessage = string.Empty;
             IsBookDialogOpen = true;
         }
@@ -213,8 +259,71 @@ namespace QuanlyNhaSach.ViewModels.Manager
             FormMaNCC = book.MaNCC ?? string.Empty;
             FormGiaBanText = (book.Giaban ?? 0m).ToString("0", CultureInfo.InvariantCulture);
             FormSoLuongTonText = (book.Soluongton ?? 0).ToString(CultureInfo.InvariantCulture);
+            FormHinhAnh = book.Hinhanh ?? string.Empty;
+            FormHinhAnhPreview = book.DisplayHinhAnh ?? string.Empty;
             FormErrorMessage = string.Empty;
             IsBookDialogOpen = true;
+        }
+
+        [RelayCommand]
+        public void PickImage()
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Chọn ảnh bìa sách",
+                Filter = "Tệp hình ảnh (*.png;*.jpg;*.jpeg;*.webp)|*.png;*.jpg;*.jpeg;*.webp|Tất cả tệp (*.*)|*.*",
+                CheckFileExists = true
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                try
+                {
+                    string sourceFilePath = dialog.FileName;
+                    string extension = System.IO.Path.GetExtension(sourceFilePath);
+                    string cleanFileName = System.IO.Path.GetFileNameWithoutExtension(sourceFilePath);
+                    string codePrefix = (FormMaSach ?? string.Empty).Trim();
+                    if (!string.IsNullOrWhiteSpace(codePrefix) && cleanFileName.StartsWith(codePrefix + "_", StringComparison.OrdinalIgnoreCase))
+                    {
+                        cleanFileName = cleanFileName.Substring(codePrefix.Length + 1);
+                    }
+                    string targetFileName = string.IsNullOrWhiteSpace(codePrefix)
+                        ? $"book_{DateTime.Now:yyyyMMdd_HHmmss}{extension}"
+                        : $"{codePrefix}_{cleanFileName}{extension}";
+
+                    targetFileName = targetFileName.Replace(" ", "_");
+
+                    // 1. Sao chép vào thư mục Img của project nguồn (để lưu trữ lâu dài)
+                    string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                    string projectDir = System.IO.Path.GetFullPath(System.IO.Path.Combine(baseDir, "..", "..", ".."));
+                    string projectImgDir = System.IO.Path.Combine(projectDir, "Img");
+                    if (System.IO.Directory.Exists(projectImgDir))
+                    {
+                        string targetProjectPath = System.IO.Path.Combine(projectImgDir, targetFileName);
+                        System.IO.File.Copy(sourceFilePath, targetProjectPath, overwrite: true);
+                    }
+
+                    // 2. Sao chép vào thư mục Img tại output build (bin) để WPF hiển thị ngay lập tức
+                    string binImgDir = System.IO.Path.Combine(baseDir, "Img");
+                    System.IO.Directory.CreateDirectory(binImgDir);
+                    string targetBinPath = System.IO.Path.Combine(binImgDir, targetFileName);
+                    System.IO.File.Copy(sourceFilePath, targetBinPath, overwrite: true);
+
+                    FormHinhAnh = targetFileName;
+                    FormHinhAnhPreview = targetBinPath;
+                }
+                catch (Exception ex)
+                {
+                    FormErrorMessage = $"Không thể tải ảnh lên: {ex.Message}";
+                }
+            }
+        }
+
+        [RelayCommand]
+        public void ClearImage()
+        {
+            FormHinhAnh = string.Empty;
+            FormHinhAnhPreview = string.Empty;
         }
 
         [RelayCommand]
@@ -232,8 +341,8 @@ namespace QuanlyNhaSach.ViewModels.Manager
             string maSach = (IsEditMode ? EditingBookId : FormMaSach)?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(maSach))
             {
-                FormErrorMessage = "Vui lòng nhập mã sách.";
-                return;
+                maSach = _bookService.GenerateNextBookId();
+                FormMaSach = maSach;
             }
 
             if (maSach.Length > 10)
@@ -290,6 +399,8 @@ namespace QuanlyNhaSach.ViewModels.Manager
                 return;
             }
 
+            string? hinhAnhValue = string.IsNullOrWhiteSpace(FormHinhAnh) ? null : FormHinhAnh.Trim();
+
             OperationResult<SACH> result;
             if (IsEditMode)
             {
@@ -301,7 +412,8 @@ namespace QuanlyNhaSach.ViewModels.Manager
                     FormNXB.Trim(),
                     FormMaNCC.Trim(),
                     giaBan,
-                    soLuongTon);
+                    soLuongTon,
+                    hinhAnhValue);
             }
             else
             {
@@ -313,7 +425,8 @@ namespace QuanlyNhaSach.ViewModels.Manager
                     FormNXB.Trim(),
                     FormMaNCC.Trim(),
                     giaBan,
-                    soLuongTon);
+                    soLuongTon,
+                    hinhAnhValue);
             }
 
             if (!result.IsSuccess)

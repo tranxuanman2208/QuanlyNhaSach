@@ -30,7 +30,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
             }
         }
 
-        /// <summary>Tồn kho hiện tại của sách đang xem (Soluongton là byte? trong DB).</summary>
+        
         private int CurrentStock => SelectedBook?.Soluongton ?? 0;
 
         [ObservableProperty]
@@ -143,10 +143,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
             NotifyBookDependentProperties();
         }
 
-        /// <summary>
-        /// Thay thế cơ chế PropertyChanged của model Book cũ: khi BookService báo dữ liệu sách thay đổi,
-        /// tải lại sách đang xem từ DB và điều chỉnh số lượng chọn theo tồn kho mới.
-        /// </summary>
+        
         private void OnBooksChanged(object? sender, EventArgs e)
         {
             if (SelectedBook == null)

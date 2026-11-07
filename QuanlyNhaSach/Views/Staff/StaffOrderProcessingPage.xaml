@@ -15,7 +15,7 @@
             <Border Style="{StaticResource CardPanelStyle}" Padding="24,18" Margin="0,0,0,18">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="240"/>
+                        <ColumnDefinition Width="260"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
@@ -28,20 +28,98 @@
                                   Style="{StaticResource FormComboBoxStyle}"/>
                     </StackPanel>
 
-                    <!-- Search by Order ID / Customer -->
+                    <!-- Search by Order ID / Customer with Auto-Suggestions -->
                     <StackPanel Grid.Column="1" Margin="0,0,16,0">
                         <TextBlock Text="Tìm theo Mã ĐH hoặc Tên / SĐT khách hàng" Style="{StaticResource FormFieldLabelStyle}"/>
-                        <TextBox Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource FormTextBoxStyle}"/>
+                        <Grid>
+                            <TextBox x:Name="OrderSearchTextBox"
+                                     Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource FormTextBoxStyle}"/>
+
+                            <!-- Order Suggestions Dropdown Popup -->
+                            <Popup IsOpen="{Binding IsOrderSuggestionsOpen}"
+                                   PlacementTarget="{Binding ElementName=OrderSearchTextBox}"
+                                   Placement="Bottom"
+                                   StaysOpen="False"
+                                   AllowsTransparency="True">
+                                <Border Background="White"
+                                        BorderBrush="{StaticResource BorderSubtleBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        MinWidth="{Binding ActualWidth, ElementName=OrderSearchTextBox}"
+                                        MaxWidth="600"
+                                        Margin="0,4,0,0"
+                                        Effect="{StaticResource CardShadowEffect}">
+                                    <ItemsControl ItemsSource="{Binding OrderSuggestions}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Padding="12,8" Cursor="Hand" Background="Transparent">
+                                                    <Border.InputBindings>
+                                                        <MouseBinding Gesture="LeftClick"
+                                                                      Command="{Binding DataContext.SelectOrderSuggestionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                      CommandParameter="{Binding}"/>
+                                                    </Border.InputBindings>
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Style.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter Property="Background" Value="#F1F5F9"/>
+                                                                </Trigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="📦" Margin="0,0,10,0" VerticalAlignment="Center" FontSize="14"/>
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding OrderCode}" FontWeight="Bold" Foreground="{StaticResource BrandDarkBlueBrush}" FontSize="13"/>
+                                                            <TextBlock Text="{Binding CustomerInfo}" FontSize="12" Foreground="{StaticResource CharcoalTextBrush}"/>
+                                                        </StackPanel>
+                                                        <Border Grid.Column="2"
+                                                                Style="{StaticResource StatusBadgeBorderStyle}"
+                                                                Background="{Binding Status, Converter={StaticResource OrderStatusBadgeBackgroundConverter}}"
+                                                                VerticalAlignment="Center"
+                                                                Margin="10,0,0,0">
+                                                            <TextBlock Text="{Binding Status}"
+                                                                       FontWeight="Bold"
+                                                                       FontSize="11"
+                                                                       Foreground="{Binding Status, Converter={StaticResource OrderStatusBadgeForegroundConverter}}"/>
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Border>
+                            </Popup>
+                        </Grid>
                     </StackPanel>
 
-                    <!-- Reset Filters Button -->
-                    <Button Grid.Column="2"
-                            Content="Đặt lại bộ lọc"
-                            Command="{Binding ResetFiltersCommand}"
-                            Style="{StaticResource SecondaryOutlineButtonStyle}"
-                            VerticalAlignment="Bottom"
-                            Padding="16,9"/>
+                    <!-- Quick Filter Action Buttons -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Bottom">
+                        <Button Content="Đơn mới"
+                                Command="{Binding FilterNewOrdersCommand}"
+                                ToolTip="Lọc chỉ hiển thị các đơn hàng mới tiếp nhận"
+                                Style="{StaticResource SecondaryOutlineButtonStyle}"
+                                Margin="0,0,6,0"
+                                Padding="10,9"/>
+                        <Button Content="Lịch sử đơn hàng"
+                                Command="{Binding ViewOrderHistoryCommand}"
+                                ToolTip="Xem danh sách các đơn hàng đã hoàn tất trong lịch sử"
+                                Style="{StaticResource SecondaryOutlineButtonStyle}"
+                                Margin="0,0,6,0"
+                                Padding="12,9"/>
+                        <Button Content="Đặt lại"
+                                Command="{Binding ResetFiltersCommand}"
+                                ToolTip="Khôi phục bộ lọc về danh sách Đơn cần xử lý"
+                                Style="{StaticResource SecondaryOutlineButtonStyle}"
+                                Padding="12,9"/>
+                    </StackPanel>
                 </Grid>
             </Border>
 
@@ -84,8 +162,12 @@
             <Border Style="{StaticResource CardPanelStyle}" Padding="24" Margin="0,0,0,20">
                 <StackPanel>
                     <Grid Margin="0,0,0,14">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="Danh Sách Đơn Hàng Cần Xử Lý" Style="{StaticResource SectionHeadingStyle}"/>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding TableTitle}" Style="{StaticResource SectionHeadingStyle}"/>
                             <Border Background="{StaticResource BrandDarkBlueLightBrush}" CornerRadius="10" Padding="10,2" Margin="12,0,0,0" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding DisplayedOrders.Count, StringFormat='{}{0} đơn hàng'}"
                                            Foreground="{StaticResource BrandDarkBlueBrush}"
@@ -94,130 +176,152 @@
                             </Border>
                         </StackPanel>
 
-                        <TextBlock Text="Quy trình chuẩn: Mới → Đã xác nhận → (Xuất kho) → Đang giao → (Thanh toán) → Hoàn tất"
+                        <TextBlock Grid.Column="1"
+                                   Text="Quy trình chuẩn: Mới → (Duyệt CK nếu chuyển khoản) → Đã xác nhận → (Xuất kho) → Đang giao → Hoàn tất"
                                    FontSize="12"
                                    FontWeight="SemiBold"
                                    Foreground="{StaticResource MutedTextBrush}"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Right"
+                                   Margin="16,0,0,0"
                                    HorizontalAlignment="Right"
                                    VerticalAlignment="Center"/>
                     </Grid>
 
-                    <DataGrid ItemsSource="{Binding DisplayedOrders}"
-                              SelectedItem="{Binding SelectedOrder, Mode=TwoWay}"
-                              Style="{StaticResource AdminDataGridStyle}"
-                              Visibility="{Binding HasOrders, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <DataGrid.Columns>
-                            <!-- Order ID -->
-                            <DataGridTextColumn Header="Mã ĐH" Binding="{Binding OrderCode}" Width="78">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="FontWeight" Value="Bold"/>
-                                        <Setter Property="Foreground" Value="{StaticResource BrandDarkBlueBrush}"/>
-                                    </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
+                    <!-- Orders Table -->
+                    <Grid Margin="0,4,0,0">
+                        <DataGrid ItemsSource="{Binding DisplayedOrders}"
+                                  SelectedItem="{Binding SelectedOrder, Mode=TwoWay}"
+                                  Style="{StaticResource AdminDataGridStyle}"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  Visibility="{Binding HasOrders, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <DataGrid.Columns>
+                                <!-- Order ID -->
+                                <DataGridTextColumn Header="Mã ĐH" Binding="{Binding OrderCode}" Width="78">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="FontWeight" Value="Bold"/>
+                                            <Setter Property="Foreground" Value="{StaticResource BrandDarkBlueBrush}"/>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
 
-                            <!-- Customer -->
-                            <DataGridTemplateColumn Header="Khách hàng" Width="1.15*">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <StackPanel>
-                                            <TextBlock Text="{Binding HoTenKhachHang}" FontWeight="SemiBold" Foreground="{StaticResource CharcoalTextBrush}"/>
-                                            <TextBlock Text="{Binding SDTKhachHang}" FontSize="11.5" Foreground="{StaticResource MutedTextBrush}"/>
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
+                                <!-- Customer -->
+                                <DataGridTemplateColumn Header="Khách hàng" Width="1.15*" MinWidth="160">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding HoTenKhachHang}" FontWeight="SemiBold" Foreground="{StaticResource CharcoalTextBrush}"/>
+                                                <TextBlock Text="{Binding SDTKhachHang}" FontSize="11.5" Foreground="{StaticResource MutedTextBrush}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
 
-                            <!-- Order Date -->
-                            <DataGridTextColumn Header="Ngày đặt" Binding="{Binding FormattedNgayDat}" Width="122"/>
+                                <!-- Order Date -->
+                                <DataGridTextColumn Header="Ngày đặt" Binding="{Binding FormattedNgayDat}" Width="122"/>
 
-                            <!-- Total Amount -->
-                            <DataGridTextColumn Header="Tổng tiền" Binding="{Binding FormattedTongTien}" Width="110">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="FontWeight" Value="Bold"/>
-                                        <Setter Property="Foreground" Value="{StaticResource BrandOrangeBrush}"/>
-                                    </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
+                                <!-- Total Amount -->
+                                <DataGridTextColumn Header="Tổng tiền" Binding="{Binding FormattedTongTien}" Width="110">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="FontWeight" Value="Bold"/>
+                                            <Setter Property="Foreground" Value="{StaticResource BrandOrangeBrush}"/>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
 
-                            <!-- Payment Method -->
-                            <DataGridTextColumn Header="PT Thanh toán" Binding="{Binding PhuongThucThanhToan}" Width="105"/>
+                                <!-- Payment Method -->
+                                <DataGridTextColumn Header="PT Thanh toán" Binding="{Binding PhuongThucThanhToan}" Width="105"/>
 
-                            <!-- Payment Status -->
-                            <DataGridTemplateColumn Header="TT Thanh toán" Width="125">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Border Style="{StaticResource StatusBadgeBorderStyle}"
-                                                Background="{Binding TrangThaiThanhToan, Converter={StaticResource PaymentStatusBadgeBackgroundConverter}}">
-                                            <TextBlock Text="{Binding TrangThaiThanhToan}"
-                                                       FontWeight="Bold"
-                                                       FontSize="11"
-                                                       Foreground="{Binding TrangThaiThanhToan, Converter={StaticResource PaymentStatusBadgeForegroundConverter}}"/>
-                                        </Border>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
+                                <!-- Payment Status -->
+                                <DataGridTemplateColumn Header="TT Thanh toán" Width="125">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource StatusBadgeBorderStyle}"
+                                                    Background="{Binding TrangThaiThanhToan, Converter={StaticResource PaymentStatusBadgeBackgroundConverter}}">
+                                                <TextBlock Text="{Binding TrangThaiThanhToan}"
+                                                           FontWeight="Bold"
+                                                           FontSize="11"
+                                                           Foreground="{Binding TrangThaiThanhToan, Converter={StaticResource PaymentStatusBadgeForegroundConverter}}"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
 
-                            <!-- Current Order Status -->
-                            <DataGridTemplateColumn Header="Trạng thái ĐH" Width="115">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Border Style="{StaticResource StatusBadgeBorderStyle}"
-                                                Background="{Binding TrangThai, Converter={StaticResource OrderStatusBadgeBackgroundConverter}}">
-                                            <TextBlock Text="{Binding TrangThai}"
-                                                       FontWeight="Bold"
-                                                       FontSize="11.5"
-                                                       Foreground="{Binding TrangThai, Converter={StaticResource OrderStatusBadgeForegroundConverter}}"/>
-                                        </Border>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
+                                <!-- Current Order Status -->
+                                <DataGridTemplateColumn Header="Trạng thái ĐH" Width="115">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource StatusBadgeBorderStyle}"
+                                                    Background="{Binding TrangThai, Converter={StaticResource OrderStatusBadgeBackgroundConverter}}">
+                                                <TextBlock Text="{Binding TrangThai}"
+                                                           FontWeight="Bold"
+                                                           FontSize="11.5"
+                                                           Foreground="{Binding TrangThai, Converter={StaticResource OrderStatusBadgeForegroundConverter}}"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
 
-                            <!-- Status Transition Dropdown & Actions -->
-                            <DataGridTemplateColumn Header="Chuyển trạng thái &amp; Thao tác" Width="310">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <ComboBox Width="122"
-                                                      ItemsSource="{Binding DataContext.TransitionOptions, RelativeSource={RelativeSource AncestorType=Page}}"
-                                                      SelectedItem="{Binding SelectedTransitionLabel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                      IsEnabled="{Binding CanTransitionStatus}"
-                                                      Style="{StaticResource FormComboBoxStyle}"
-                                                      FontSize="12"
-                                                      Padding="8,5"
-                                                      Margin="0,0,6,0"/>
+                                <!-- Status Transition Dropdown & Actions -->
+                                <DataGridTemplateColumn Header="Chuyển trạng thái &amp; Thao tác" Width="440">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <ComboBox Width="118"
+                                                          ItemsSource="{Binding DataContext.TransitionOptions, RelativeSource={RelativeSource AncestorType=Page}}"
+                                                          SelectedItem="{Binding SelectedTransitionLabel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                          IsEnabled="{Binding CanTransitionStatus}"
+                                                          Style="{StaticResource FormComboBoxStyle}"
+                                                          FontSize="12"
+                                                          Padding="8,5"
+                                                          Margin="0,0,6,0"/>
 
-                                            <Button Content="Cập nhật"
-                                                    Command="{Binding DataContext.ApplyStatusTransitionCommand, RelativeSource={RelativeSource AncestorType=Page}}"
-                                                    CommandParameter="{Binding}"
-                                                    IsEnabled="{Binding CanTransitionStatus}"
-                                                    Style="{StaticResource PrimaryCtaButtonStyle}"
-                                                    FontSize="11.5"
-                                                    Padding="10,6"
-                                                    Margin="0,0,6,0"/>
+                                                <Button Content="Cập nhật"
+                                                        Command="{Binding DataContext.ApplyStatusTransitionCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                                        CommandParameter="{Binding}"
+                                                        IsEnabled="{Binding CanTransitionStatus}"
+                                                        Style="{StaticResource PrimaryCtaButtonStyle}"
+                                                        FontSize="11.5"
+                                                        Padding="10,6"
+                                                        Margin="0,0,5,0"
+                                                        ToolTip="Cập nhật trạng thái mới cho đơn hàng"/>
 
-                                            <Button Content="Xuất kho"
-                                                    Command="{Binding DataContext.OpenStockOutCommand, RelativeSource={RelativeSource AncestorType=Page}}"
-                                                    CommandParameter="{Binding}"
-                                                    Style="{StaticResource SecondaryOutlineButtonStyle}"
-                                                    FontSize="11.5"
-                                                    Padding="8,6"
-                                                    Margin="0,0,4,0"/>
+                                                <Button Content="✓ Duyệt CK"
+                                                        Command="{Binding DataContext.ConfirmBankTransferPaymentCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                                        CommandParameter="{Binding}"
+                                                        Visibility="{Binding IsAwaitingBankTransferConfirmation, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                        Style="{StaticResource PrimaryCtaButtonStyle}"
+                                                        Background="#059669"
+                                                        FontSize="11.5"
+                                                        Padding="9,6"
+                                                        Margin="0,0,5,0"
+                                                        ToolTip="Xác nhận đã nhận tiền chuyển khoản QR và chuyển đơn sang Đã xác nhận"/>
 
-                                            <Button Content="Thu tiền"
-                                                    Command="{Binding DataContext.OpenSalesCommand, RelativeSource={RelativeSource AncestorType=Page}}"
-                                                    CommandParameter="{Binding}"
-                                                    Style="{StaticResource SecondaryOutlineButtonStyle}"
-                                                    FontSize="11.5"
-                                                    Padding="8,6"/>
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
+                                                <Button Content="Xuất kho"
+                                                        Command="{Binding DataContext.OpenStockOutCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                                        CommandParameter="{Binding}"
+                                                        Style="{StaticResource SecondaryOutlineButtonStyle}"
+                                                        FontSize="11.5"
+                                                        Padding="8,6"
+                                                        Margin="0,0,4,0"
+                                                        ToolTip="Tạo và kiểm tra phiếu xuất kho cho đơn hàng"/>
+
+                                                <Button Content="Thu tiền"
+                                                        Command="{Binding DataContext.OpenSalesCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                                        CommandParameter="{Binding}"
+                                                        Style="{StaticResource SecondaryOutlineButtonStyle}"
+                                                        FontSize="11.5"
+                                                        Padding="8,6"
+                                                        ToolTip="Xác nhận thanh toán và hoàn tất thu tiền đơn hàng"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
 
                     <!-- Empty Filtered State -->
                     <Border Background="{StaticResource SubtleSurfaceBrush}"
@@ -230,11 +334,19 @@
                                        FontWeight="Bold"
                                        Foreground="{StaticResource BrandDarkBlueBrush}"
                                        HorizontalAlignment="Center"/>
-                            <Button Content="Xem tất cả đơn hàng"
-                                    Command="{Binding ResetFiltersCommand}"
-                                    Style="{StaticResource SecondaryOutlineButtonStyle}"
-                                    HorizontalAlignment="Center"
-                                    Margin="0,12,0,0"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">
+                                <Button Content="Xem tất cả đơn hàng"
+                                        Command="{Binding ViewAllOrdersCommand}"
+                                        Style="{StaticResource SecondaryOutlineButtonStyle}"
+                                        Margin="0,0,10,0"/>
+                                <Button Content="Xem lịch sử đơn hàng đã hoàn tất"
+                                        Command="{Binding ViewOrderHistoryCommand}"
+                                        Style="{StaticResource SecondaryOutlineButtonStyle}"
+                                        Margin="0,0,10,0"/>
+                                <Button Content="Xem đơn mới cần xử lý"
+                                        Command="{Binding FilterNeedsProcessingCommand}"
+                                        Style="{StaticResource PrimaryCtaButtonStyle}"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -246,12 +358,12 @@
                     Visibility="{Binding HasSelectedOrder, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <StackPanel>
                     <Grid Margin="0,0,0,14">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-                        <StackPanel Grid.Column="0">
+                        <StackPanel Grid.Row="0">
                             <TextBlock Text="{Binding SelectedOrder.DisplayTitle}"
                                        FontSize="17"
                                        FontWeight="Bold"
@@ -267,42 +379,53 @@
                                        Margin="0,3,0,0"/>
                         </StackPanel>
 
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,12,0,0">
+                            <Button Content="✓ Duyệt tiền CK &amp; Xác nhận đơn"
+                                    Command="{Binding ConfirmBankTransferPaymentCommand}"
+                                    CommandParameter="{Binding SelectedOrder}"
+                                    Visibility="{Binding SelectedOrder.IsAwaitingBankTransferConfirmation, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    Style="{StaticResource PrimaryCtaButtonStyle}"
+                                    Background="#059669"
+                                    Margin="0,0,8,6"/>
                             <Button Content="1. Xác nhận đơn (Mới → Đã xác nhận)"
                                     Command="{Binding QuickConfirmOrderCommand}"
                                     CommandParameter="{Binding SelectedOrder}"
                                     Style="{StaticResource SecondaryOutlineButtonStyle}"
-                                    Margin="0,0,8,0"/>
+                                    Margin="0,0,8,6"/>
                             <Button Content="2. Giao hàng (Đã xác nhận → Đang giao)"
                                     Command="{Binding QuickShipOrderCommand}"
                                     CommandParameter="{Binding SelectedOrder}"
                                     Style="{StaticResource SecondaryOutlineButtonStyle}"
-                                    Margin="0,0,8,0"/>
+                                    Margin="0,0,8,6"/>
                             <Button Content="3. Hoàn tất đơn (Đang giao → Hoàn tất)"
                                     Command="{Binding QuickCompleteOrderCommand}"
                                     CommandParameter="{Binding SelectedOrder}"
-                                    Style="{StaticResource PrimaryCtaButtonStyle}"/>
-                        </StackPanel>
+                                    Style="{StaticResource PrimaryCtaButtonStyle}"
+                                    Margin="0,0,0,6"/>
+                        </WrapPanel>
                     </Grid>
 
-                    <DataGrid ItemsSource="{Binding SelectedOrder.Items}"
-                              Style="{StaticResource AdminDataGridStyle}">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Mã sách" Binding="{Binding MaSach, StringFormat='#{0}'}" Width="90"/>
-                            <DataGridTextColumn Header="Tên sách" Binding="{Binding TenSach}" Width="2*"/>
-                            <DataGridTextColumn Header="Tác giả" Binding="{Binding TacGia}" Width="1.2*"/>
-                            <DataGridTextColumn Header="Đơn giá lúc đặt" Binding="{Binding FormattedDonGia}" Width="135"/>
-                            <DataGridTextColumn Header="Số lượng đặt" Binding="{Binding SoLuongMua}" Width="115"/>
-                            <DataGridTextColumn Header="Thành tiền" Binding="{Binding FormattedThanhTien}" Width="140">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="FontWeight" Value="Bold"/>
-                                        <Setter Property="Foreground" Value="{StaticResource BrandOrangeBrush}"/>
-                                    </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
+                    <Grid>
+                        <DataGrid ItemsSource="{Binding SelectedOrder.Items}"
+                                  Style="{StaticResource AdminDataGridStyle}"
+                                  HorizontalScrollBarVisibility="Auto">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Mã sách" Binding="{Binding MaSach, StringFormat='#{0}'}" Width="90"/>
+                                <DataGridTextColumn Header="Tên sách" Binding="{Binding TenSach}" Width="2*" MinWidth="200"/>
+                                <DataGridTextColumn Header="Tác giả" Binding="{Binding TacGia}" Width="1.2*" MinWidth="140"/>
+                                <DataGridTextColumn Header="Đơn giá lúc đặt" Binding="{Binding FormattedDonGia}" Width="135"/>
+                                <DataGridTextColumn Header="Số lượng đặt" Binding="{Binding SoLuongMua}" Width="115"/>
+                                <DataGridTextColumn Header="Thành tiền" Binding="{Binding FormattedThanhTien}" Width="140">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="FontWeight" Value="Bold"/>
+                                            <Setter Property="Foreground" Value="{StaticResource BrandOrangeBrush}"/>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
                 </StackPanel>
             </Border>
 

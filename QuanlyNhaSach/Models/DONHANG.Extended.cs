@@ -13,8 +13,6 @@ namespace QuanlyNhaSach.Models
         private string? _sdtKhachHang;
         private string? _diaChiGiaoHang;
         private DateTime? _ngayDat;
-        private DateTime? _stockOutDate;
-        private decimal? _paidAmount;
         private PaymentStatus? _paymentStatusOverride;
         private StockOutStatus? _stockOutStatusOverride;
         private string? _selectedTransitionLabel;
@@ -69,25 +67,6 @@ namespace QuanlyNhaSach.Models
         }
 
         [NotMapped]
-        public DateTime NgayCapNhat { get; set; } = DateTime.Now;
-
-        [NotMapped]
-        public DateTime? StockOutDate
-        {
-            get
-            {
-                if (_stockOutDate.HasValue)
-                {
-                    return _stockOutDate.Value;
-                }
-
-                var latestPx = PHIEUXUATs?.OrderByDescending(p => p.MaPX).FirstOrDefault();
-                return latestPx != null ? latestPx.NgayXuat.ToDateTime(TimeOnly.MinValue) : null;
-            }
-            set => _stockOutDate = value;
-        }
-
-        [NotMapped]
         public decimal TongTien
         {
             get => Tongtien ?? (CHITIETDONHANGs?.Sum(i => i.ThanhTien) ?? 0m);
@@ -102,21 +81,6 @@ namespace QuanlyNhaSach.Models
         }
 
         [NotMapped]
-        public decimal PaidAmount
-        {
-            get => _paidAmount ?? ((Dathanhtoan == true) ? TongTien : 0m);
-            set
-            {
-                _paidAmount = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(FormattedPaidAmount));
-            }
-        }
-
-        [NotMapped]
-        public string PaymentNote { get; set; } = string.Empty;
-
-        [NotMapped]
         public OrderStatus Status
         {
             get => EnumExtensions.TryParseOrderStatusLabel(Trangthaigiaohang, out var parsed)
@@ -125,10 +89,22 @@ namespace QuanlyNhaSach.Models
             set
             {
                 Trangthaigiaohang = value.ToVietnameseLabel();
+                if (_paymentStatusOverride == PaymentStatus.Refunded && value != OrderStatus.Cancelled)
+                {
+                    _paymentStatusOverride = null;
+                }
+                else if (_paymentStatusOverride == PaymentStatus.Paid && value == OrderStatus.Cancelled)
+                {
+                    _paymentStatusOverride = PaymentStatus.Refunded;
+                }
+
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(Trangthaigiaohang));
                 OnPropertyChanged(nameof(TrangThai));
+                OnPropertyChanged(nameof(PaymentStatus));
+                OnPropertyChanged(nameof(TrangThaiThanhToan));
                 OnPropertyChanged(nameof(CanRecordPayment));
+                OnPropertyChanged(nameof(IsAwaitingBankTransferConfirmation));
                 OnPropertyChanged(nameof(CanTransitionStatus));
                 OnPropertyChanged(nameof(RequiredActionText));
             }
@@ -152,6 +128,8 @@ namespace QuanlyNhaSach.Models
                 OnPropertyChanged(nameof(PhuongThucThanhToan));
                 OnPropertyChanged(nameof(PaymentStatus));
                 OnPropertyChanged(nameof(TrangThaiThanhToan));
+                OnPropertyChanged(nameof(IsAwaitingBankTransferConfirmation));
+                OnPropertyChanged(nameof(RequiredActionText));
             }
         }
 
@@ -167,24 +145,26 @@ namespace QuanlyNhaSach.Models
 
                 if (Dathanhtoan == true)
                 {
-                    return PaymentStatus.Paid;
+                    return Status == OrderStatus.Cancelled
+                        ? PaymentStatus.Refunded
+                        : PaymentStatus.Paid;
                 }
 
                 if (Method == PaymentMethod.COD && Status != OrderStatus.Cancelled)
                 {
                     return PaymentStatus.PayOnDelivery;
                 }
-
                 return PaymentStatus.Pending;
             }
             set
             {
                 _paymentStatusOverride = value;
-                Dathanhtoan = (value == PaymentStatus.Paid);
+                Dathanhtoan = (value == PaymentStatus.Paid || value == PaymentStatus.Refunded);
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(Dathanhtoan));
                 OnPropertyChanged(nameof(TrangThaiThanhToan));
                 OnPropertyChanged(nameof(CanRecordPayment));
+                OnPropertyChanged(nameof(IsAwaitingBankTransferConfirmation));
                 OnPropertyChanged(nameof(RequiredActionText));
             }
         }
@@ -263,23 +243,32 @@ namespace QuanlyNhaSach.Models
         public string FormattedTongTien => $"{TongTien:N0} ₫";
 
         [NotMapped]
-        public string FormattedPaidAmount => $"{PaidAmount:N0} ₫";
-
-        [NotMapped]
         public string FormattedNgayDat => _ngayDat.HasValue
             ? _ngayDat.Value.ToString("dd/MM/yyyy HH:mm")
             : NgayTao.ToString("dd/MM/yyyy");
 
         [NotMapped]
-        public bool CanRecordPayment => Status != OrderStatus.Cancelled && PaymentStatus != PaymentStatus.Paid;
+        public bool CanRecordPayment =>
+            Status != OrderStatus.Cancelled &&
+            PaymentStatus != PaymentStatus.Paid &&
+            PaymentStatus != PaymentStatus.Refunded;
 
         [NotMapped]
-        public bool CanTransitionStatus => Status != OrderStatus.Completed && Status != OrderStatus.Cancelled;
+        public bool IsAwaitingBankTransferConfirmation =>
+            Method == PaymentMethod.BankTransfer &&
+            PaymentStatus != PaymentStatus.Paid &&
+            PaymentStatus != PaymentStatus.Refunded &&
+            Status != OrderStatus.Cancelled;
+
+        [NotMapped]
+        public bool CanTransitionStatus => Status != OrderStatus.Completed || Status != OrderStatus.Cancelled;
 
         [NotMapped]
         public string RequiredActionText => Status switch
         {
-            OrderStatus.New => "Xác nhận đơn hàng (Mới → Đã xác nhận)",
+            OrderStatus.New => IsAwaitingBankTransferConfirmation
+                ? "Kiểm tra tiền về & Bấm 'Duyệt CK' để xác nhận đơn hàng"
+                : "Xác nhận đơn hàng (Mới → Đã xác nhận)",
             OrderStatus.Confirmed => StockOutStatus == StockOutStatus.Issued
                 ? "Chuyển trạng thái sang Đang giao"
                 : "Thực hiện Xuất kho (UC10) trước khi giao hàng",
@@ -287,7 +276,9 @@ namespace QuanlyNhaSach.Models
                 ? "Xác nhận Hoàn tất đơn hàng"
                 : "Ghi nhận thu tiền (UC08) & Hoàn tất đơn",
             OrderStatus.Completed => "Đơn hàng đã hoàn tất",
-            OrderStatus.Cancelled => "Đơn hàng đã hủy",
+            OrderStatus.Cancelled => PaymentStatus == PaymentStatus.Refunded
+                ? "Đơn hàng đã hủy (Hoàn tiền cho khách)"
+                : "Đơn hàng đã hủy",
             _ => "Kiểm tra đơn hàng"
         };
     }
