@@ -11,6 +11,14 @@ namespace QuanlyNhaSach.Models
         public int OrderCount { get; init; }
         public double BarHeight { get; init; }
         public bool HasRevenue => Revenue > 0;
+
+        /// <summary>Hiển thị nhãn giá trị phía trên cột (ẩn khi biểu đồ có quá nhiều cột).</summary>
+        public bool ShowValueLabel { get; set; } = true;
+
+        /// <summary>Hiển thị nhãn trục X (khi dày đặc chỉ hiện cách quãng để tránh chồng chữ).</summary>
+        public bool ShowAxisLabel { get; set; } = true;
+
+        public string TooltipText => $"{FullDateLabel}\nDoanh thu: {FormattedRevenue}\nSố đơn: {OrderCount}";
         public string FormattedRevenue => $"{Revenue:N0} ₫";
         public string ShortRevenueLabel => Revenue <= 0
             ? "0 ₫"

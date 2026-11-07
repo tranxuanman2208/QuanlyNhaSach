@@ -100,7 +100,11 @@ namespace QuanlyNhaSach.Services
             return query.OrderBy(u => u.MaND).ToList();
         }
 
-        public OperationResult<NGUOIDUNG> AddStaffAccount(
+        /// <summary>
+        /// Kiểm tra dữ liệu nhân viên mới (định dạng + trùng lặp trong CSDL) mà KHÔNG lưu.
+        /// Dùng trước khi gửi mã xác thực email và trước khi tạo tài khoản.
+        /// </summary>
+        public OperationResult ValidateNewStaffAccount(
             string? hoTen,
             string? sdt,
             string? email,
@@ -110,48 +114,86 @@ namespace QuanlyNhaSach.Services
             string? confirmPassword = null)
         {
             if (string.IsNullOrWhiteSpace(hoTen))
-                return OperationResult<NGUOIDUNG>.Failure("Vui lòng nhập họ và tên nhân viên.");
+                return OperationResult.Failure("Vui lòng nhập họ và tên nhân viên.");
             if (hoTen.Trim().Length > 100)
-                return OperationResult<NGUOIDUNG>.Failure("Họ và tên nhân viên không được vượt quá 100 ký tự.");
+                return OperationResult.Failure("Họ và tên nhân viên không được vượt quá 100 ký tự.");
             if (string.IsNullOrWhiteSpace(sdt) || !PhoneTenDigitsRegex.IsMatch(sdt.Trim()))
-                return OperationResult<NGUOIDUNG>.Failure("Số điện thoại nhân viên không hợp lệ. Vui lòng nhập đúng 10 chữ số (0-9).");
-            if (string.IsNullOrWhiteSpace(email) || !email.EndsWith("@gmail.com") || email.Length < 10)
-                return OperationResult<NGUOIDUNG>.Failure("Vui lòng nhập email hợp lệ!");
+                return OperationResult.Failure("Số điện thoại nhân viên không hợp lệ. Vui lòng nhập đúng 10 chữ số (0-9).");
+            if (string.IsNullOrWhiteSpace(email) || !email.Trim().ToLower().EndsWith("@gmail.com") || email.Trim().Length < 10)
+                return OperationResult.Failure("Vui lòng nhập email hợp lệ!");
             if (string.IsNullOrWhiteSpace(diaChi))
-                return OperationResult<NGUOIDUNG>.Failure("Vui lòng nhập địa chỉ liên hệ của nhân viên.");
+                return OperationResult.Failure("Vui lòng nhập địa chỉ liên hệ của nhân viên.");
             if (diaChi.Trim().Length > 100)
-                return OperationResult<NGUOIDUNG>.Failure("Địa chỉ nhân viên không được vượt quá 100 ký tự.");
+                return OperationResult.Failure("Địa chỉ nhân viên không được vượt quá 100 ký tự.");
             if (string.IsNullOrWhiteSpace(username) || username.Trim().Length < 3)
-                return OperationResult<NGUOIDUNG>.Failure("Tên đăng nhập phải có ít nhất 3 ký tự.");
+                return OperationResult.Failure("Tên đăng nhập phải có ít nhất 3 ký tự.");
             if (username.Trim().Contains(' '))
-                return OperationResult<NGUOIDUNG>.Failure("Tên đăng nhập không được chứa khoảng trắng.");
+                return OperationResult.Failure("Tên đăng nhập không được chứa khoảng trắng.");
             if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
-                return OperationResult<NGUOIDUNG>.Failure("Mật khẩu khởi tạo phải có ít nhất 6 ký tự.");
+                return OperationResult.Failure("Mật khẩu khởi tạo phải có ít nhất 6 ký tự.");
             if (confirmPassword != null && !string.Equals(password, confirmPassword, StringComparison.Ordinal))
-                return OperationResult<NGUOIDUNG>.Failure("Mật khẩu xác nhận không khớp với mật khẩu khởi tạo.");
+                return OperationResult.Failure("Mật khẩu xác nhận không khớp với mật khẩu khởi tạo.");
 
-            string normalizedName = hoTen.Trim();
-            string normalizedPhone = sdt.Trim();
-            string normalizeEmail = email.Trim();
-            string normalizedAddress = diaChi.Trim();
-            string normalizedInputUsername = username.Trim();
+            return CheckAccountAvailability(username, email, sdt,
+                "Tên đăng nhập, Email hoặc Số điện thoại này đã được sử dụng bởi một tài khoản khác.");
+        }
+
+        /// <summary>
+        /// Kiểm tra Tên đăng nhập / Email / SĐT chưa được tài khoản nào sử dụng.
+        /// </summary>
+        internal static OperationResult CheckAccountAvailability(
+            string? username,
+            string? email,
+            string? sdt,
+            string duplicateMessage)
+        {
+            string normalizedUsername = (username ?? string.Empty).Trim().ToLower();
+            string normalizedEmail = (email ?? string.Empty).Trim().ToLower();
+            string normalizedPhone = (sdt ?? string.Empty).Trim();
 
             try
             {
                 using var db = new QuanlyNhaSachContext();
-
                 bool duplicateExists = db.NGUOIDUNGs
                     .AsNoTracking()
                     .Any(u =>
-                        u.Tendangnhap.ToLower() == normalizedInputUsername.ToLower() ||
-                        (u.Email != null && u.Email.ToLower() == normalizedInputUsername.ToLower()) ||
-                        (u.SDT != null && u.SDT == normalizedPhone));
+                        u.Tendangnhap.ToLower() == normalizedUsername ||
+                        (normalizedEmail != "" && u.Email != null && u.Email.ToLower() == normalizedEmail) ||
+                        (normalizedPhone != "" && u.SDT != null && u.SDT == normalizedPhone));
 
-                if (duplicateExists)
-                {
-                    return OperationResult<NGUOIDUNG>.Failure(
-                        "Tên đăng nhập, Email hoặc Số điện thoại này đã được sử dụng bởi một tài khoản khác.");
-                }
+                return duplicateExists
+                    ? OperationResult.Failure(duplicateMessage)
+                    : OperationResult.Success();
+            }
+            catch (Exception ex)
+            {
+                return OperationResult.Failure(
+                    $"Không thể kiểm tra dữ liệu tài khoản: {ex.InnerException?.Message ?? ex.Message}");
+            }
+        }
+
+        public OperationResult<NGUOIDUNG> AddStaffAccount(
+            string? hoTen,
+            string? sdt,
+            string? email,
+            string? diaChi,
+            string? username,
+            string? password,
+            string? confirmPassword = null)
+        {
+            var validation = ValidateNewStaffAccount(hoTen, sdt, email, diaChi, username, password, confirmPassword);
+            if (!validation.IsSuccess)
+                return OperationResult<NGUOIDUNG>.Failure(validation.Message);
+
+            string normalizedName = hoTen!.Trim();
+            string normalizedPhone = sdt!.Trim();
+            string normalizeEmail = email!.Trim();
+            string normalizedAddress = diaChi!.Trim();
+            string normalizedInputUsername = username!.Trim();
+
+            try
+            {
+                using var db = new QuanlyNhaSachContext();
 
                 string newMaND = GenerateNextUserId(db, "NV");
                 string loginKey = BuildUniqueShortLoginKey(db, normalizedInputUsername, newMaND);
@@ -166,7 +208,7 @@ namespace QuanlyNhaSach.Services
                     Email = normalizeEmail,
                     Diachi = normalizedAddress,
                     Vaitro = UserRole.Staff.ToVietnameseLabel(),
-                    Trangthai = AccountStatus.Active.ToVietnameseLabel()
+                    Trangthai = $"Hoạt động ({DateTime.Today:dd/MM/yyyy})"
                 };
 
                 db.NGUOIDUNGs.Add(newStaff);

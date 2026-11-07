@@ -23,6 +23,7 @@ public partial class SACH
 
     public bool? Daxoa { get; set; }
 
+    public string? Hinhanh { get; set; }
     public virtual NHACUNGCAP? MaNCCNavigation { get; set; }
 
     public virtual ICollection<CHITIETDONHANG> CHITIETDONHANGs { get; set; } = new List<CHITIETDONHANG>();

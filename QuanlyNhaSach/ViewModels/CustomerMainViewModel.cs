@@ -1,4 +1,6 @@
 using System;
+using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using QuanlyNhaSach.Models.Enums;
@@ -12,6 +14,7 @@ namespace QuanlyNhaSach.ViewModels
         private readonly CartService _cartService;
         private readonly INavigationService _navigationService;
         private readonly IDialogService _dialogService;
+        private readonly BookService _bookService;
 
         public string BrandName => "BookNest";
         public string BrandTagline => "Nhà Sách Trực Tuyến";
@@ -19,6 +22,11 @@ namespace QuanlyNhaSach.ViewModels
         public string CustomerFullName => _authService.CurrentUser?.Hoten ?? "Khách hàng";
         public string CustomerUsername => _authService.CurrentUser?.Tendangnhap ?? string.Empty;
         public string CustomerRoleLabel => _authService.CurrentUser?.RoleDisplayName ?? "Khách hàng";
+
+        public ObservableCollection<string> BookTitleSuggestions { get; } = new();
+
+        [ObservableProperty]
+        private bool _isBookSuggestionsOpen;
 
         [ObservableProperty]
         private string _searchKeyword = string.Empty;
@@ -39,17 +47,65 @@ namespace QuanlyNhaSach.ViewModels
             AuthService authService,
             CartService cartService,
             INavigationService navigationService,
-            IDialogService dialogService)
+            IDialogService dialogService,
+            BookService? bookService = null)
         {
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             _cartService = cartService ?? throw new ArgumentNullException(nameof(cartService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+            _bookService = bookService ?? App.BookService ?? new BookService();
 
             TotalQuantity = _cartService.TotalQuantity;
             _cartService.CartChanged += OnCartChanged;
             _navigationService.Navigated += OnNavigated;
             _authService.SessionChanged += OnSessionChanged;
+        }
+
+        partial void OnSearchKeywordChanged(string value)
+        {
+            UpdateBookSuggestions(value);
+        }
+
+        private void UpdateBookSuggestions(string keyword)
+        {
+            BookTitleSuggestions.Clear();
+            if (string.IsNullOrWhiteSpace(keyword) || keyword.Trim().Length < 1)
+            {
+                IsBookSuggestionsOpen = false;
+                return;
+            }
+
+            string term = keyword.Trim().ToLowerInvariant();
+            var allBooks = _bookService.GetAllBooks();
+            var matches = allBooks
+                .Where(b => !string.IsNullOrWhiteSpace(b.Tensach) && b.Tensach.ToLowerInvariant().Contains(term))
+                .Select(b => b.Tensach!.Trim())
+                .Distinct()
+                .Take(6)
+                .ToList();
+
+            foreach (var title in matches)
+            {
+                BookTitleSuggestions.Add(title);
+            }
+
+            IsBookSuggestionsOpen = BookTitleSuggestions.Count > 0;
+        }
+
+        [RelayCommand]
+        public void SelectSuggestion(string title)
+        {
+            if (string.IsNullOrWhiteSpace(title)) return;
+            SearchKeyword = title;
+            IsBookSuggestionsOpen = false;
+            Search();
+        }
+
+        [RelayCommand]
+        public void CloseSuggestions()
+        {
+            IsBookSuggestionsOpen = false;
         }
 
         public bool EnsureAuthorizedSession()
@@ -92,6 +148,7 @@ namespace QuanlyNhaSach.ViewModels
             {
                 return;
             }
+            IsBookSuggestionsOpen = false;
             _navigationService.NavigateToHome(SearchKeyword);
         }
 
@@ -103,6 +160,7 @@ namespace QuanlyNhaSach.ViewModels
                 return;
             }
             SearchKeyword = string.Empty;
+            IsBookSuggestionsOpen = false;
             _navigationService.NavigateToHome(string.Empty);
         }
 
@@ -114,6 +172,7 @@ namespace QuanlyNhaSach.ViewModels
                 return;
             }
             SearchKeyword = string.Empty;
+            IsBookSuggestionsOpen = false;
             _navigationService.NavigateToHome(string.Empty);
         }
 
@@ -124,6 +183,7 @@ namespace QuanlyNhaSach.ViewModels
             {
                 return;
             }
+            IsBookSuggestionsOpen = false;
             _navigationService.NavigateToCartCheckout();
         }
 
@@ -134,12 +194,32 @@ namespace QuanlyNhaSach.ViewModels
             {
                 return;
             }
+            IsBookSuggestionsOpen = false;
             _navigationService.NavigateToCustomerProfile();
+        }
+
+        [RelayCommand]
+        private void NavigateOrderHistory()
+        {
+            if (!EnsureAuthorizedSession())
+            {
+                return;
+            }
+            IsBookSuggestionsOpen = false;
+            _navigationService.NavigateToCustomerProfile("PurchaseHistory");
         }
 
         [RelayCommand]
         private void Logout()
         {
+            IsBookSuggestionsOpen = false;
+            if (!_dialogService.ShowConfirmation(
+                    "Xác nhận đăng xuất",
+                    "Bạn có chắc chắn muốn đăng xuất không?"))
+            {
+                return;
+            }
+
             _navigationService.LogoutToAuthWindow();
         }
     }

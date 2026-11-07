@@ -16,6 +16,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
         private readonly UserManagementService _userManagementService;
         private readonly AuthService _authService;
         private readonly IDialogService _dialogService;
+        private readonly EmailService _emailService;
 
         public ObservableCollection<NGUOIDUNG> DisplayedStaff { get; } = new();
 
@@ -52,6 +53,9 @@ namespace QuanlyNhaSach.ViewModels.Manager
         private string _formSDT = string.Empty;
 
         [ObservableProperty]
+        private string _formEmail = string.Empty;
+
+        [ObservableProperty]
         private string _formDiaChi = string.Empty;
 
         [ObservableProperty]
@@ -72,11 +76,13 @@ namespace QuanlyNhaSach.ViewModels.Manager
         public StaffManagementViewModel(
             UserManagementService userManagementService,
             AuthService authService,
-            IDialogService dialogService)
+            IDialogService dialogService,
+            EmailService? emailService = null)
         {
             _userManagementService = userManagementService ?? throw new ArgumentNullException(nameof(userManagementService));
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+            _emailService = emailService ?? new EmailService();
 
             _userManagementService.UsersChanged += (_, _) => RefreshStaff();
 
@@ -128,6 +134,7 @@ namespace QuanlyNhaSach.ViewModels.Manager
         {
             FormHoTen = string.Empty;
             FormSDT = string.Empty;
+            FormEmail = string.Empty;
             FormDiaChi = string.Empty;
             FormUsername = string.Empty;
             FormPassword = string.Empty;
@@ -144,13 +151,14 @@ namespace QuanlyNhaSach.ViewModels.Manager
         }
 
         [RelayCommand]
-        public void SaveNewStaff()
+        public async Task SaveNewStaff()
         {
             FormErrorMessage = string.Empty;
 
             var result = _userManagementService.AddStaffAccount(
                 FormHoTen,
                 FormSDT,
+                FormEmail,
                 FormDiaChi,
                 FormUsername,
                 FormPassword,
@@ -164,7 +172,25 @@ namespace QuanlyNhaSach.ViewModels.Manager
 
             IsAddStaffDialogOpen = false;
             RefreshStaff();
-            _dialogService.ShowInformation("Thêm nhân viên thành công (UC02)", result.Message);
+            var newStaff = result.Data;
+            OperationResult<string> emailResult = newStaff == null
+                ? OperationResult<string>.Failure("Không xác định được tài khoản vừa tạo để gửi mã xác thực.")
+                : await _emailService.SendVerificationCodeAsync(
+                    newStaff.Email,
+                    newStaff.Hoten,
+                    UserRole.Staff,
+                    newStaff.Tendangnhap);
+
+            if (emailResult.IsSuccess)
+            {
+                _dialogService.ShowInformation("Thêm nhân viên thành công (UC02)", $"{result.Message}\n\n{emailResult.Message}");
+            }
+            else
+            {
+                _dialogService.ShowError(
+                    "Thêm nhân viên thành công - Gửi mã xác thực thất bại",
+                    $"{result.Message}\n\n{emailResult.Message}");
+            }
         }
 
         [RelayCommand]

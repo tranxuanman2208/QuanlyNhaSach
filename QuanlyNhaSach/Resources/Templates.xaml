@@ -12,7 +12,7 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- Mock Book Cover Area -->
+                <!-- Book Cover Area -->
                 <Border Grid.Row="0"
                         Background="{Binding MauBia, Converter={StaticResource StringToBrushConverter}}"
                         CornerRadius="11,11,0,0"
@@ -24,37 +24,50 @@
                                       CommandParameter="{Binding}"/>
                     </Border.InputBindings>
 
-                    <Grid Margin="16,14">
-                        <!-- Spine Decorative Accent -->
-                        <Border Width="4" HorizontalAlignment="Left" Background="#35FFFFFF" CornerRadius="2" Margin="-8,-6,0,-6"/>
+                    <Grid>
+                        <!-- 1. Real Book Cover Image if available -->
+                        <Image Source="{Binding DisplayHinhAnh}"
+                               Stretch="UniformToFill"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Visibility="{Binding HasImage, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
-                        <!-- Top Book ID Badge -->
-                        <Border Background="#33000000" CornerRadius="6" Padding="8,3" HorizontalAlignment="Right" VerticalAlignment="Top">
-                            <TextBlock Text="{Binding MaSach, StringFormat='Mã #{0}'}" FontSize="11" FontWeight="SemiBold" Foreground="White"/>
-                        </Border>
+                        <!-- 2. Overlay Grid with spine, badges, and fallback title -->
+                        <Grid Margin="16,14">
+                            <!-- Spine Decorative Accent (chỉ hiện khi chưa có ảnh) -->
+                            <Border Width="4" HorizontalAlignment="Left" Background="#35FFFFFF" CornerRadius="2" Margin="-8,-6,0,-6"
+                                    Visibility="{Binding HasImage, Converter={StaticResource BooleanToInverseVisibilityConverter}}"/>
 
-                        <!-- Out of Stock Overlay Ribbon -->
-                        <Border Background="#DC2626" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Top"
-                                Visibility="{Binding IsOutOfStock, Converter={StaticResource BooleanToVisibilityConverter}}">
-                            <TextBlock Text="HẾT HÀNG" FontSize="10" FontWeight="Bold" Foreground="White"/>
-                        </Border>
+                            <!-- Top Book ID Badge (chỉ hiện khi chưa có ảnh) -->
+                            <Border Background="#4C000000" CornerRadius="6" Padding="8,3" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                    Visibility="{Binding HasImage, Converter={StaticResource BooleanToInverseVisibilityConverter}}">
+                                <TextBlock Text="{Binding MaSach, StringFormat='Mã #{0}'}" FontSize="11" FontWeight="SemiBold" Foreground="White"/>
+                            </Border>
 
-                        <!-- Placeholder Cover Art & Title -->
-                        <StackPanel VerticalAlignment="Bottom" Margin="4,0,0,0">
-                            <TextBlock Text="📘" FontSize="26" Margin="0,0,0,6"/>
-                            <TextBlock Text="{Binding Tensach}"
-                                       Foreground="White"
-                                       FontWeight="Bold"
-                                       FontSize="15"
-                                       MaxHeight="42"
-                                       TextWrapping="Wrap"
-                                       TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Text="{Binding Tacgia}"
-                                       Foreground="#E2E8F0"
-                                       FontSize="12"
-                                       Margin="0,3,0,0"
-                                       TextTrimming="CharacterEllipsis"/>
-                        </StackPanel>
+                            <!-- Out of Stock Overlay Ribbon -->
+                            <Border Background="#DC2626" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                    Visibility="{Binding IsOutOfStock, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="HẾT HÀNG" FontSize="10" FontWeight="Bold" Foreground="White"/>
+                            </Border>
+
+                            <!-- Placeholder Cover Art & Title (Only shown when book has NO image) -->
+                            <StackPanel VerticalAlignment="Bottom" Margin="4,0,0,0"
+                                        Visibility="{Binding HasImage, Converter={StaticResource BooleanToInverseVisibilityConverter}}">
+                                <TextBlock Text="📘" FontSize="26" Margin="0,0,0,6"/>
+                                <TextBlock Text="{Binding Tensach}"
+                                           Foreground="White"
+                                           FontWeight="Bold"
+                                           FontSize="15"
+                                           MaxHeight="42"
+                                           TextWrapping="Wrap"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding Tacgia}"
+                                           Foreground="#E2E8F0"
+                                           FontSize="12"
+                                           Margin="0,3,0,0"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </Grid>
                     </Grid>
                 </Border>
 
@@ -171,11 +184,11 @@
                 Padding="12,5"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Center"
-                Background="{Binding Trangthaigiaohang, Converter={StaticResource OrderStatusBadgeBackgroundConverter}}">
-            <TextBlock Text="{Binding Trangthaigiaohang}"
+                Background="{Binding TrangThai, Converter={StaticResource OrderStatusBadgeBackgroundConverter}}">
+            <TextBlock Text="{Binding TrangThai}"
                        FontSize="12.5"
                        FontWeight="SemiBold"
-                       Foreground="{Binding Trangthaigiaohang, Converter={StaticResource OrderStatusBadgeForegroundConverter}}"
+                       Foreground="{Binding TrangThai, Converter={StaticResource OrderStatusBadgeForegroundConverter}}"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"/>
         </Border>

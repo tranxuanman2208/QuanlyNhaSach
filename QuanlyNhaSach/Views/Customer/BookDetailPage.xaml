@@ -50,63 +50,77 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- Left Column: Large Stylized Book Cover Placeholder -->
+                        <!-- Left Column: Large Stylized Book Cover or Real Image -->
                         <Border Grid.Column="0"
                                 Height="430"
                                 CornerRadius="14"
                                 ClipToBounds="True"
                                 Background="{Binding SelectedBook.MauBia, Converter={StaticResource StringToBrushConverter}}"
                                 Effect="{StaticResource ElevatedShadowEffect}">
-                            <Grid Margin="24">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
+                            <Grid>
+                                <!-- Real Book Cover Image if available -->
+                                <Image Source="{Binding SelectedBook.DisplayHinhAnh}"
+                                       Stretch="UniformToFill"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Visibility="{Binding SelectedBook.HasImage, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
-                                <!-- Spine Highlight -->
-                                <Border Grid.RowSpan="3" Width="6" HorizontalAlignment="Left" Background="#35FFFFFF" CornerRadius="3" Margin="-12,-10,0,-10"/>
+                                <Grid Margin="24">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
 
-                                <!-- Top Badge -->
-                                <Grid Grid.Row="0">
-                                    <Border Background="#38000000" CornerRadius="8" Padding="10,4" HorizontalAlignment="Left">
-                                        <TextBlock Text="{Binding SelectedBook.MaSach, StringFormat='Mã sách: #{0}'}"
+                                    <!-- Spine Highlight (chỉ hiện khi chưa có ảnh) -->
+                                    <Border Grid.RowSpan="3" Width="6" HorizontalAlignment="Left" Background="#35FFFFFF" CornerRadius="3" Margin="-12,-10,0,-10"
+                                            Visibility="{Binding SelectedBook.HasImage, Converter={StaticResource BooleanToInverseVisibilityConverter}}"/>
+
+                                    <!-- Top Badge -->
+                                    <Grid Grid.Row="0">
+                                        <!-- Book ID Badge (chỉ hiện khi chưa có ảnh) -->
+                                        <Border Background="#4C000000" CornerRadius="8" Padding="10,4" HorizontalAlignment="Left"
+                                                Visibility="{Binding SelectedBook.HasImage, Converter={StaticResource BooleanToInverseVisibilityConverter}}">
+                                            <TextBlock Text="{Binding SelectedBook.MaSach, StringFormat='Mã sách: #{0}'}"
+                                                       Foreground="White"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="12"/>
+                                        </Border>
+
+                                        <Border Background="#DC2626" CornerRadius="8" Padding="10,4" HorizontalAlignment="Right"
+                                                Visibility="{Binding SelectedBook.IsOutOfStock, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <TextBlock Text="HẾT HÀNG" Foreground="White" FontWeight="Bold" FontSize="11"/>
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- Center Book Illustration & Title (Shown when NO image) -->
+                                    <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10,0"
+                                                Visibility="{Binding SelectedBook.HasImage, Converter={StaticResource BooleanToInverseVisibilityConverter}}">
+                                        <Path Data="{StaticResource IconBookGeometry}"
+                                              Fill="White"
+                                              Width="52" Height="52"
+                                              Stretch="Uniform"
+                                              HorizontalAlignment="Center"
+                                              Margin="0,0,0,16"/>
+                                        <TextBlock Text="{Binding SelectedBook.Tensach}"
                                                    Foreground="White"
-                                                   FontWeight="SemiBold"
-                                                   FontSize="12"/>
-                                    </Border>
+                                                   FontWeight="Bold"
+                                                   FontSize="20"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
 
-                                    <Border Background="#DC2626" CornerRadius="8" Padding="10,4" HorizontalAlignment="Right"
-                                            Visibility="{Binding SelectedBook.IsOutOfStock, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                        <TextBlock Text="HẾT HÀNG" Foreground="White" FontWeight="Bold" FontSize="11"/>
+                                    <!-- Bottom Author Bar (Shown when NO image) -->
+                                    <Border Grid.Row="2" Background="#4C000000" CornerRadius="8" Padding="12,10"
+                                            Visibility="{Binding SelectedBook.HasImage, Converter={StaticResource BooleanToInverseVisibilityConverter}}">
+                                        <TextBlock Text="{Binding SelectedBook.Tacgia, StringFormat='Tác giả: {0}'}"
+                                                   Foreground="#F1F5F9"
+                                                   FontSize="13.5"
+                                                   FontWeight="SemiBold"
+                                                   TextAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"/>
                                     </Border>
                                 </Grid>
-
-                                <!-- Center Book Illustration & Title -->
-                                <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10,0">
-                                    <Path Data="{StaticResource IconBookGeometry}"
-                                          Fill="White"
-                                          Width="52" Height="52"
-                                          Stretch="Uniform"
-                                          HorizontalAlignment="Center"
-                                          Margin="0,0,0,16"/>
-                                    <TextBlock Text="{Binding SelectedBook.Tensach}"
-                                               Foreground="White"
-                                               FontWeight="Bold"
-                                               FontSize="20"
-                                               TextAlignment="Center"
-                                               TextWrapping="Wrap"/>
-                                </StackPanel>
-
-                                <!-- Bottom Author Bar -->
-                                <Border Grid.Row="2" Background="#38000000" CornerRadius="8" Padding="12,10">
-                                    <TextBlock Text="{Binding SelectedBook.Tacgia, StringFormat='Tác giả: {0}'}"
-                                               Foreground="#F1F5F9"
-                                               FontSize="13.5"
-                                               FontWeight="SemiBold"
-                                               TextAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"/>
-                                </Border>
                             </Grid>
                         </Border>
 

@@ -296,9 +296,9 @@ namespace QuanlyNhaSach.Services
                     transaction.Commit();
 
                     dbOrder.StockOutStatus = StockOutStatus.Issued;
-                    dbOrder.StockOutDate = DateTime.Now;
+
                     order.StockOutStatus = StockOutStatus.Issued;
-                    order.StockOutDate = DateTime.Now;
+
                     order.Status = dbOrder.Status;
 
                     InventoryChanged?.Invoke(this, EventArgs.Empty);

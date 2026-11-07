@@ -15,134 +15,22 @@ namespace QuanlyNhaSach.Services
     {
         private static readonly Regex PhoneTenDigitsRegex = new(@"^\d{10}$", RegexOptions.Compiled);
 
-        private readonly List<NGUOIDUNG> _fallbackAccounts = new();
-
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsAuthenticated))]
         [NotifyPropertyChangedFor(nameof(IsCustomerSession))]
         [NotifyPropertyChangedFor(nameof(IsStaffSession))]
         [NotifyPropertyChangedFor(nameof(IsManagerSession))]
-        [NotifyPropertyChangedFor(nameof(IsGuestSession))]
         private NGUOIDUNG? _currentUser;
 
         public bool IsAuthenticated => CurrentUser != null && CurrentUser.IsActive;
         public bool IsCustomerSession => IsAuthenticated && CurrentUser!.Role == UserRole.Customer;
         public bool IsStaffSession => IsAuthenticated && CurrentUser!.Role == UserRole.Staff;
         public bool IsManagerSession => IsAuthenticated && CurrentUser!.Role == UserRole.Manager;
-        public bool IsGuestSession => IsCustomerSession && string.Equals(CurrentUser?.Tendangnhap, "guest", StringComparison.OrdinalIgnoreCase);
 
         public event EventHandler<NGUOIDUNG?>? SessionChanged;
 
         public AuthService()
         {
-            InitializeDefaultAccounts();
-        }
-
-        private void InitializeDefaultAccounts()
-        {
-            EnsureFallbackAccount(
-                maND: "QL001",
-                tendangnhap: "manager",
-                email: "manager@example.com",
-                password: "Manager123!",
-                hoTen: "Quản lý Nhà sách",
-                role: UserRole.Manager,
-                sdt: "0900000001",
-                diaChi: "Cổng Quản trị Nhà sách");
-
-            EnsureFallbackAccount(
-                maND: "NV001",
-                tendangnhap: "staff",
-                email: "staff@example.com",
-                password: "Staff123!",
-                hoTen: "Nhân viên Nhà sách",
-                role: UserRole.Staff,
-                sdt: "0900000002",
-                diaChi: "Cổng Nhân viên Nhà sách");
-
-            EnsureFallbackAccount(
-                maND: "KH001",
-                tendangnhap: "customer",
-                email: "customer@example.com",
-                password: "Customer123!",
-                hoTen: "Nguyễn Minh Anh",
-                role: UserRole.Customer,
-                sdt: "0900000003",
-                diaChi: "123 Nguyễn Văn Cừ, Quận 5, TP.HCM");
-
-            //TrySeedDefaultAccountsInDatabase();
-        }
-
-        private void EnsureFallbackAccount(
-            string maND,
-            string tendangnhap,
-            string email,
-            string password,
-            string hoTen,
-            UserRole role,
-            string sdt,
-            string diaChi)
-        {
-            if (_fallbackAccounts.Any(u => string.Equals(u.MaND, maND, StringComparison.OrdinalIgnoreCase)))
-            {
-                return;
-            }
-            string passBcrypt = Bcrypytpass.HashPassword(password);
-            _fallbackAccounts.Add(new NGUOIDUNG
-            {
-                MaND = maND,
-                Tendangnhap = tendangnhap,
-                Email = email,
-                Matkhau = passBcrypt,
-                Hoten = hoTen,
-                Vaitro = role.ToVietnameseLabel(),
-                SDT = sdt,
-                Diachi = diaChi,
-                Trangthai = AccountStatus.Active.ToVietnameseLabel()
-            });
-        }
-
-        private void TrySeedDefaultAccountsInDatabase()
-        {
-            try
-            {
-                using var db = new QuanlyNhaSachContext();
-                bool changed = false;
-
-                foreach (var seed in _fallbackAccounts)
-                {
-                    bool exists = db.NGUOIDUNGs.Any(u =>
-                        u.MaND == seed.MaND ||
-                        u.Tendangnhap == seed.Tendangnhap ||
-                        (seed.Email != null && u.Email == seed.Email));
-
-                    if (!exists)
-                    {
-                        db.NGUOIDUNGs.Add(new NGUOIDUNG
-                        {
-                            MaND = seed.MaND,
-                            Tendangnhap = seed.Tendangnhap,
-                            Email = seed.Email,
-                            Matkhau = seed.Matkhau,
-                            Hoten = seed.Hoten,
-                            SDT = seed.SDT,
-                            Diachi = seed.Diachi,
-                            Vaitro = seed.Vaitro,
-                            Trangthai = seed.Trangthai
-                        });
-                        changed = true;
-                    }
-                }
-
-                if (changed)
-                {
-                    db.SaveChanges();
-                }
-            }
-            catch
-            {
-                // Ignore if SQL Server is not yet reachable during startup
-            }
         }
 
         public bool HasRole(UserRole role)
@@ -165,7 +53,7 @@ namespace QuanlyNhaSach.Services
         {
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
             {
-                return OperationResult<NGUOIDUNG>.Failure("Vui lòng nhập tài khoản email và mật khẩu.");
+                return OperationResult<NGUOIDUNG>.Failure("Vui lòng nhập tên đăng nhập / email và mật khẩu.");
             }
 
             string norusername = username.Trim().ToLower();
@@ -176,23 +64,32 @@ namespace QuanlyNhaSach.Services
                 using var db = new QuanlyNhaSachContext();
                 matchedUser = await db.NGUOIDUNGs
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(u => u.Tendangnhap.ToLower() == norusername.ToLower());
+                    .FirstOrDefaultAsync(u => u.Tendangnhap.ToLower() == norusername || (u.Email != null && u.Email.ToLower() == norusername));
+            }
+            catch (Exception ex)
+            {
+                return OperationResult<NGUOIDUNG>.Failure($"Không thể kết nối đến cơ sở dữ liệu: {ex.Message}");
+            }
+
+            if (matchedUser == null)
+            {
+                return OperationResult<NGUOIDUNG>.Failure("Không tìm thấy tài khoản. Vui lòng kiểm tra lại tên đăng nhập hoặc email!");
+            }
+
+            bool isPasswordValid = false;
+            try
+            {
+                isPasswordValid = await Task.Run(() => Bcrypytpass.Verify(password, matchedUser.Matkhau));
             }
             catch
             {
-                // Fallback to in-memory default accounts if DB is unreachable
-
+                // Hỗ trợ đối sánh trường hợp mật khẩu lưu dạng thô (plaintext) trong database cũ
+                isPasswordValid = string.Equals(matchedUser.Matkhau, password, StringComparison.Ordinal);
             }
 
-            matchedUser ??= _fallbackAccounts.FirstOrDefault(u => string.Equals(u.Tendangnhap.ToLower(), norusername, StringComparison.OrdinalIgnoreCase));
-            bool isPasswordValid = false;
-            if (_fallbackAccounts.Contains(matchedUser))
+            if (!isPasswordValid)
             {
-                isPasswordValid = (password == matchedUser.Matkhau);
-            }
-            else
-            {
-                isPasswordValid = await Task.Run(() => BCrypt.Net.BCrypt.Verify(password, matchedUser.Matkhau));
+                return OperationResult<NGUOIDUNG>.Failure("Mật khẩu không chính xác. Vui lòng kiểm tra lại!");
             }
 
             if (!matchedUser.IsActive)
@@ -207,27 +104,11 @@ namespace QuanlyNhaSach.Services
                 $"Đăng nhập thành công! Xin chào {CurrentUser.Hoten} ({CurrentUser.RoleDisplayName}).");
         }
 
-        public OperationResult<NGUOIDUNG> LoginAsGuest()
-        {
-            CurrentUser = new NGUOIDUNG
-            {
-                MaND = "KH000",
-                Tendangnhap = "guest",
-                Matkhau = string.Empty,
-                Hoten = "Khách vãng lai (Guest)",
-                SDT = string.Empty,
-                Diachi = string.Empty,
-                Vaitro = UserRole.Customer.ToVietnameseLabel(),
-                Trangthai = AccountStatus.Active.ToVietnameseLabel()
-            };
-
-            SessionChanged?.Invoke(this, CurrentUser);
-            return OperationResult<NGUOIDUNG>.Success(
-                CurrentUser,
-                "Đang truy cập Cổng Khách hàng với tư cách Khách (Guest).");
-        }
-
-        public OperationResult<NGUOIDUNG> RegisterCustomer(
+        /// <summary>
+        /// Kiểm tra dữ liệu đăng ký người dùng (định dạng + trùng lặp trong CSDL) mà KHÔNG lưu.
+        /// Dùng trước khi gửi mã xác thực email và trước khi tạo tài khoản.
+        /// </summary>
+        public OperationResult ValidateCustomerRegistration(
             string? hoTen,
             string? sdt,
             string? email,
@@ -238,79 +119,94 @@ namespace QuanlyNhaSach.Services
         {
             if (string.IsNullOrWhiteSpace(hoTen))
             {
-                return OperationResult<NGUOIDUNG>.Failure("Vui lòng nhập họ và tên đầy đủ.");
+                return OperationResult.Failure("Vui lòng nhập họ và tên đầy đủ.");
             }
 
-            if (string.IsNullOrWhiteSpace(sdt) || !PhoneTenDigitsRegex.IsMatch(sdt.Trim()) || sdt.Length != 10 )
+            if (string.IsNullOrWhiteSpace(sdt) || !PhoneTenDigitsRegex.IsMatch(sdt.Trim()))
             {
-                return OperationResult<NGUOIDUNG>.Failure("Số điện thoại phải gồm đúng 10 chữ số (0-9).");
+                return OperationResult.Failure("Số điện thoại phải gồm đúng 10 chữ số (0-9).");
             }
 
             if (string.IsNullOrWhiteSpace(diaChi))
             {
-                return OperationResult<NGUOIDUNG>.Failure("Vui lòng nhập địa chỉ.");
+                return OperationResult.Failure("Vui lòng nhập địa chỉ.");
             }
 
-            if (string.IsNullOrWhiteSpace(email))
+            if (!IsValidGmail(email))
             {
-
+                return OperationResult.Failure("Vui lòng nhập email hợp lệ (định dạng @gmail.com) để nhận mã xác thực.");
             }
 
             if (string.IsNullOrWhiteSpace(username) || username.Trim().Length < 3 || username.Trim().Contains(' '))
             {
-                return OperationResult<NGUOIDUNG>.Failure("Tên đăng nhập không hợp lệ (tối thiểu 3 ký tự, không khoảng trắng).");
+                return OperationResult.Failure("Tên đăng nhập không hợp lệ (tối thiểu 3 ký tự, không khoảng trắng).");
+            }
+
+            if (username.Trim().Length > 10)
+            {
+                return OperationResult.Failure("Tên đăng nhập không được vượt quá 10 ký tự.");
             }
 
             if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
             {
-                return OperationResult<NGUOIDUNG>.Failure("Mật khẩu phải có ít nhất 6 ký tự.");
+                return OperationResult.Failure("Mật khẩu phải có ít nhất 6 ký tự.");
             }
 
             if (!string.Equals(password, confirmPassword, StringComparison.Ordinal))
             {
-                return OperationResult<NGUOIDUNG>.Failure("Mật khẩu xác nhận không khớp.");
+                return OperationResult.Failure("Mật khẩu xác nhận không khớp.");
             }
 
-            string normalizedName = hoTen.Trim();
-            string normalizedPhone = sdt.Trim();
-            string normalizedAddress = diaChi.Trim();
-            string normalizedInputUsername = username.Trim();
-            string normalizedInputEmail = email.Trim();
+            return UserManagementService.CheckAccountAvailability(username, email, sdt,
+                "Tên đăng nhập, Email hoặc Số điện thoại này đã được đăng ký trước đó.");
+        }
+
+        public OperationResult<NGUOIDUNG> RegisterCustomer(
+            string? hoTen,
+            string? sdt,
+            string? email,
+            string? diaChi,
+            string? username,
+            string? password,
+            string? confirmPassword,
+            UserRole role = UserRole.Customer)
+        {
+            var validation = ValidateCustomerRegistration(hoTen, sdt, email, diaChi, username, password, confirmPassword);
+            if (!validation.IsSuccess)
+            {
+                return OperationResult<NGUOIDUNG>.Failure(validation.Message);
+            }
+
+            string normalizedName = hoTen!.Trim();
+            string normalizedPhone = sdt!.Trim();
+            string normalizedAddress = diaChi!.Trim();
+            string normalizedInputUsername = username!.Trim();
+            string normalizedInputEmail = email!.Trim();
 
             try
             {
                 using var db = new QuanlyNhaSachContext();
 
-                bool duplicate = db.NGUOIDUNGs
-                    .AsNoTracking()
-                    .Any(u =>
-                        u.Tendangnhap.ToLower() == normalizedInputUsername.ToLower() ||
-                        (u.Email != null && u.Email.ToLower() == normalizedInputUsername.ToLower()) ||
-                        (u.SDT != null && u.SDT == normalizedPhone));
-
-                if (duplicate)
+                string prefix = role switch
                 {
-                    return OperationResult<NGUOIDUNG>.Failure(
-                        "Tên đăng nhập, Email hoặc Số điện thoại này đã được đăng ký trước đó.");
-                }
+                    UserRole.Manager => "QL",
+                    UserRole.Staff => "NV",
+                    _ => "KH"
+                };
 
-                string newMaND = UserManagementService.GenerateNextUserId(db, "KH");
-                string loginKey = UserManagementService.BuildUniqueShortLoginKey(db, normalizedInputUsername, newMaND);
-                string? emailValue = normalizedInputUsername.Contains('@') || normalizedInputUsername.Length > 10
-                    ? normalizedInputUsername
-                    : null;
+                string newMaND = UserManagementService.GenerateNextUserId(db, prefix);
                 string passwordBcrypt = Bcrypytpass.HashPassword(password);
                 var newUser = new NGUOIDUNG
                 {
                     MaND = newMaND,
-                    Tendangnhap = loginKey,
-                    Email = emailValue,
+                    Tendangnhap = normalizedInputUsername,
+                    Email = normalizedInputEmail,
                     Matkhau = passwordBcrypt,
                     Hoten = normalizedName,
                     SDT = normalizedPhone,
                     Diachi = normalizedAddress,
-                    Vaitro = UserRole.Customer.ToVietnameseLabel(),
-                    Trangthai = AccountStatus.Active.ToVietnameseLabel()
+                    Vaitro = role.ToVietnameseLabel(),
+                    Trangthai = $"Hoạt động ({DateTime.Today:dd/MM/yyyy})"
                 };
 
                 db.NGUOIDUNGs.Add(newUser);
@@ -318,7 +214,7 @@ namespace QuanlyNhaSach.Services
 
                 return OperationResult<NGUOIDUNG>.Success(
                     newUser,
-                    $"Đăng ký tài khoản thành công! Vui lòng đăng nhập với tài khoản \"{normalizedInputUsername}\".");
+                    $"Đăng ký tài khoản {role.ToVietnameseLabel()} thành công! Vui lòng đăng nhập với tài khoản \"{normalizedInputUsername}\".");
             }
             catch (Exception ex)
             {

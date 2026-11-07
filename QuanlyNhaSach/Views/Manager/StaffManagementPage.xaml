@@ -4,6 +4,7 @@
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       xmlns:conv="clr-namespace:QuanlyNhaSach.Converters"
+      xmlns:ctrl="clr-namespace:QuanlyNhaSach.Controls"
       mc:Ignorable="d"
       Title="Quản lý nhân viên — Cổng Quản Trị"
       Background="{StaticResource SubtleSurfaceBrush}">
@@ -120,7 +121,7 @@
                             <DataGridTemplateColumn Header="Họ và tên nhân viên" Width="1.5*">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding HoTen}"
+                                        <TextBlock Text="{Binding Hoten}"
                                                    FontWeight="Bold"
                                                    Foreground="{StaticResource CharcoalTextBrush}"/>
                                     </DataTemplate>
@@ -128,13 +129,13 @@
                             </DataGridTemplateColumn>
 
                             <!-- 3. Username -->
-                            <DataGridTextColumn Header="Tên đăng nhập" Binding="{Binding Username}" Width="1.5*"/>
+                            <DataGridTextColumn Header="Tên đăng nhập" Binding="{Binding Tendangnhap}" Width="1.5*"/>
 
                             <!-- 4. Phone Number -->
                             <DataGridTextColumn Header="Số điện thoại" Binding="{Binding SDT}" Width="125"/>
 
                             <!-- 5. Address -->
-                            <DataGridTextColumn Header="Địa chỉ" Binding="{Binding DiaChi}" Width="1.8*"/>
+                            <DataGridTextColumn Header="Địa chỉ" Binding="{Binding Diachi}" Width="1.8*"/>
 
                             <!-- 6. Account Status -->
                             <DataGridTemplateColumn Header="Trạng thái" Width="130">
@@ -220,11 +221,16 @@
                                      Style="{StaticResource FormTextBoxStyle}"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                            <TextBlock Text="Tên đăng nhập / Email *" Style="{StaticResource FormFieldLabelStyle}"/>
+                            <TextBlock Text="Tên đăng nhập *" Style="{StaticResource FormFieldLabelStyle}"/>
                             <TextBox Text="{Binding FormUsername, UpdateSourceTrigger=PropertyChanged}"
                                      Style="{StaticResource FormTextBoxStyle}"/>
                         </StackPanel>
                     </Grid>
+
+                    <TextBlock Text="Email (@gmail.com) - nhận mã xác thực *" Style="{StaticResource FormFieldLabelStyle}"/>
+                    <TextBox Text="{Binding FormEmail, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource FormTextBoxStyle}"
+                             Margin="0,0,0,12"/>
 
                     <TextBlock Text="Địa chỉ liên hệ *" Style="{StaticResource FormFieldLabelStyle}"/>
                     <TextBox Text="{Binding FormDiaChi, UpdateSourceTrigger=PropertyChanged}"
@@ -238,13 +244,11 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Margin="0,0,8,0">
                             <TextBlock Text="Mật khẩu khởi tạo (>= 6 ký tự) *" Style="{StaticResource FormFieldLabelStyle}"/>
-                            <PasswordBox Style="{StaticResource FormPasswordBoxStyle}"
-                                         conv:PasswordBoxHelper.BoundPassword="{Binding FormPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <ctrl:TogglePasswordBox Password="{Binding FormPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Margin="8,0,0,0">
                             <TextBlock Text="Xác nhận mật khẩu *" Style="{StaticResource FormFieldLabelStyle}"/>
-                            <PasswordBox Style="{StaticResource FormPasswordBoxStyle}"
-                                         conv:PasswordBoxHelper.BoundPassword="{Binding FormConfirmPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <ctrl:TogglePasswordBox Password="{Binding FormConfirmPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                         </StackPanel>
                     </Grid>
 

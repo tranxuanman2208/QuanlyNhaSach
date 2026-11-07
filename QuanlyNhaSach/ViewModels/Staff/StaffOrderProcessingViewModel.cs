@@ -18,10 +18,20 @@ namespace QuanlyNhaSach.ViewModels.Staff
         private readonly IDialogService _dialogService;
 
         public ObservableCollection<DONHANG> DisplayedOrders { get; } = new();
+        public ObservableCollection<OrderSuggestionItem> OrderSuggestions { get; } = new();
+
+        [ObservableProperty]
+        private bool _isOrderSuggestionsOpen;
+
+        public const string NeedsProcessingFilterLabel = "Đơn cần xử lý (Mới, Xác nhận, Đang giao)";
+        public const string AllOrdersFilterLabel = "Tất cả đơn hàng";
+        public const string HistoryCompletedFilterLabel = "Lịch sử đơn hàng (Đã hoàn tất)";
 
         public IReadOnlyList<string> StatusFilterOptions { get; } = new List<string>
         {
-            OrderService.AllFilterLabel,
+            NeedsProcessingFilterLabel,
+            AllOrdersFilterLabel,
+            HistoryCompletedFilterLabel,
             OrderStatus.New.ToVietnameseLabel(),
             OrderStatus.Confirmed.ToVietnameseLabel(),
             OrderStatus.Shipping.ToVietnameseLabel(),
@@ -39,7 +49,10 @@ namespace QuanlyNhaSach.ViewModels.Staff
         };
 
         [ObservableProperty]
-        private string _selectedStatusFilter = OrderService.AllFilterLabel;
+        private string _selectedStatusFilter = NeedsProcessingFilterLabel;
+
+        [ObservableProperty]
+        private string _tableTitle = "Danh Sách Đơn Hàng Cần Xử Lý";
 
         [ObservableProperty]
         private string _searchKeyword = string.Empty;
@@ -83,22 +96,74 @@ namespace QuanlyNhaSach.ViewModels.Staff
 
         partial void OnSearchKeywordChanged(string value)
         {
+            UpdateOrderSuggestions(value);
             RefreshOrders(preserveSelection: true);
+        }
+
+        private void UpdateOrderSuggestions(string keyword)
+        {
+            OrderSuggestions.Clear();
+            if (string.IsNullOrWhiteSpace(keyword))
+            {
+                IsOrderSuggestionsOpen = false;
+                return;
+            }
+
+            string kw = keyword.Trim().TrimStart('#');
+            var matches = _orderService.GetAllOrders()
+                .Where(o =>
+                    o.MaDH.ToString().Contains(kw, StringComparison.OrdinalIgnoreCase) ||
+                    o.OrderCode.Contains(kw, StringComparison.OrdinalIgnoreCase) ||
+                    o.HoTenKhachHang.Contains(kw, StringComparison.OrdinalIgnoreCase) ||
+                    o.SDTKhachHang.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                .Take(5)
+                .Select(o => new OrderSuggestionItem
+                {
+                    MaDH = o.MaDH,
+                    OrderCode = o.OrderCode,
+                    CustomerInfo = string.IsNullOrWhiteSpace(o.SDTKhachHang) ? o.HoTenKhachHang : $"{o.HoTenKhachHang} ({o.SDTKhachHang})",
+                    Status = o.TrangThai
+                })
+                .ToList();
+
+            foreach (var item in matches)
+            {
+                OrderSuggestions.Add(item);
+            }
+
+            IsOrderSuggestionsOpen = OrderSuggestions.Count > 0;
+        }
+
+        [RelayCommand]
+        public void SelectOrderSuggestion(OrderSuggestionItem item)
+        {
+            if (item == null) return;
+            SearchKeyword = item.OrderCode;
+            IsOrderSuggestionsOpen = false;
+            RefreshOrders(preserveSelection: false);
+        }
+
+        [RelayCommand]
+        public void CloseOrderSuggestions()
+        {
+            IsOrderSuggestionsOpen = false;
         }
 
         public void OnNavigatedTo(object? parameter)
         {
             FeedbackMessage = string.Empty;
+            _orderService.InvalidateCache();
 
             if (parameter is int targetOrderId)
             {
-                SelectedStatusFilter = OrderService.AllFilterLabel;
+                SelectedStatusFilter = AllOrdersFilterLabel;
                 SearchKeyword = string.Empty;
                 RefreshOrders(preserveSelection: false);
                 SelectedOrder = DisplayedOrders.FirstOrDefault(o => o.MaDH == targetOrderId);
             }
             else
             {
+                SelectedStatusFilter = NeedsProcessingFilterLabel;
                 RefreshOrders(preserveSelection: true);
             }
         }
@@ -108,7 +173,49 @@ namespace QuanlyNhaSach.ViewModels.Staff
         {
             int? previousId = preserveSelection ? SelectedOrder?.MaDH : null;
 
-            IEnumerable<DONHANG> filtered = _orderService.GetOrdersByStatus(SelectedStatusFilter);
+            _orderService.InvalidateCache();
+            IEnumerable<DONHANG> filtered;
+            if (SelectedStatusFilter == NeedsProcessingFilterLabel)
+            {
+                filtered = _orderService.GetAllOrders()
+                    .Where(o => o.Status == OrderStatus.New || o.Status == OrderStatus.Confirmed || o.Status == OrderStatus.Shipping);
+                TableTitle = "Danh Sách Đơn Hàng Cần Xử Lý";
+            }
+            else if (SelectedStatusFilter == AllOrdersFilterLabel || SelectedStatusFilter == OrderService.AllFilterLabel)
+            {
+                filtered = _orderService.GetAllOrders();
+                TableTitle = "Danh Sách Tất Cả Đơn Hàng";
+            }
+            else if (SelectedStatusFilter == HistoryCompletedFilterLabel || SelectedStatusFilter == OrderStatus.Completed.ToVietnameseLabel())
+            {
+                filtered = _orderService.GetAllOrders().Where(o => o.Status == OrderStatus.Completed);
+                TableTitle = "Lịch Sử Đơn Hàng Đã Hoàn Tất";
+            }
+            else if (SelectedStatusFilter == OrderStatus.New.ToVietnameseLabel())
+            {
+                filtered = _orderService.GetAllOrders().Where(o => o.Status == OrderStatus.New);
+                TableTitle = "Danh Sách Đơn Hàng Mới";
+            }
+            else if (SelectedStatusFilter == OrderStatus.Confirmed.ToVietnameseLabel())
+            {
+                filtered = _orderService.GetAllOrders().Where(o => o.Status == OrderStatus.Confirmed);
+                TableTitle = "Danh Sách Đơn Hàng Đã Xác Nhận";
+            }
+            else if (SelectedStatusFilter == OrderStatus.Shipping.ToVietnameseLabel())
+            {
+                filtered = _orderService.GetAllOrders().Where(o => o.Status == OrderStatus.Shipping);
+                TableTitle = "Danh Sách Đơn Hàng Đang Giao";
+            }
+            else if (SelectedStatusFilter == OrderStatus.Cancelled.ToVietnameseLabel())
+            {
+                filtered = _orderService.GetAllOrders().Where(o => o.Status == OrderStatus.Cancelled);
+                TableTitle = "Danh Sách Đơn Hàng Đã Hủy";
+            }
+            else
+            {
+                filtered = _orderService.GetOrdersByStatus(SelectedStatusFilter);
+                TableTitle = $"Danh Sách Đơn Hàng ({SelectedStatusFilter})";
+            }
 
             if (!string.IsNullOrWhiteSpace(SearchKeyword))
             {
@@ -140,12 +247,84 @@ namespace QuanlyNhaSach.ViewModels.Staff
         }
 
         [RelayCommand]
-        private void ResetFilters()
+        public void ViewAllOrders()
         {
-            SelectedStatusFilter = OrderService.AllFilterLabel;
+            SelectedStatusFilter = AllOrdersFilterLabel;
             SearchKeyword = string.Empty;
             FeedbackMessage = string.Empty;
-            RefreshOrders();
+            RefreshOrders(preserveSelection: false);
+        }
+
+        [RelayCommand]
+        public void ViewOrderHistory()
+        {
+            SelectedStatusFilter = HistoryCompletedFilterLabel;
+            SearchKeyword = string.Empty;
+            FeedbackMessage = string.Empty;
+            RefreshOrders(preserveSelection: false);
+        }
+
+        [RelayCommand]
+        public void FilterNeedsProcessing()
+        {
+            SelectedStatusFilter = NeedsProcessingFilterLabel;
+            SearchKeyword = string.Empty;
+            FeedbackMessage = string.Empty;
+            RefreshOrders(preserveSelection: false);
+        }
+
+        [RelayCommand]
+        public void FilterNewOrders()
+        {
+            SelectedStatusFilter = OrderStatus.New.ToVietnameseLabel();
+            SearchKeyword = string.Empty;
+            FeedbackMessage = string.Empty;
+            RefreshOrders(preserveSelection: false);
+        }
+
+        [RelayCommand]
+        public void ResetFilters()
+        {
+            SelectedStatusFilter = NeedsProcessingFilterLabel;
+            SearchKeyword = string.Empty;
+            FeedbackMessage = string.Empty;
+            RefreshOrders(preserveSelection: false);
+        }
+
+        [RelayCommand]
+        private void ConfirmBankTransferPayment(DONHANG? order)
+        {
+            var targetOrder = order ?? SelectedOrder;
+            if (targetOrder == null)
+            {
+                _dialogService.ShowError("Chưa chọn đơn hàng", "Vui lòng chọn đơn hàng cần duyệt thanh toán chuyển khoản.");
+                return;
+            }
+
+            bool confirmed = _dialogService.ShowConfirmation(
+                "Xác nhận đã nhận tiền chuyển khoản",
+                $"Bạn đã kiểm tra tài khoản ngân hàng và nhận đủ {targetOrder.FormattedTongTien} cho đơn hàng {targetOrder.OrderCode} ({targetOrder.CustomerSummary})?\n\n" +
+                $"Hệ thống sẽ đánh dấu Đã thanh toán và tự động chuyển đơn sang trạng thái 'Đã xác nhận'.");
+
+            if (!confirmed)
+            {
+                return;
+            }
+
+            var result = _orderService.ConfirmBankTransferPayment(targetOrder.MaDH);
+            if (!result.IsSuccess)
+            {
+                IsFeedbackSuccess = false;
+                FeedbackMessage = result.Message;
+                _dialogService.ShowError("Không thể duyệt thanh toán", result.Message);
+                return;
+            }
+
+            IsFeedbackSuccess = true;
+            FeedbackMessage = result.Message;
+            SelectedOrder = result.Data ?? targetOrder;
+            RefreshOrders(preserveSelection: true);
+            _dialogService.ShowInformation("Duyệt chuyển khoản & Xác nhận đơn thành công", result.Message);
         }
 
         [RelayCommand]
@@ -183,6 +362,12 @@ namespace QuanlyNhaSach.ViewModels.Staff
             var targetOrder = order ?? SelectedOrder;
             if (targetOrder == null)
             {
+                return;
+            }
+
+            if (targetOrder.IsAwaitingBankTransferConfirmation)
+            {
+                ConfirmBankTransferPayment(targetOrder);
                 return;
             }
 
@@ -252,5 +437,13 @@ namespace QuanlyNhaSach.ViewModels.Staff
             }
             _navigationService.NavigateToStaffSales(target.MaDH);
         }
+    }
+
+    public class OrderSuggestionItem
+    {
+        public int MaDH { get; set; }
+        public string OrderCode { get; set; } = string.Empty;
+        public string CustomerInfo { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
     }
 }

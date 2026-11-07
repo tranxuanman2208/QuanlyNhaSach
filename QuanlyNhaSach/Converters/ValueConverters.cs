@@ -3,9 +3,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
-using QuanlyNhaSach.Models;
 using QuanlyNhaSach.Models.Enums;
-using QuanlyNhaSach.ViewModels.Customer;
 
 namespace QuanlyNhaSach.Converters
 {
@@ -283,6 +281,7 @@ namespace QuanlyNhaSach.Converters
                 "Thu hộ (COD)" => CreateBrush("#FFF7ED"),
                 "Chưa thanh toán" => CreateBrush("#FEF9C3"),
                 "Thanh toán thất bại" => CreateBrush("#FEE2E2"),
+                "Hoàn tiền" => CreateBrush("#E0E7FF"),
                 _ => CreateBrush("#F1F5F9")
             };
         }
@@ -315,6 +314,7 @@ namespace QuanlyNhaSach.Converters
                 "Thu hộ (COD)" => CreateBrush("#C2410C"),
                 "Chưa thanh toán" => CreateBrush("#A16207"),
                 "Thanh toán thất bại" => CreateBrush("#DC2626"),
+                "Hoàn tiền" => CreateBrush("#4338CA"),
                 _ => CreateBrush("#475569")
             };
         }
@@ -388,58 +388,5 @@ namespace QuanlyNhaSach.Converters
             b.Freeze();
             return b;
         }
-    }
-
-    public class CustomerOrderCodeConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            return value switch
-            {
-                int maDh => CustomerProfileViewModel.FormatOrderCode(maDh),
-                DONHANG dh => CustomerProfileViewModel.FormatOrderCode(dh.MaDH),
-                string s when !string.IsNullOrWhiteSpace(s) => s,
-                _ => string.Empty
-            };
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-            => throw new NotSupportedException();
-    }
-
-    public class CustomerOrderDateConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            return value switch
-            {
-                DateOnly dateOnly => dateOnly.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
-                DateTime dateTime => dateTime.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
-                DONHANG dh => dh.NgayTao.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
-                _ => string.Empty
-            };
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-            => throw new NotSupportedException();
-    }
-
-    public class CustomerOrderTotalConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            decimal total = value switch
-            {
-                DONHANG dh => dh.TongTien > 0m ? dh.TongTien : CustomerProfileViewModel.GetMockOrderTotal(dh.MaDH),
-                int maDh => CustomerProfileViewModel.GetMockOrderTotal(maDh),
-                decimal d => d,
-                _ => 0m
-            };
-
-            return string.Format(CultureInfo.InvariantCulture, "{0:N0} VND", total);
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-            => throw new NotSupportedException();
     }
 }

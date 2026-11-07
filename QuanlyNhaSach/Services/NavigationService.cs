@@ -32,6 +32,7 @@ namespace QuanlyNhaSach.Services
         private readonly UserManagementService _userManagementService;
         private readonly SupplierService _supplierService;
         private readonly ImportService _importService;
+        private readonly EmailService _emailService;
 
         // Customer cached pages & ViewModels
         private HomePage? _homePage;
@@ -101,7 +102,8 @@ namespace QuanlyNhaSach.Services
             BookService? bookService = null,
             UserManagementService? userManagementService = null,
             SupplierService? supplierService = null,
-            ImportService? importService = null)
+            ImportService? importService = null,
+            EmailService? emailService = null)
         {
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             _cartService = cartService ?? throw new ArgumentNullException(nameof(cartService));
@@ -112,6 +114,7 @@ namespace QuanlyNhaSach.Services
             _userManagementService = userManagementService ?? new UserManagementService();
             _supplierService = supplierService ?? new SupplierService();
             _importService = importService ?? new ImportService();
+            _emailService = emailService ?? new EmailService();
 
             // Đồng bộ tự động làm mới Cache khi có thay đổi dữ liệu liên thông giữa các Service
             _importService.ImportReceiptConfirmed += (_, _) => _bookService.InvalidateCache();
@@ -234,12 +237,12 @@ namespace QuanlyNhaSach.Services
             }
         }
 
-        public void NavigateToCustomerProfile()
+        public void NavigateToCustomerProfile(string? tab = null)
         {
             if (!EnsureCustomerAccess()) return;
 
             CurrentPageKey = "CustomerProfile";
-            _customerProfileViewModel ??= new CustomerProfileViewModel(this, _dialogService, _authService);
+            _customerProfileViewModel ??= new CustomerProfileViewModel(this, _dialogService, _authService, _orderService);
             if (_customerFrame != null && _customerProfilePage == null)
             {
                 _customerProfilePage = new CustomerProfilePage(_customerProfileViewModel);
@@ -253,7 +256,7 @@ namespace QuanlyNhaSach.Services
 
             if (_customerProfileViewModel is INavigationAware aware)
             {
-                RunAfterFrameRender(() => aware.OnNavigatedTo(null));
+                RunAfterFrameRender(() => aware.OnNavigatedTo(tab));
             }
         }
 
@@ -425,7 +428,7 @@ namespace QuanlyNhaSach.Services
             if (!EnsureManagerAccess()) return;
 
             CurrentManagerPageKey = "StaffManagement";
-            _staffManagementViewModel ??= new StaffManagementViewModel(_userManagementService, _authService, _dialogService);
+            _staffManagementViewModel ??= new StaffManagementViewModel(_userManagementService, _authService, _dialogService, _emailService);
             if (_managerFrame != null && _staffManagementPage == null)
             {
                 _staffManagementPage = new StaffManagementPage(_staffManagementViewModel);
@@ -545,7 +548,7 @@ namespace QuanlyNhaSach.Services
 
             if (user.Role == UserRole.Customer)
             {
-                var customerVm = new CustomerMainViewModel(_authService, _cartService, this, _dialogService);
+                var customerVm = new CustomerMainViewModel(_authService, _cartService, this, _dialogService, _bookService);
                 var customerWindow = new CustomerMainWindow(customerVm);
                 SwitchMainWindow(customerWindow, maximize: true);
                 Initialize(customerWindow.NavigationFrame);
@@ -578,12 +581,17 @@ namespace QuanlyNhaSach.Services
             _staffFrame = null;
             _managerFrame = null;
 
+            _customerProfilePage = null;
+            _customerProfileViewModel = null;
+            _cartCheckoutPage = null;
+            _cartCheckoutViewModel = null;
+
             if (Application.Current == null)
             {
                 return;
             }
 
-            var authVm = new AuthViewModel(_authService, this, _dialogService);
+            var authVm = new AuthViewModel(_authService, this, _dialogService, _emailService);
             var authWindow = new AuthWindow(authVm);
             SwitchMainWindow(authWindow, maximize: false);
         }

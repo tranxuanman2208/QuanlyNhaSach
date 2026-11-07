@@ -51,6 +51,7 @@ namespace QuanlyNhaSach.Models.Enums
             PaymentStatus.Paid => "Đã thanh toán",
             PaymentStatus.PayOnDelivery => "Thu hộ (COD)",
             PaymentStatus.Failed => "Thanh toán thất bại",
+            PaymentStatus.Refunded => "Hoàn tiền",
             _ => "Chưa thanh toán"
         };
 
@@ -95,7 +96,15 @@ namespace QuanlyNhaSach.Models.Enums
 
             string trimmed = label.Trim();
             if (trimmed.Equals("Mới", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Moi", StringComparison.OrdinalIgnoreCase) ||
                 trimmed.Equals("Đã tiếp nhận", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Da tiep nhan", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Chờ xử lý", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Cho xu ly", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Chưa xử lý", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Chua xu ly", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Đang xử lý", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Dang xu ly", StringComparison.OrdinalIgnoreCase) ||
                 trimmed.Equals("New", StringComparison.OrdinalIgnoreCase))
             {
                 status = OrderStatus.New;
@@ -103,6 +112,9 @@ namespace QuanlyNhaSach.Models.Enums
             }
 
             if (trimmed.Equals("Đã xác nhận", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Da xac nhan", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Xác nhận", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Xac nhan", StringComparison.OrdinalIgnoreCase) ||
                 trimmed.Equals("Confirmed", StringComparison.OrdinalIgnoreCase))
             {
                 status = OrderStatus.Confirmed;
@@ -110,6 +122,9 @@ namespace QuanlyNhaSach.Models.Enums
             }
 
             if (trimmed.Equals("Đang giao", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Dang giao", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Đang vận chuyển", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Dang van chuyen", StringComparison.OrdinalIgnoreCase) ||
                 trimmed.Equals("Shipping", StringComparison.OrdinalIgnoreCase))
             {
                 status = OrderStatus.Shipping;
@@ -117,6 +132,13 @@ namespace QuanlyNhaSach.Models.Enums
             }
 
             if (trimmed.Equals("Hoàn tất", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Hoan tat", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Đã hoàn tất", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Da hoan tat", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Đã giao", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Da giao", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Thành công", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Thanh cong", StringComparison.OrdinalIgnoreCase) ||
                 trimmed.Equals("Completed", StringComparison.OrdinalIgnoreCase))
             {
                 status = OrderStatus.Completed;
@@ -124,6 +146,9 @@ namespace QuanlyNhaSach.Models.Enums
             }
 
             if (trimmed.Equals("Đã hủy", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Da huy", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Hủy", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Huy", StringComparison.OrdinalIgnoreCase) ||
                 trimmed.Equals("Cancelled", StringComparison.OrdinalIgnoreCase))
             {
                 status = OrderStatus.Cancelled;

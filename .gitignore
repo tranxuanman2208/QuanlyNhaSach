@@ -427,3 +427,40 @@ FodyWeavers.xsd
 # Official VS Code C# Dev Kit Extension exclusion
 #*.lscache
 .vscode/
+# ==========================================
+# Cấu hình bảo mật & Dữ liệu nhạy cảm
+# ==========================================
+**/emailsettings.json
+**/banksettings.json
+*secrets*.json
+secrets.json
+appsettings*.json
+!appsettings.json
+
+# Cho phép push các file cấu hình mẫu (nếu có)
+!**/*settings.example.json
+!**/*settings.template.json
+
+# Environment files
+.env
+.env.*
+*.env
+
+# File sao lưu database SQL Server
+*.bak
+*.dmp
+
+# File rác hệ điều hành
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# File ảnh QR cá nhân hoặc ảnh tạm thời sinh lúc chạy
+**/Img/qr_ca_nhan.*
+**/Img/temp_*
+
+**/dbsettings.json
+PublishApp/
+**/init_db_status.txt
+*.zip

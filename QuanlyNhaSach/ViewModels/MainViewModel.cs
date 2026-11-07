@@ -8,8 +8,9 @@ namespace QuanlyNhaSach.ViewModels
             AuthService authService,
             CartService cartService,
             INavigationService navigationService,
-            IDialogService dialogService)
-            : base(authService, cartService, navigationService, dialogService)
+            IDialogService dialogService,
+            BookService? bookService = null)
+            : base(authService, cartService, navigationService, dialogService, bookService)
         {
         }
     }

@@ -177,6 +177,13 @@ namespace QuanlyNhaSach.ViewModels.Manager
         [RelayCommand]
         private void Logout()
         {
+            if (!_dialogService.ShowConfirmation(
+                    "Xác nhận đăng xuất",
+                    "Bạn có chắc chắn muốn đăng xuất không?"))
+            {
+                return;
+            }
+
             _navigationService.LogoutToAuthWindow();
         }
     }

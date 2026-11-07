@@ -17,9 +17,9 @@
     <conv:StockOutStatusBadgeForegroundConverter x:Key="StockOutStatusBadgeForegroundConverter"/>
     <conv:AccountStatusBadgeBackgroundConverter x:Key="AccountStatusBadgeBackgroundConverter"/>
     <conv:AccountStatusBadgeForegroundConverter x:Key="AccountStatusBadgeForegroundConverter"/>
-    <conv:CustomerOrderCodeConverter x:Key="CustomerOrderCodeConverter"/>
-    <conv:CustomerOrderDateConverter x:Key="CustomerOrderDateConverter"/>
-    <conv:CustomerOrderTotalConverter x:Key="CustomerOrderTotalConverter"/>
+
+
+
     <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
 
     <!-- Subtle Drop Shadows -->

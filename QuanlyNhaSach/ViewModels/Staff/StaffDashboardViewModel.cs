@@ -58,6 +58,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
 
         public void OnNavigatedTo(object? parameter)
         {
+            _orderService.InvalidateCache();
             RefreshDashboard();
         }
 
@@ -69,6 +70,7 @@ namespace QuanlyNhaSach.ViewModels.Staff
         [RelayCommand]
         public void RefreshDashboard()
         {
+            _orderService.InvalidateCache();
             var stats = _orderService.GetDashboardStatistics();
             NewOrdersCount = stats.NewOrdersCount;
             ConfirmedOrdersCount = stats.ConfirmedOrdersCount;

@@ -1,4 +1,6 @@
+using System;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.IO;
 
 namespace QuanlyNhaSach.Models;
 
@@ -15,25 +17,141 @@ public partial class SACH
     /// <summary>Màu bìa mặc định (DB không có cột màu bìa).</summary>
     public const string DefaultCoverColor = "#1E3A8A";
 
-    /// <summary>Mã placeholder ảnh bìa mặc định (DB không có cột ảnh bìa).</summary>
-    public const string DefaultCoverPlaceholder = "BookCoverPlaceholder";
-
     private string? _mauBia;
-    private string? _anhBia;
     private string? _moTa;
+
+    [NotMapped]
+    public bool HasImage => !string.IsNullOrWhiteSpace(DisplayHinhAnh);
+
+    [NotMapped]
+    public string? DisplayHinhAnh => ResolveImagePath();
+
+    private string? ResolveImagePath()
+    {
+        string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        string binImgDir = Path.Combine(baseDir, "Img");
+        string projectDir = Path.GetFullPath(Path.Combine(baseDir, "..", "..", ".."));
+        string projectImgDir = Path.Combine(projectDir, "Img");
+
+        string? rawPath = Hinhanh?.Trim();
+
+        // 1. Link online trực tiếp từ web
+        if (!string.IsNullOrWhiteSpace(rawPath))
+        {
+            if (rawPath.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                rawPath.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                return rawPath;
+            }
+
+            // 2. Đường dẫn file URI hoặc tệp tuyệt đối tồn tại
+            if (rawPath.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+            {
+                return rawPath;
+            }
+
+            if (File.Exists(rawPath))
+            {
+                return Path.GetFullPath(rawPath);
+            }
+
+            // 3. Chuẩn hóa tên file (loại bỏ tiền tố /Img/, Img/, \Img\ nếu có)
+            string cleanFileName = rawPath.TrimStart('/', '\\');
+            if (cleanFileName.StartsWith("Img/", StringComparison.OrdinalIgnoreCase) ||
+                cleanFileName.StartsWith("Img\\", StringComparison.OrdinalIgnoreCase))
+            {
+                cleanFileName = cleanFileName.Substring(4);
+            }
+            string fileNameOnly = Path.GetFileName(cleanFileName);
+
+            // 4. Ưu tiên tìm trong thư mục Img tại output build (bin\Debug\...\Img)
+            string binImgPath = Path.Combine(binImgDir, cleanFileName);
+            if (File.Exists(binImgPath))
+            {
+                return binImgPath;
+            }
+
+            string binImgPathByName = Path.Combine(binImgDir, fileNameOnly);
+            if (File.Exists(binImgPathByName))
+            {
+                return binImgPathByName;
+            }
+
+            // 5. Tìm trong thư mục Img của project nguồn
+            string projectImgPath = Path.Combine(projectImgDir, cleanFileName);
+            if (File.Exists(projectImgPath))
+            {
+                try
+                {
+                    Directory.CreateDirectory(binImgDir);
+                    File.Copy(projectImgPath, binImgPath, true);
+                }
+                catch { }
+                return projectImgPath;
+            }
+
+            string projectImgPathByName = Path.Combine(projectImgDir, fileNameOnly);
+            if (File.Exists(projectImgPathByName))
+            {
+                try
+                {
+                    Directory.CreateDirectory(binImgDir);
+                    File.Copy(projectImgPathByName, binImgPathByName, true);
+                }
+                catch { }
+                return projectImgPathByName;
+            }
+
+            // 6. Tìm tại thư mục gốc bin
+            string binRootPath = Path.Combine(baseDir, cleanFileName);
+            if (File.Exists(binRootPath))
+            {
+                return binRootPath;
+            }
+        }
+
+        // 7. Tự động nhận diện ảnh theo MaSach nếu có file ảnh sẵn trong thư mục Img
+        if (!string.IsNullOrWhiteSpace(MaSach))
+        {
+            string code = MaSach.Trim();
+
+            if (Directory.Exists(binImgDir))
+            {
+                var matches = Directory.GetFiles(binImgDir, $"{code}_*.*");
+                if (matches.Length > 0)
+                {
+                    return matches[0];
+                }
+                var directMatches = Directory.GetFiles(binImgDir, $"{code}.*");
+                if (directMatches.Length > 0)
+                {
+                    return directMatches[0];
+                }
+            }
+
+            if (Directory.Exists(projectImgDir))
+            {
+                var matches = Directory.GetFiles(projectImgDir, $"{code}_*.*");
+                if (matches.Length > 0)
+                {
+                    return matches[0];
+                }
+                var directMatches = Directory.GetFiles(projectImgDir, $"{code}.*");
+                if (directMatches.Length > 0)
+                {
+                    return directMatches[0];
+                }
+            }
+        }
+
+        return null;
+    }
 
     [NotMapped]
     public string MauBia
     {
         get => string.IsNullOrWhiteSpace(_mauBia) ? DefaultCoverColor : _mauBia!;
         set => _mauBia = string.IsNullOrWhiteSpace(value) ? DefaultCoverColor : value.Trim();
-    }
-
-    [NotMapped]
-    public string AnhBia
-    {
-        get => string.IsNullOrWhiteSpace(_anhBia) ? DefaultCoverPlaceholder : _anhBia!;
-        set => _anhBia = string.IsNullOrWhiteSpace(value) ? DefaultCoverPlaceholder : value.Trim();
     }
 
     /// <summary>

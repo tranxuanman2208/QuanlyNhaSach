@@ -9,7 +9,7 @@ namespace QuanlyNhaSach.Models
         [NotMapped]
         public string UserCode => string.IsNullOrWhiteSpace(MaND) ? "ND0000" : MaND.Trim().ToUpperInvariant();
 
-        
+        [NotMapped]
         public UserRole Role
         {
             get
@@ -65,6 +65,28 @@ namespace QuanlyNhaSach.Models
 
         [NotMapped]
         public string ToggleLockActionText => IsActive ? "Khóa tài khoản" : "Mở khóa";
+
+        [NotMapped]
+        public DateTime NgayThamGia
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(Trangthai))
+                {
+                    var match = System.Text.RegularExpressions.Regex.Match(Trangthai, @"\d{1,2}/\d{1,2}/\d{4}");
+                    if (match.Success && DateTime.TryParseExact(match.Value, "dd/MM/yyyy", null, System.Globalization.DateTimeStyles.None, out var d))
+                    {
+                        return d;
+                    }
+                }
+                return DateTime.Today;
+            }
+            set
+            {
+                string status = IsActive ? "Hoạt động" : "Đã khóa";
+                Trangthai = $"{status} ({value:dd/MM/yyyy})";
+            }
+        }
 
         [NotMapped]
         public string Initials

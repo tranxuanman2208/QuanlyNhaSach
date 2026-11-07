@@ -1,18 +1,25 @@
 using System;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using QuanlyNhaSach.Models;
+using QuanlyNhaSach.Models.Enums;
 using QuanlyNhaSach.Services;
 
 namespace QuanlyNhaSach.ViewModels
 {
     public partial class AuthViewModel : ObservableObject
     {
+        private const string UsernameTooLongInlineError = "Tên đăng nhập không được vượt quá 10 ký tự.";
+        private const string UsernameTooLongBannerError = "Tên đăng nhập dùng để đăng ký không được vượt quá 10 ký tự.";
+
         private static readonly Regex PhoneTenDigitsRegex = new(@"^\d{10}$", RegexOptions.Compiled);
 
         private readonly AuthService _authService;
         private readonly INavigationService _navigationService;
         private readonly IDialogService _dialogService;
+        private readonly EmailService _emailService;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsRegisterMode))]
@@ -40,6 +47,11 @@ namespace QuanlyNhaSach.ViewModels
 
         // ==================== REGISTRATION PROPERTIES ====================
         [ObservableProperty]
+        private UserRole _selectedRole = UserRole.Customer;
+
+        public string RegisterButtonText => "Hoàn tất đăng ký";
+
+        [ObservableProperty]
         private string _registerHoTen = string.Empty;
 
         [ObservableProperty]
@@ -59,6 +71,25 @@ namespace QuanlyNhaSach.ViewModels
 
         [ObservableProperty]
         private string _registerEmail = string.Empty;
+
+        [ObservableProperty]
+        private string _registerVerificationCode = string.Empty;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasVerificationCodeError))]
+        private string _verificationCodeError = string.Empty;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasVerificationInfo))]
+        private string _verificationInfoMessage = string.Empty;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(SendCodeButtonText))]
+        private bool _isSendingCode;
+
+        public bool HasVerificationCodeError => !string.IsNullOrWhiteSpace(VerificationCodeError);
+        public bool HasVerificationInfo => !string.IsNullOrWhiteSpace(VerificationInfoMessage);
+        public string SendCodeButtonText => IsSendingCode ? "Đang gửi..." : "Gửi mã";
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(HasHoTenError))]
@@ -104,11 +135,13 @@ namespace QuanlyNhaSach.ViewModels
         public AuthViewModel(
             AuthService authService,
             INavigationService navigationService,
-            IDialogService dialogService)
+            IDialogService dialogService,
+            EmailService? emailService = null)
         {
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+            _emailService = emailService ?? new EmailService();
         }
 
         partial void OnLoginUsernameChanged(string value)
@@ -127,6 +160,33 @@ namespace QuanlyNhaSach.ViewModels
             }
         }
 
+        partial void OnRegisterUsernameChanged(string value)
+        {
+            string trimmed = value?.Trim() ?? string.Empty;
+
+            if (trimmed.Length > 10)
+            {
+                UsernameError = UsernameTooLongInlineError;
+                RegisterErrorMessage = UsernameTooLongBannerError;
+            }
+            else if (trimmed.Contains(' '))
+            {
+                UsernameError = "Tên đăng nhập không được chứa khoảng trắng.";
+                if (RegisterErrorMessage == UsernameTooLongBannerError)
+                {
+                    RegisterErrorMessage = string.Empty;
+                }
+            }
+            else
+            {
+                UsernameError = string.Empty;
+                if (RegisterErrorMessage == UsernameTooLongBannerError)
+                {
+                    RegisterErrorMessage = string.Empty;
+                }
+            }
+        }
+
         [RelayCommand]
         private async Task Login()
         {
@@ -140,56 +200,8 @@ namespace QuanlyNhaSach.ViewModels
                 return;
             }
 
-            // Clear password input state before navigating to role window
             LoginPassword = string.Empty;
             _navigationService.RouteAuthenticatedUser(result.Data);
-        }
-
-        [RelayCommand]
-        private void ContinueAsGuest()
-        {
-            LoginErrorMessage = string.Empty;
-            LoginSuccessMessage = string.Empty;
-
-            var result = _authService.LoginAsGuest();
-            if (!result.IsSuccess || result.Data == null)
-            {
-                LoginErrorMessage = result.Message;
-                return;
-            }
-
-            LoginPassword = string.Empty;
-            _navigationService.RouteAuthenticatedUser(result.Data);
-        }
-
-        [RelayCommand]
-        private void FillDemoCustomer()
-        {
-            IsLoginMode = true;
-            LoginErrorMessage = string.Empty;
-            LoginSuccessMessage = "Đã điền tài khoản mẫu Khách hàng (Demo-Only). Nhấn 'Đăng nhập' để tiếp tục.";
-            LoginUsername = "customer";
-            LoginPassword = "Customer123!";
-        }
-
-        [RelayCommand]
-        private void FillDemoStaff()
-        {
-            IsLoginMode = true;
-            LoginErrorMessage = string.Empty;
-            LoginSuccessMessage = "Đã điền tài khoản mẫu Nhân viên (Demo-Only). Nhấn 'Đăng nhập' để tiếp tục.";
-            LoginUsername = "staff";
-            LoginPassword = "Staff123!";
-        }
-
-        [RelayCommand]
-        private void FillDemoManager()
-        {
-            IsLoginMode = true;
-            LoginErrorMessage = string.Empty;
-            LoginSuccessMessage = "Đã điền tài khoản mẫu Quản lý / Admin (Demo-Only). Nhấn 'Đăng nhập' để tiếp tục.";
-            LoginUsername = "manager";
-            LoginPassword = "Manager123!";
         }
 
         [RelayCommand]
@@ -198,6 +210,7 @@ namespace QuanlyNhaSach.ViewModels
             LoginErrorMessage = string.Empty;
             LoginSuccessMessage = string.Empty;
             ClearRegisterValidationErrors();
+            SelectedRole = UserRole.Customer;
             IsLoginMode = false;
         }
 
@@ -211,6 +224,50 @@ namespace QuanlyNhaSach.ViewModels
         }
 
         [RelayCommand]
+        private async Task SendVerificationCode()
+        {
+            ClearRegisterValidationErrors();
+            VerificationInfoMessage = string.Empty;
+
+            if (!ValidateRegistrationFields())
+            {
+                if (string.IsNullOrWhiteSpace(RegisterErrorMessage))
+                {
+                    RegisterErrorMessage = "Vui lòng hoàn thiện thông tin đăng ký hợp lệ trước khi gửi mã xác thực.";
+                }
+                return;
+            }
+
+            var validation = _authService.ValidateCustomerRegistration(
+                RegisterHoTen, RegisterSDT, RegisterEmail, RegisterDiaChi,
+                RegisterUsername, RegisterPassword, RegisterConfirmPassword);
+            if (!validation.IsSuccess)
+            {
+                RegisterErrorMessage = validation.Message;
+                return;
+            }
+
+            IsSendingCode = true;
+            try
+            {
+                var emailResult = await _emailService.SendVerificationCodeAsync(
+                    RegisterEmail, RegisterHoTen, UserRole.Customer, RegisterUsername);
+
+                if (!emailResult.IsSuccess)
+                {
+                    RegisterErrorMessage = emailResult.Message;
+                    return;
+                }
+
+                VerificationInfoMessage = emailResult.Message + " Nhập mã vào ô bên dưới để hoàn tất đăng ký.";
+            }
+            finally
+            {
+                IsSendingCode = false;
+            }
+        }
+
+        [RelayCommand]
         private void Register()
         {
             ClearRegisterValidationErrors();
@@ -218,7 +275,23 @@ namespace QuanlyNhaSach.ViewModels
             bool isValid = ValidateRegistrationFields();
             if (!isValid)
             {
-                RegisterErrorMessage = "Vui lòng kiểm tra và hoàn thiện các thông tin đăng ký hợp lệ.";
+                if (string.IsNullOrWhiteSpace(RegisterErrorMessage))
+                {
+                    RegisterErrorMessage = "Vui lòng kiểm tra và hoàn thiện các thông tin đăng ký hợp lệ.";
+                }
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(RegisterVerificationCode))
+            {
+                VerificationCodeError = "Vui lòng nhập mã xác thực đã gửi đến email (bấm \"Gửi mã\" nếu chưa nhận).";
+                return;
+            }
+
+            var verifyResult = _emailService.VerifyCode(RegisterEmail, RegisterVerificationCode, consumeOnSuccess: false);
+            if (!verifyResult.IsSuccess)
+            {
+                VerificationCodeError = verifyResult.Message;
                 return;
             }
 
@@ -229,7 +302,8 @@ namespace QuanlyNhaSach.ViewModels
                 RegisterDiaChi,
                 RegisterUsername,
                 RegisterPassword,
-                RegisterConfirmPassword);
+                RegisterConfirmPassword,
+                UserRole.Customer);
 
             if (!result.IsSuccess || result.Data == null)
             {
@@ -237,9 +311,10 @@ namespace QuanlyNhaSach.ViewModels
                 return;
             }
 
+            _emailService.InvalidateCode(RegisterEmail);
+
             string registeredUsername = result.Data.Tendangnhap ?? string.Empty;
 
-            // Reset registration form
             RegisterHoTen = string.Empty;
             RegisterSDT = string.Empty;
             RegisterEmail = string.Empty;
@@ -247,9 +322,11 @@ namespace QuanlyNhaSach.ViewModels
             RegisterUsername = string.Empty;
             RegisterPassword = string.Empty;
             RegisterConfirmPassword = string.Empty;
+            RegisterVerificationCode = string.Empty;
+            VerificationInfoMessage = string.Empty;
             ClearRegisterValidationErrors();
             IsLoginMode = false;
-            // Return to login mode with username pre-populated
+
             LoginUsername = registeredUsername;
             LoginPassword = string.Empty;
             LoginErrorMessage = string.Empty;
@@ -257,6 +334,36 @@ namespace QuanlyNhaSach.ViewModels
             IsLoginMode = true;
 
             _dialogService.ShowInformation("Đăng ký thành công", result.Message);
+        }
+
+        partial void OnRegisterEmailChanged(string value)
+        {
+            RegisterVerificationCode = string.Empty;
+            VerificationInfoMessage = string.Empty;
+        }
+
+        partial void OnRegisterVerificationCodeChanged(string value)
+        {
+            if (HasVerificationCodeError)
+            {
+                VerificationCodeError = string.Empty;
+            }
+        }
+
+        partial void OnRegisterPasswordChanged(string value)
+        {
+            if (HasPasswordError)
+            {
+                PasswordError = string.Empty;
+            }
+        }
+
+        partial void OnRegisterConfirmPasswordChanged(string value)
+        {
+            if (HasConfirmPasswordError)
+            {
+                ConfirmPasswordError = string.Empty;
+            }
         }
 
         private bool ValidateRegistrationFields()
@@ -279,6 +386,7 @@ namespace QuanlyNhaSach.ViewModels
                 SdtError = "Số điện thoại phải gồm đúng 10 chữ số (0-9).";
                 valid = false;
             }
+
             if (string.IsNullOrWhiteSpace(RegisterEmail))
             {
                 EmailError = "Vui lòng nhập email.";
@@ -296,12 +404,19 @@ namespace QuanlyNhaSach.ViewModels
                 valid = false;
             }
 
-            if (string.IsNullOrWhiteSpace(RegisterUsername) || RegisterUsername.Trim().Length < 3)
+            string trimmedUsername = RegisterUsername?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(trimmedUsername) || trimmedUsername.Length < 3)
             {
-                UsernameError = "Tên đăng nhập / Email phải có ít nhất 3 ký tự.";
+                UsernameError = "Tên đăng nhập phải có ít nhất 3 ký tự (tối đa 10 ký tự).";
                 valid = false;
             }
-            else if (RegisterUsername.Trim().Contains(' '))
+            else if (trimmedUsername.Length > 10)
+            {
+                UsernameError = UsernameTooLongInlineError;
+                RegisterErrorMessage = UsernameTooLongBannerError;
+                valid = false;
+            }
+            else if (trimmedUsername.Contains(' '))
             {
                 UsernameError = "Tên đăng nhập không được chứa khoảng trắng.";
                 valid = false;
@@ -331,6 +446,8 @@ namespace QuanlyNhaSach.ViewModels
         {
             HoTenError = string.Empty;
             SdtError = string.Empty;
+            EmailError = string.Empty;
+            VerificationCodeError = string.Empty;
             DiaChiError = string.Empty;
             UsernameError = string.Empty;
             PasswordError = string.Empty;

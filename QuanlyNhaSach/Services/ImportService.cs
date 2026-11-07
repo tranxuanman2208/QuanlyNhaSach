@@ -288,7 +288,7 @@ namespace QuanlyNhaSach.Services
                         NgayLap = now,
                         TenNCC = storedSupplier.TenNCC ?? storedSupplier.MaNCC,
                         SdtNCC = storedSupplier.SDT ?? string.Empty,
-                        EmailNCC = storedSupplier.Email ?? string.Empty,
+
                         DiaChiNCC = storedSupplier.Diachi ?? string.Empty,
                         NguoiLapHoTen = managerDisplayName,
                         GhiChu = string.IsNullOrWhiteSpace(ghiChu) ? "Nhập bổ sung sách vào kho" : ghiChu.Trim()

@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using QuanlyNhaSach.Models;
+using QuanlyNhaSach.Models.Enums;
 using QuanlyNhaSach.Navigation;
 using QuanlyNhaSach.Services;
 
@@ -17,8 +19,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
         private readonly INavigationService? _navigationService;
         private readonly IDialogService? _dialogService;
         private readonly AuthService? _authService;
-
-        private static readonly Dictionary<int, decimal> CachedOrderTotalsByMaDH = new();
+        private readonly OrderService? _orderService;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(CustomerName))]
@@ -28,15 +29,60 @@ namespace QuanlyNhaSach.ViewModels.Customer
         private NGUOIDUNG _currentUser;
 
         [ObservableProperty]
-        private string _joinDateDisplay = "15/03/2025";
+        private string _joinDateDisplay = DateTime.Today.ToString("dd/MM/yyyy");
 
         [ObservableProperty]
-        private DateTime _joinDate = new(2025, 3, 15);
+        private DateTime _joinDate = DateTime.Today;
+
+        partial void OnJoinDateChanged(DateTime value)
+        {
+            _joinDateDisplay = value.ToString("dd/MM/yyyy");
+            OnPropertyChanged(nameof(JoinDateDisplay));
+        }
+
+        partial void OnJoinDateDisplayChanged(string value)
+        {
+            if (DateTime.TryParseExact(value?.Trim(), new[] { "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd" },
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var parsed))
+            {
+                _joinDate = parsed;
+                OnPropertyChanged(nameof(JoinDate));
+            }
+        }
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsAccountInfoActive))]
+        [NotifyPropertyChangedFor(nameof(IsPurchaseHistoryActive))]
         private string _activeMenuKey = "AccountInfo";
 
+        public bool IsAccountInfoActive => ActiveMenuKey == "AccountInfo";
+        public bool IsPurchaseHistoryActive => ActiveMenuKey == "PurchaseHistory";
+
         public ObservableCollection<DONHANG> Orders { get; } = new();
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasSelectedHistoryOrder))]
+        private DONHANG? _selectedHistoryOrder;
+
+        public bool HasSelectedHistoryOrder => SelectedHistoryOrder != null;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasOrders))]
+        [NotifyPropertyChangedFor(nameof(IsEmptyOrders))]
+        private int _totalOrdersCount;
+
+        [ObservableProperty]
+        private decimal _totalSpent;
+
+        [ObservableProperty]
+        private string _formattedTotalSpent = "0 ₫";
+
+        [ObservableProperty]
+        private int _activeOrdersCount;
+
+        public bool HasOrders => Orders.Count > 0;
+        public bool IsEmptyOrders => Orders.Count == 0;
 
         public string CustomerName
         {
@@ -80,33 +126,45 @@ namespace QuanlyNhaSach.ViewModels.Customer
 
         public string AvatarInitials => ComputeInitials(CustomerName);
 
-        public CustomerProfileViewModel() : this(null, null, null)
+        public CustomerProfileViewModel() : this(null, null, null, null)
         {
         }
 
         public CustomerProfileViewModel(
             INavigationService? navigationService,
             IDialogService? dialogService,
-            AuthService? authService = null)
+            AuthService? authService = null,
+            OrderService? orderService = null)
         {
             _navigationService = navigationService;
             _dialogService = dialogService;
             _authService = authService;
+            _orderService = orderService;
 
-            _currentUser = new NGUOIDUNG
+            Orders.CollectionChanged += (_, _) =>
             {
-                MaND = "KH001",
-                Tendangnhap = "minhanh",
-                Matkhau = "123456",
-                Hoten = "Nguyễn Minh Anh",
-                SDT = "0901234567",
-                Email = "minhanh@example.com",
-                Diachi = "123 Nguyễn Văn Cừ, Quận 5, TP.HCM",
-                Vaitro = "Khách hàng",
-                Trangthai = "Hoạt động"
+                OnPropertyChanged(nameof(HasOrders));
+                OnPropertyChanged(nameof(IsEmptyOrders));
             };
 
-            _joinDate = new DateTime(2025, 3, 15);
+            if (_orderService != null)
+            {
+                _orderService.OrderUpdated += (_, _) =>
+                {
+                    var dispatcher = Application.Current?.Dispatcher;
+                    if (dispatcher != null)
+                    {
+                        dispatcher.InvokeAsync(LoadCustomerAndOrdersFromDatabase);
+                    }
+                    else
+                    {
+                        LoadCustomerAndOrdersFromDatabase();
+                    }
+                };
+            }
+
+            _currentUser = _authService?.CurrentUser ?? new NGUOIDUNG();
+            _joinDate = _currentUser.NgayThamGia;
             _joinDateDisplay = _joinDate.ToString("dd/MM/yyyy");
 
             LoadCustomerAndOrdersFromDatabase();
@@ -114,14 +172,23 @@ namespace QuanlyNhaSach.ViewModels.Customer
 
         public void OnNavigatedTo(object? parameter)
         {
-            ActiveMenuKey = "AccountInfo";
-            LoadCustomerAndOrdersFromDatabase();
+            if (parameter is string tabKey && tabKey.Equals("PurchaseHistory", StringComparison.OrdinalIgnoreCase))
+            {
+                NavigatePurchaseHistory();
+            }
+            else
+            {
+                ActiveMenuKey = "AccountInfo";
+                LoadCustomerAndOrdersFromDatabase();
+            }
         }
 
-        private void LoadCustomerAndOrdersFromDatabase()
+        public void LoadCustomerAndOrdersFromDatabase()
         {
             try
             {
+                int? previousSelectedMaDH = SelectedHistoryOrder?.MaDH;
+
                 using var db = new QuanlyNhaSachContext();
 
                 NGUOIDUNG? dbUser = null;
@@ -129,107 +196,91 @@ namespace QuanlyNhaSach.ViewModels.Customer
 
                 if (sessionUser != null)
                 {
+                    string? currentMaND = sessionUser.MaND?.Trim();
                     string? username = sessionUser.Tendangnhap?.Trim();
                     string? phone = sessionUser.SDT?.Trim();
+                    string? email = sessionUser.Email?.Trim();
 
-                    dbUser = db.NGUOIDUNGs
+                    if (!string.IsNullOrEmpty(currentMaND))
+                    {
+                        dbUser = db.NGUOIDUNGs
+                            .AsNoTracking()
+                            .FirstOrDefault(u => u.MaND == currentMaND);
+                    }
+
+                    dbUser ??= db.NGUOIDUNGs
                         .AsNoTracking()
                         .FirstOrDefault(u =>
                             (!string.IsNullOrEmpty(username) && (u.Tendangnhap == username || u.Email == username)) ||
-                            (!string.IsNullOrEmpty(phone) && u.SDT == phone));
+                            (!string.IsNullOrEmpty(phone) && u.SDT == phone) ||
+                            (!string.IsNullOrEmpty(email) && u.Email == email));
 
-                    if (dbUser == null)
-                    {
-                        dbUser = new NGUOIDUNG
-                        {
-                            MaND = $"KH{sessionUser.MaND:D3}",
-                            Tendangnhap = username ?? "customer",
-                            Hoten = sessionUser.Hoten,
-                            SDT = sessionUser.SDT,
-                            Email = username,
-                            Diachi = sessionUser.Diachi,
-                            Vaitro = "Khách hàng",
-                            Trangthai = "Hoạt động"
-                        };
-                    }
-                }
-                else
-                {
-                    dbUser = db.NGUOIDUNGs
-                        .AsNoTracking()
-                        .FirstOrDefault(u => u.Vaitro == "Khách hàng" || u.MaND.StartsWith("KH"));
+                    dbUser ??= sessionUser;
                 }
 
                 if (dbUser != null)
                 {
                     CurrentUser = dbUser;
+                    JoinDate = dbUser.NgayThamGia;
+                    JoinDateDisplay = JoinDate.ToString("dd/MM/yyyy");
                 }
 
-                var dbOrders = db.DONHANGs
-                    .AsNoTracking()
-                    .Include(d => d.CHITIETDONHANGs)
-                    .Where(d => CurrentUser != null && d.MaKH == CurrentUser.MaND)
-                    .OrderByDescending(d => d.NgayTao)
-                    .ThenByDescending(d => d.MaDH)
-                    .ToList();
+                string? userMaND = CurrentUser?.MaND?.Trim();
+                string? userPhone = CurrentUser?.SDT?.Trim();
+                string? userEmail = CurrentUser?.Email?.Trim()?.ToLower();
+                string? userLogin = CurrentUser?.Tendangnhap?.Trim()?.ToLower();
 
-                if (dbOrders.Count == 0)
+                List<DONHANG> dbOrders = new();
+                if (!string.IsNullOrEmpty(userMaND) ||
+                    !string.IsNullOrEmpty(userPhone) ||
+                    !string.IsNullOrEmpty(userEmail) ||
+                    !string.IsNullOrEmpty(userLogin))
                 {
                     dbOrders = db.DONHANGs
                         .AsNoTracking()
+                        .Include(d => d.MaKHNavigation)
                         .Include(d => d.CHITIETDONHANGs)
+                            .ThenInclude(ct => ct.MaSachNavigation)
+                        .Include(d => d.PHIEUXUATs)
+                        .Where(d =>
+                            (!string.IsNullOrEmpty(userMaND) && d.MaKH != null && d.MaKH == userMaND) ||
+                            (!string.IsNullOrEmpty(userPhone) && d.MaKHNavigation != null && d.MaKHNavigation.SDT == userPhone) ||
+                            (!string.IsNullOrEmpty(userEmail) && d.MaKHNavigation != null && d.MaKHNavigation.Email != null && d.MaKHNavigation.Email.ToLower() == userEmail) ||
+                            (!string.IsNullOrEmpty(userLogin) && d.MaKHNavigation != null && d.MaKHNavigation.Tendangnhap.ToLower() == userLogin))
                         .OrderByDescending(d => d.NgayTao)
                         .ThenByDescending(d => d.MaDH)
-                        .Take(10)
                         .ToList();
                 }
 
                 Orders.Clear();
                 foreach (var order in dbOrders)
                 {
-                    CachedOrderTotalsByMaDH[order.MaDH] = order.TongTien;
                     Orders.Add(order);
+                }
+
+                TotalOrdersCount = Orders.Count;
+                TotalSpent = Orders.Where(o => o.Status == OrderStatus.Completed).Sum(o => o.TongTien);
+                FormattedTotalSpent = $"{TotalSpent:N0} ₫";
+                ActiveOrdersCount = Orders.Count(o => o.Status != OrderStatus.Completed && o.Status != OrderStatus.Cancelled);
+
+                OnPropertyChanged(nameof(HasOrders));
+                OnPropertyChanged(nameof(IsEmptyOrders));
+
+                if (Orders.Count > 0)
+                {
+                    SelectedHistoryOrder = (previousSelectedMaDH.HasValue
+                        ? Orders.FirstOrDefault(o => o.MaDH == previousSelectedMaDH.Value)
+                        : null) ?? Orders[0];
+                }
+                else
+                {
+                    SelectedHistoryOrder = null;
                 }
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Lỗi khi tải hồ sơ khách hàng từ CSDL: {ex.Message}");
             }
-        }
-
-        public static decimal GetMockOrderTotal(int maDh)
-        {
-            if (CachedOrderTotalsByMaDH.TryGetValue(maDh, out decimal cached) && cached > 0m)
-            {
-                return cached;
-            }
-
-            try
-            {
-                using var db = new QuanlyNhaSachContext();
-                var order = db.DONHANGs
-                    .AsNoTracking()
-                    .Include(d => d.CHITIETDONHANGs)
-                    .FirstOrDefault(d => d.MaDH == maDh);
-
-                if (order != null)
-                {
-                    decimal total = order.TongTien;
-                    CachedOrderTotalsByMaDH[maDh] = total;
-                    return total;
-                }
-            }
-            catch
-            {
-                // Ignore DB lookup errors in converter fallback
-            }
-
-            return 0m;
-        }
-
-        public static string FormatOrderCode(int maDh)
-        {
-            return $"DH{maDh:D3}";
         }
 
         private static string ComputeInitials(string? fullName)
@@ -253,18 +304,77 @@ namespace QuanlyNhaSach.ViewModels.Customer
         [RelayCommand]
         private void UpdateProfile()
         {
+            if (string.IsNullOrWhiteSpace(CustomerName))
+            {
+                ShowValidationError("Vui lòng nhập họ và tên.");
+                return;
+            }
+            if (CustomerName.Trim().Length > 100)
+            {
+                ShowValidationError("Họ và tên không được vượt quá 100 ký tự.");
+                return;
+            }
+
+            string cleanPhone = CustomerPhone?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(cleanPhone) || !Regex.IsMatch(cleanPhone, @"^\d{10}$"))
+            {
+                ShowValidationError("Số điện thoại không hợp lệ. Vui lòng nhập đúng 10 chữ số (0-9).");
+                return;
+            }
+
+            string cleanEmail = CustomerEmail?.Trim().ToLowerInvariant() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(cleanEmail) || !cleanEmail.EndsWith("@gmail.com") || cleanEmail.Length < 11)
+            {
+                ShowValidationError("Email không hợp lệ. Vui lòng nhập đúng định dạng kết thúc bằng @gmail.com.");
+                return;
+            }
+
+            DateTime finalJoinDate = JoinDate;
+            if (DateTime.TryParseExact(JoinDateDisplay?.Trim(), new[] { "dd/MM/yyyy", "d/M/yyyy" },
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var parsedDate))
+            {
+                finalJoinDate = parsedDate;
+            }
+
             try
             {
                 if (CurrentUser != null && !string.IsNullOrWhiteSpace(CurrentUser.MaND))
                 {
                     using var db = new QuanlyNhaSachContext();
+
+                    bool duplicate = db.NGUOIDUNGs.Any(u =>
+                        u.MaND != CurrentUser.MaND &&
+                        ((u.Email != null && u.Email.ToLower() == cleanEmail) ||
+                         (u.SDT != null && u.SDT == cleanPhone)));
+
+                    if (duplicate)
+                    {
+                        ShowValidationError("Email hoặc Số điện thoại này đã được sử dụng bởi một tài khoản khác.");
+                        return;
+                    }
+
                     var entity = db.NGUOIDUNGs.FirstOrDefault(u => u.MaND == CurrentUser.MaND);
                     if (entity != null)
                     {
                         entity.Hoten = CustomerName.Trim();
-                        entity.SDT = CustomerPhone.Trim();
-                        entity.Email = CustomerEmail.Trim();
+                        entity.SDT = cleanPhone;
+                        entity.Email = cleanEmail;
+                        entity.NgayThamGia = finalJoinDate;
                         db.SaveChanges();
+
+                        CurrentUser.Hoten = entity.Hoten;
+                        CurrentUser.SDT = entity.SDT;
+                        CurrentUser.Email = entity.Email;
+                        CurrentUser.Trangthai = entity.Trangthai;
+
+                        if (_authService?.CurrentUser != null)
+                        {
+                            _authService.CurrentUser.Hoten = entity.Hoten;
+                            _authService.CurrentUser.SDT = entity.SDT;
+                            _authService.CurrentUser.Email = entity.Email;
+                            _authService.CurrentUser.Trangthai = entity.Trangthai;
+                        }
                     }
                 }
 
@@ -275,7 +385,7 @@ namespace QuanlyNhaSach.ViewModels.Customer
                 else
                 {
                     MessageBox.Show(
-                        "Cập nhật thông tin thành công!",
+                        "Cập nhật thông tin tài khoản thành công!",
                         "Thông báo",
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
@@ -283,22 +393,47 @@ namespace QuanlyNhaSach.ViewModels.Customer
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    $"Không thể cập nhật thông tin: {ex.InnerException?.Message ?? ex.Message}",
-                    "Lỗi",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                string msg = $"Không thể cập nhật thông tin: {ex.InnerException?.Message ?? ex.Message}";
+                if (_dialogService != null)
+                {
+                    _dialogService.ShowError("Lỗi cập nhật", msg);
+                }
+                else
+                {
+                    MessageBox.Show(msg, "Lỗi", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private void ShowValidationError(string message)
+        {
+            if (_dialogService != null)
+            {
+                _dialogService.ShowError("Lỗi dữ liệu", message);
+            }
+            else
+            {
+                MessageBox.Show(message, "Lỗi dữ liệu", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
         [RelayCommand]
         private void Logout()
         {
-            MessageBox.Show(
-                "Đăng xuất thành công!",
-                "Thông báo",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            bool confirmed = _dialogService != null
+                ? _dialogService.ShowConfirmation(
+                    "Xác nhận đăng xuất",
+                    "Bạn có chắc chắn muốn đăng xuất không?")
+                : MessageBox.Show(
+                    "Bạn có chắc chắn muốn đăng xuất  không?",
+                    "Xác nhận đăng xuất",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question) == MessageBoxResult.Yes;
+
+            if (!confirmed)
+            {
+                return;
+            }
 
             _navigationService?.LogoutToAuthWindow();
         }
@@ -320,20 +455,31 @@ namespace QuanlyNhaSach.ViewModels.Customer
         }
 
         [RelayCommand]
-        private void NavigateAccountInfo()
+        public void NavigateAccountInfo()
         {
             ActiveMenuKey = "AccountInfo";
+            LoadCustomerAndOrdersFromDatabase();
         }
 
         [RelayCommand]
-        private void NavigatePurchaseHistory()
+        public void NavigatePurchaseHistory()
         {
+            ActiveMenuKey = "PurchaseHistory";
             LoadCustomerAndOrdersFromDatabase();
-            MessageBox.Show(
-                $"Hiện có {Orders.Count} đơn hàng trong lịch sử mua hàng của bạn.",
-                "Lịch sử mua hàng",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            if (Orders.Count > 0 && SelectedHistoryOrder == null)
+            {
+                SelectedHistoryOrder = Orders[0];
+            }
+        }
+
+        [RelayCommand]
+        public void SelectHistoryOrder(DONHANG? order)
+        {
+            if (order != null)
+            {
+                SelectedHistoryOrder = order;
+                ActiveMenuKey = "PurchaseHistory";
+            }
         }
 
         [RelayCommand]
@@ -342,31 +488,6 @@ namespace QuanlyNhaSach.ViewModels.Customer
             MessageBox.Show(
                 "Chức năng Sách yêu thích đang được phát triển trong phiên bản tiếp theo.",
                 "Thông báo",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-        }
-
-        [RelayCommand]
-        private void ViewOrderDetails()
-        {
-            LoadCustomerAndOrdersFromDatabase();
-            if (Orders.Count == 0)
-            {
-                MessageBox.Show(
-                    "Bạn chưa có đơn hàng nào trong hệ thống.",
-                    "Chi tiết đơn hàng",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-                return;
-            }
-
-            var latest = Orders[0];
-            MessageBox.Show(
-                $"Đơn hàng gần nhất: {latest.OrderCode}\n" +
-                $"Ngày đặt: {latest.FormattedNgayDat}\n" +
-                $"Trạng thái: {latest.TrangThai}\n" +
-                $"Tổng tiền: {latest.FormattedTongTien}",
-                "Chi tiết đơn hàng",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
